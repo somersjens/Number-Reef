@@ -290,108 +290,6 @@
         }
       }
     },
-    "difficulty.easy" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Easy"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Makkelijk"
-          }
-        }
-      }
-    },
-    "difficulty.easy.detail" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Two cards — the easiest choice."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Twee kaarten — de makkelijkste keuze."
-          }
-        }
-      }
-    },
-    "difficulty.hard" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hard"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Moeilijk"
-          }
-        }
-      }
-    },
-    "difficulty.hard.detail" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Four cards — the toughest choice."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vier kaarten — de moeilijkste keuze."
-          }
-        }
-      }
-    },
-    "difficulty.medium" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medium"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gemiddeld"
-          }
-        }
-      }
-    },
-    "difficulty.medium.detail" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Three cards — a fair challenge."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drie kaarten — een eerlijke uitdaging."
-          }
-        }
-      }
-    },
     "game.accessibility.scoreOutOf %lld %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -409,19 +307,53 @@
         }
       }
     },
-    "game.doubleCard" : {
+    "game.bubblesCollected %lld" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Double card"
+            "value" : "%lld bubbles collected"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dubbele kaart"
+            "value" : "%lld bubbels verzameld"
+          }
+        }
+      }
+    },
+    "game.streakBoost.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2× bubbles • 1.5× speed"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2× bubbels • 1,5× snelheid"
+          }
+        }
+      }
+    },
+    "game.streakBoost.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Streak boost!"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Streakboost!"
           }
         }
       }
@@ -596,6 +528,23 @@
         }
       }
     },
+    "game.encouragement.complete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfect score!"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfect, alles goed!"
+          }
+        }
+      }
+    },
     "game.end.gameOverTitle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -643,40 +592,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nog een keer"
-          }
-        }
-      }
-    },
-    "game.flamethrower" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flamethrower"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vlammenwerper"
-          }
-        }
-      }
-    },
-    "game.flamethrowerCost" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Burns the wrong cards · ½ life"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Verbrandt de foute kaarten · ½ leven"
           }
         }
       }
@@ -738,13 +653,30 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Paused with %lld cards."
+            "value" : "Paused with %lld bubbles."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Gepauzeerd met %lld kaarten."
+            "value" : "Gepauzeerd met %lld bubbels."
+          }
+        }
+      }
+    },
+    "game.intro.progressPaused" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your progress is paused."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je voortgang is gepauzeerd."
           }
         }
       }
@@ -783,23 +715,6 @@
         }
       }
     },
-    "game.memorise" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remember the cards, then tap"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Onthoud de kaarten, tik dan"
-          }
-        }
-      }
-    },
     "game.pause" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -817,23 +732,6 @@
         }
       }
     },
-    "game.progress %lld %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld of %2$lld cards"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld van %2$lld kaarten"
-          }
-        }
-      }
-    },
     "game.question %@" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -847,23 +745,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vraag: %@"
-          }
-        }
-      }
-    },
-    "game.tapToFlip" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap to turn the cards"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tik om de kaarten om te draaien"
           }
         }
       }
@@ -993,13 +874,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "cards"
+            "value" : "bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "kaarten"
+            "value" : "bubbels"
           }
         }
       }
@@ -1027,13 +908,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld cards collected"
+            "value" : "%lld bubbles collected"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld kaarten verzameld"
+            "value" : "%lld bubbels verzameld"
           }
         }
       }
@@ -1089,36 +970,36 @@
         }
       }
     },
-    "home.pausedCards %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld cards paused"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld kaarten gepauzeerd"
-          }
-        }
-      }
-    },
     "home.nextCharacter %lld %@" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$lld more cards to unlock %2$@"
+            "value" : "%1$lld more bubbles to unlock %2$@"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nog %1$lld kaarten tot %2$@"
+            "value" : "Nog %1$lld bubbels tot %2$@"
+          }
+        }
+      }
+    },
+    "home.pausedCards %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld bubbles paused"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld bubbels gepauzeerd"
           }
         }
       }
@@ -1187,6 +1068,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Onderwerp"
+          }
+        }
+      }
+    },
+    "info.mode.fractions.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parts"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delen"
+          }
+        }
+      }
+    },
+    "info.mode.fractions.multiple" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single and multiple parts"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enkele en meerdere delen"
+          }
+        }
+      }
+    },
+    "info.mode.fractions.single" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always a single part"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altijd een enkel deel"
+          }
+        }
+      }
+    },
+    "info.mode.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Order"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volgorde"
+          }
+        }
+      }
+    },
+    "info.mode.mixed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mixed with lower levels"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemengd met lagere niveaus"
+          }
+        }
+      }
+    },
+    "info.mode.order" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed order"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vaste volgorde"
+          }
+        }
+      }
+    },
+    "info.mode.percentages.decimal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Including decimal numbers"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ook getallen achter de komma"
+          }
+        }
+      }
+    },
+    "info.mode.percentages.header" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soort"
+          }
+        }
+      }
+    },
+    "info.mode.percentages.whole" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without decimal numbers"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zonder getallen achter de komma"
+          }
+        }
+      }
+    },
+    "info.mode.random" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Random order"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Willekeurige volgorde"
           }
         }
       }
@@ -1333,13 +1384,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You can collect up to |%lld cards| in this level."
+            "value" : "You can collect up to |%lld bubbles| in this level."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Je kunt in dit level maximaal |%lld kaarten| verzamelen."
+            "value" : "Je kunt in dit level maximaal |%lld bubbels| verzamelen."
           }
         }
       }
@@ -1378,36 +1429,53 @@
         }
       }
     },
+    "levelIntro.levelRange %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions up to |level %lld|."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vragen t/m |level %lld|."
+          }
+        }
+      }
+    },
     "levelIntro.levelRange %lld %lld" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions up to |level %1$lld|, from |%2$lld cards|."
+            "value" : "Questions up to |level %1$lld|, from |%2$lld bubbles|."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vragen t/m |level %1$lld|, uit |%2$lld kaarten|."
+            "value" : "Vragen t/m |level %1$lld|, uit |%2$lld bubbels|."
           }
         }
       }
     },
-    "levelIntro.levelRange.first %lld" : {
+    "levelIntro.levelRange.first" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Questions from |level 1|, from |%lld cards|."
+            "value" : "Questions from |level 1|."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vragen uit |level 1|, uit |%lld kaarten|."
+            "value" : "Vragen uit |level 1|."
           }
         }
       }
@@ -1442,6 +1510,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Supermix %lld"
+          }
+        }
+      }
+    },
+    "levelIntro.mode.fractions.order" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always a |single part| of a whole."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Altijd |één deel| van een geheel."
+          }
+        }
+      }
+    },
+    "levelIntro.mode.fractions.random" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "|One or more parts| of a whole."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "|Eén of meer delen| van een geheel."
+          }
+        }
+      }
+    },
+    "levelIntro.mode.order" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions in a |fixed order|."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vragen in |vaste volgorde|."
+          }
+        }
+      }
+    },
+    "levelIntro.mode.percentages.order" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Answers |without decimals|."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Antwoorden |zonder komma|."
+          }
+        }
+      }
+    },
+    "levelIntro.mode.percentages.random" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also answers |with decimals|."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ook antwoorden |met een komma|."
+          }
+        }
+      }
+    },
+    "levelIntro.mode.random" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questions in |random order|."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vragen |door elkaar|."
           }
         }
       }
@@ -1548,9 +1718,7 @@
         }
       }
     },
-    "locked" : {
-
-    },
+    "locked" : {},
     "menu.maximumCount" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1653,6 +1821,125 @@
         }
       }
     },
+    "mode.fractions.multiple" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Multiple"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Meerdere"
+          }
+        }
+      }
+    },
+    "mode.fractions.single" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eén deel"
+          }
+        }
+      }
+    },
+    "mode.mixed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mixed"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemixt"
+          }
+        }
+      }
+    },
+    "mode.order" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Order"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reeks"
+          }
+        }
+      }
+    },
+    "mode.percentages.decimal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Decimal"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komma"
+          }
+        }
+      }
+    },
+    "mode.percentages.whole" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whole"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Heel"
+          }
+        }
+      }
+    },
+    "mode.random" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Random"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hussel"
+          }
+        }
+      }
+    },
     "name.placeholder" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1744,13 +2031,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld cards collected! 🃏"
+            "value" : "%lld bubbles collected! 🫧"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld kaarten verzameld! 🃏"
+            "value" : "%lld bubbels verzameld! 🫧"
           }
         }
       }
@@ -1931,13 +2218,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You have %lld cards in total. Ready for a few more?"
+            "value" : "You have %lld bubbles in total. Ready for a few more?"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Je hebt in totaal %lld kaarten. Klaar voor nog een paar?"
+            "value" : "Je hebt in totaal %lld bubbels. Klaar voor nog een paar?"
           }
         }
       }
@@ -1948,104 +2235,151 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld cards this week! 🎉"
+            "value" : "%lld bubbles this week! 🎉"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld kaarten deze week! 🎉"
+            "value" : "%lld bubbels deze week! 🎉"
           }
         }
       }
     },
-    "off" : {
-
-    },
-    "on" : {
-
-    },
-    "onboarding.cards.2" : {
+    "off" : {},
+    "on" : {},
+    "onboarding.level.advanced.subtitle" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2 cards"
+            "value" : "Different mixed sums together."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2 kaarten"
+            "value" : "Verschillende mix-sommen door elkaar."
           }
         }
       }
     },
-    "onboarding.cards.3" : {
+    "onboarding.level.advanced.title" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3 cards"
+            "value" : "Pretty good already"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "3 kaarten"
+            "value" : "Al aardig goed"
           }
         }
       }
     },
-    "onboarding.cards.4" : {
+    "onboarding.level.beginner.subtitle" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "4 cards"
+            "value" : "Practise with sums in order."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "4 kaarten"
+            "value" : "Oefenen met oplopende sommen."
           }
         }
       }
     },
-    "onboarding.cards.subtitle" : {
+    "onboarding.level.beginner.title" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose how many answer cards each round shows. Fewer cards makes the game easier."
+            "value" : "Just started"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kies hoeveel antwoordkaarten je elke ronde ziet. Minder kaarten maakt het spel makkelijker."
+            "value" : "Net begonnen"
           }
         }
       }
     },
-    "onboarding.cards.title" : {
+    "onboarding.level.intermediate.subtitle" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "How many cards?"
+            "value" : "Sums in random order."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hoeveel kaarten?"
+            "value" : "Sommen in willekeurige volgorde."
+          }
+        }
+      }
+    },
+    "onboarding.level.intermediate.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some practice already"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Al wat geoefend"
+          }
+        }
+      }
+    },
+    "onboarding.level.subtitle %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a starting point for %@."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kies een startpunt voor %@."
+          }
+        }
+      }
+    },
+    "onboarding.level.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How good are you at this already?"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoe goed ben je hier al in?"
           }
         }
       }
@@ -2396,13 +2730,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Available from %lld cards"
+            "value" : "Available from %lld bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beschikbaar vanaf %lld kaarten"
+            "value" : "Beschikbaar vanaf %lld bubbels"
           }
         }
       }
@@ -2464,13 +2798,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "You’ve earned %lld cards"
+            "value" : "You’ve earned %lld bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Je hebt %lld kaarten verdiend"
+            "value" : "Je hebt %lld bubbels verdiend"
           }
         }
       }
@@ -2549,13 +2883,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No waiting for cards — every character is yours from the start."
+            "value" : "No waiting for bubbles — every character is yours from the start."
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Niet wachten op kaarten — elk karakter is meteen van jou."
+            "value" : "Niet wachten op bubbels — elk karakter is meteen van jou."
           }
         }
       }
@@ -2730,36 +3064,19 @@
         }
       }
     },
-    "premium.unlockedWithPremium" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlocked with Premium"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vrijgespeeld met Premium"
-          }
-        }
-      }
-    },
     "premium.unlockWithCards" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unlock with cards"
+            "value" : "Unlock with bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vrijspelen met kaarten"
+            "value" : "Vrijspelen met bubbels"
           }
         }
       }
@@ -2777,6 +3094,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Premium ontgrendelen · %@"
+          }
+        }
+      }
+    },
+    "premium.unlockedWithPremium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocked with Premium"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vrijgespeeld met Premium"
           }
         }
       }
@@ -2838,13 +3172,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bonus cards"
+            "value" : "Bonus bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bonuskaarten"
+            "value" : "Bonusbubbels"
           }
         }
       }
@@ -2855,13 +3189,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "cards"
+            "value" : "bubbles"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "kaarten"
+            "value" : "bubbels"
           }
         }
       }
@@ -2906,30 +3240,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Double cards"
+            "value" : "2× fish bonuses"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dubbele kaarten"
-          }
-        }
-      }
-    },
-    "result.flamethrowersUsed" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Flamethrower used"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vlammenwerper gebruikt"
+            "value" : "2×-visbonussen"
           }
         }
       }
@@ -3529,9 +3846,7 @@
         }
       }
     },
-    "unlocked" : {
-
-    }
+    "unlocked" : {}
   },
   "version" : "1.0"
 }

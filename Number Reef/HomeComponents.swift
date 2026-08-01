@@ -391,8 +391,8 @@ struct LevelCardView: View {
     let status: LevelCardStatus
     let best: Int
     /// What a full score is worth on the board being shown, which depends on
-    /// how many answer cards the player has chosen.
-    var maximum: Int = GameConfig.levelMaximum(answerCards: 2)
+    /// the selected exercise.
+    var maximum: Int = GameConfig.levelMaximum
     /// How often this board has been taken to its maximum. From the second time
     /// onward the completed card carries a ×N badge.
     var maxCompletions = 0
@@ -409,6 +409,7 @@ struct LevelCardView: View {
     let action: () -> Void
 
     @State private var scorePulse = false
+    @State private var completionRevealed = false
 
     private var cardScale: CGFloat { cardHeight / 96 }
     private var isLocked: Bool { status == .locked }
@@ -464,7 +465,14 @@ struct LevelCardView: View {
     }
 
     private var showsCompletedAppearance: Bool {
-        tier == .maxed && !isLocked
+        tier == .maxed && !isLocked && (!isNewMaximumCelebration || completionRevealed)
+    }
+
+    /// A level that crosses its maximum on this return stays in its ordinary
+    /// card until the bubbles have finished counting. Only then do the gold
+    /// card, crown and ferns arrive together.
+    private var isNewMaximumCelebration: Bool {
+        celebrationStartedAt != nil && (celebrationStart ?? best) < maximum && best >= maximum
     }
 
     // MARK: Body
@@ -477,8 +485,10 @@ struct LevelCardView: View {
             Group {
                 if showsCompletedAppearance {
                     completedCard
+                        .transition(.opacity.combined(with: .scale(scale: 0.88, anchor: .bottom)))
                 } else {
                     standardCard
+                        .transition(.opacity)
                 }
             }
             .frame(height: cardHeight)
@@ -497,8 +507,8 @@ struct LevelCardView: View {
         }
         .buttonStyle(.plain)
         .disabled(isLocked)
-        .onAppear { pulseIfCelebrating() }
-        .onChange(of: celebrationStartedAt) { _, _ in pulseIfCelebrating() }
+        .onAppear { animateIfCelebrating() }
+        .onChange(of: celebrationStartedAt) { _, _ in animateIfCelebrating() }
         .accessibilityIdentifier("level-\(level.index)")
         .accessibilityLabel(Text(L("home.levelAccessibility \(level.index)")))
         .accessibilityValue(Text(verbatim: pausedCards.map {
@@ -507,14 +517,18 @@ struct LevelCardView: View {
     }
 
     /// A little kick on the glyph at the moment the number lands.
-    private func pulseIfCelebrating() {
+    private func animateIfCelebrating() {
+        completionRevealed = !isNewMaximumCelebration
         guard celebrationStartedAt != nil, (celebrationStart ?? best) < best else {
             scorePulse = false
             return
         }
         let landing = Self.scoreCountDelay + Self.scoreCountDuration
         DispatchQueue.main.asyncAfter(deadline: .now() + landing) {
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.54)) { scorePulse = true }
+            withAnimation(.spring(response: 0.52, dampingFraction: 0.62)) {
+                scorePulse = true
+                if isNewMaximumCelebration { completionRevealed = true }
+            }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + landing + 0.62) {
             withAnimation(.spring(response: 0.34, dampingFraction: 0.7)) { scorePulse = false }
@@ -601,10 +615,17 @@ struct LevelCardView: View {
         }
     }
 
+    /// The score, with its bubble after the number — the way a count is read
+    /// aloud ("twelve bubbles"), not the way a price is written.
     private var cardChip: some View {
         HStack(spacing: 3 * cardScale) {
-            Image(systemName: "rectangle.stack.fill")
-                .font(.system(size: 9 * cardScale))
+            CountingNumber(from: celebrationStart ?? best,
+                           to: best,
+                           startedAt: celebrationStartedAt,
+                           delay: Self.scoreCountDelay,
+                           duration: Self.scoreCountDuration)
+                .font(.system(size: 12 * cardScale, weight: .bold))
+            CurrencyIcon(size: 9 * cardScale)
                 // The launch anchor is read from the unscaled layout frame, so
                 // the flying card starts exactly overlapping this glyph.
                 .background {
@@ -615,12 +636,6 @@ struct LevelCardView: View {
                 }
                 .scaleEffect(scorePulse ? 1.48 : 1)
                 .rotationEffect(.degrees(scorePulse ? -12 : 0))
-            CountingNumber(from: celebrationStart ?? best,
-                           to: best,
-                           startedAt: celebrationStartedAt,
-                           delay: Self.scoreCountDelay,
-                           duration: Self.scoreCountDuration)
-                .font(.system(size: 12 * cardScale, weight: .bold))
         }
         .foregroundStyle(tier == .empty ? Color(white: 0.6) : tier.color(for: theme))
     }
@@ -706,15 +721,24 @@ struct LevelCardView: View {
                     .lineLimit(1)
                     .foregroundStyle(hero)
                 HStack(spacing: 3 * cardScale) {
-                    Image(systemName: "rectangle.stack.fill")
-                        .font(.system(size: 9 * cardScale))
-                        .scaleEffect(scorePulse ? 1.48 : 1)
                     CountingNumber(from: celebrationStart ?? best,
                                    to: best,
                                    startedAt: celebrationStartedAt,
                                    delay: Self.scoreCountDelay,
                                    duration: Self.scoreCountDuration)
                         .font(.system(size: 12 * cardScale, weight: .bold))
+                    CurrencyIcon(size: 9 * cardScale)
+                        // Once the max card has been revealed, the flight must
+                        // still start on this exact bubble. Without an anchor
+                        // here the standard card's disappearing glyph leaves
+                        // the return animation with no source point.
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: CardGlyphAnchorKey.self,
+                                                       value: [level.id: proxy.frame(in: .named("home"))])
+                            }
+                        }
+                        .scaleEffect(scorePulse ? 1.48 : 1)
                 }
                 .foregroundStyle(hero)
                 // The repeat marker is a superscript detail beside the score,
@@ -748,11 +772,36 @@ struct LevelCardView: View {
             RoundedRectangle(cornerRadius: 18 * cardScale)
                 .stroke(metal, lineWidth: 2.5 * cardScale)
         )
+        .overlay {
+            completedFerns(color: hero, highlight: metal)
+        }
         .overlay(alignment: .top) {
             completedRibbon(fill: hero, crown: metal)
                 .offset(y: -9 * cardScale)
         }
         .shadow(color: metal.opacity(0.35), radius: 6, y: 3)
+    }
+
+    /// Ferns curl up both sides of every maxed level. Their stems sit just
+    /// outside the card edge while the leaves overlap it slightly, framing the
+    /// score without narrowing the number or bubble line.
+    private func completedFerns(color _: Color, highlight: Color) -> some View {
+        HStack(spacing: 0) {
+            CompletionFern(color: highlight)
+                .frame(width: 25 * cardScale, height: 52 * cardScale)
+                .rotationEffect(.degrees(-3), anchor: .bottom)
+                .offset(x: 9 * cardScale, y: 3 * cardScale)
+
+            Spacer(minLength: 0)
+
+            CompletionFern(color: highlight)
+                .frame(width: 25 * cardScale, height: 52 * cardScale)
+                .scaleEffect(x: -1, y: 1)
+                .rotationEffect(.degrees(3), anchor: .bottom)
+                .offset(x: -9 * cardScale, y: 3 * cardScale)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 
     /// A small ribbon overlapping the top edge, carrying the crown. The ribbon
@@ -792,6 +841,67 @@ struct LevelCardView: View {
             .accessibilityLabel(Text(verbatim: isCapped
                 ? L("menu.maximumCount")
                 : L("menu.maximumCount.accessibility \(maxCompletions)")))
+    }
+}
+
+/// A compact water fern for the sides of a completed level card. Its detached,
+/// oval leaves and bowed stem deliberately echo a celebratory laurel, while the
+/// irregular spacing keeps it organic enough for the reef setting.
+private struct CompletionFern: View {
+    let color: Color
+
+    private struct Leaf: Identifiable {
+        let id: Int
+        let x: CGFloat
+        let y: CGFloat
+        let width: CGFloat
+        let height: CGFloat
+        let rotation: Double
+    }
+
+    private let leaves: [Leaf] = [
+        Leaf(id: 0, x: 0.63, y: 0.82, width: 0.25, height: 0.12, rotation: 48),
+        Leaf(id: 1, x: 0.29, y: 0.75, width: 0.27, height: 0.12, rotation: 27),
+        Leaf(id: 2, x: 0.62, y: 0.66, width: 0.28, height: 0.12, rotation: -42),
+        Leaf(id: 3, x: 0.18, y: 0.58, width: 0.28, height: 0.12, rotation: 13),
+        Leaf(id: 4, x: 0.57, y: 0.49, width: 0.29, height: 0.12, rotation: -52),
+        Leaf(id: 5, x: 0.19, y: 0.39, width: 0.27, height: 0.115, rotation: -7),
+        Leaf(id: 6, x: 0.62, y: 0.31, width: 0.27, height: 0.115, rotation: -58),
+        Leaf(id: 7, x: 0.34, y: 0.20, width: 0.25, height: 0.11, rotation: -25),
+        Leaf(id: 8, x: 0.70, y: 0.14, width: 0.23, height: 0.105, rotation: -45)
+    ]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                FernStemShape()
+                    .stroke(color.opacity(0.5),
+                            style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.045),
+                                               lineCap: .round))
+
+                ForEach(leaves) { leaf in
+                    Capsule(style: .continuous)
+                        .fill(color.opacity(0.78))
+                        .frame(width: proxy.size.width * leaf.width,
+                               height: proxy.size.height * leaf.height)
+                        .rotationEffect(.degrees(leaf.rotation))
+                        .position(x: proxy.size.width * leaf.x,
+                                  y: proxy.size.height * leaf.y)
+                }
+            }
+        }
+        .shadow(color: color.opacity(0.16), radius: 1, y: 0.5)
+    }
+}
+
+private struct FernStemShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.width * 0.76, y: rect.height * 0.94))
+        path.addCurve(to: CGPoint(x: rect.width * 0.66, y: rect.height * 0.10),
+                      control1: CGPoint(x: rect.width * 0.34, y: rect.height * 0.80),
+                      control2: CGPoint(x: rect.width * 0.08, y: rect.height * 0.34))
+        return path
     }
 }
 
@@ -1000,8 +1110,7 @@ struct AlternatingCardSummary: View {
         HStack(spacing: 4) {
             // The card glyph never takes part in the swap: holding it perfectly
             // still avoids the dip two crossfading icons would produce.
-            Image(systemName: "rectangle.stack.fill")
-                .font(.system(size: iconSize, weight: .bold))
+            CurrencyIcon(size: iconSize)
                 .scaleEffect(isHighlighted ? 1.32 : 1)
                 .rotationEffect(.degrees(isHighlighted ? -10 : 0))
 
@@ -1226,8 +1335,7 @@ struct CardFlightView: View {
                 + (flight.destinationPointSize - flight.sourcePointSize) * eased
             // Merge softly into the header glyph over the last stretch.
             let fade = t > 0.88 ? max(0, 1 - (t - 0.88) / 0.12) : 1
-            Image(systemName: "rectangle.stack.fill")
-                .font(.system(size: size, weight: .bold))
+            CurrencyIcon(size: size)
                 .foregroundStyle(flight.color)
                 .shadow(color: flight.color.opacity(0.35), radius: 3, y: 1)
                 .opacity(fade)

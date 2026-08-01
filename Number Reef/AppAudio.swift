@@ -479,6 +479,13 @@ final class AppAudio: NSObject, ObservableObject {
         musicPlayer?.setVolume(volume, fadeDuration: fade)
     }
 
+    /// Keeps the soundtrack in step with the temporary fast streak mode.
+    func setGameplayRate(_ rate: Float) {
+        guard let player = musicPlayer else { return }
+        player.enableRate = true
+        player.rate = min(max(rate, 0.5), 2)
+    }
+
     /// Fades the music out and stops it — used only when sound is switched off
     /// (or paused for backgrounding, via `pause`).
     private func stopMusic() {
@@ -516,6 +523,7 @@ final class AppAudio: NSObject, ObservableObject {
     func playFlamethrower()     { playEffect("flamethrower") }     // the helper fires
     func playHalfLife()         { playEffect("halfLife") }         // half a life spent
     func playLifeLost()         { playEffect("lifeLost") }         // a whole life lost
+    func playLifeRestored()     { playEffect("characterUnlock") }  // heart fish caught
     func playSessionStart()     { playEffect("sessionStart") }
     func playSessionComplete()  { playEffect("sessionComplete") }
     func playHighScore()        { playEffect("highScore") }        // new personal best

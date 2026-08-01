@@ -20,23 +20,27 @@ struct ResultView: View {
     @State private var isPresented = false
     @State private var badgeLanded = false
     @State private var shineSweep = false
-    @State private var showsConfetti = false
+    @State private var showsBubbleRain = false
 
     private var isPad: Bool { AppLayout.isPad }
     private var scale: CGFloat { isPad ? 1.2 : 1 }
     private var textScale: CGFloat { isPad ? 1.296 : 1 }
 
     private var maximum: Int { board.maximum }
+    /// Mirrors the identifying heading from the start card, so the result is
+    /// unmistakably attached to the level that was just played.
+    private var levelTitle: String { LevelIntro.info(for: board).title }
     /// The level's score tops out at its maximum, exactly as the menu stores
     /// it; cards beyond that still count toward the player's grand total.
     private var levelScore: Int { min(result.cardsEarned, maximum) }
     private var showsNewBest: Bool { result.isNewPersonalBest && result.cardsEarned > 0 }
 
-    /// Ten graded messages, keyed `game.encouragement.0 … .9`, scaled to what
-    /// this level actually holds.
+    /// Ten graded messages, scaled to what this level actually holds, plus a
+    /// dedicated message for a completed board.
     private var encouragement: String {
+        guard levelScore < maximum else { return L(key: "game.encouragement.complete") }
         let step = max(1, maximum / 10)
-        let index = min(max(result.cardsEarned, 0) / step, 9)
+        let index = min(max(levelScore, 0) / step, 9)
         return L(key: "game.encouragement.\(index)")
     }
 
@@ -79,8 +83,8 @@ struct ResultView: View {
 
             // Layered above the card, so the burst rains over the result rather
             // than behind it. It starts once the card entrance is underway.
-            if showsConfetti {
-                ConfettiView()
+            if showsBubbleRain {
+                BubbleRainView()
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
             }
@@ -89,11 +93,11 @@ struct ResultView: View {
             withAnimation(.spring(response: 0.46, dampingFraction: 0.82)) {
                 isPresented = true
             }
-            // Only a score this level has never seen before rains confetti;
+            // Only a score this level has never seen before rains bubbles;
             // matching or falling short of the old best ends quietly.
             guard showsNewBest else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.34) {
-                showsConfetti = true
+                showsBubbleRain = true
             }
             // The badge drops in after the card has settled, then glints once.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
@@ -115,6 +119,15 @@ struct ResultView: View {
                 .frame(width: 130 * scale, height: 104 * scale)
                 .accessibilityHidden(true)
                 .padding(.bottom, 18 * scale)
+
+            Text(verbatim: levelTitle)
+                .font(.system(size: 18 * textScale, weight: .heavy, design: .rounded))
+                .foregroundStyle(character.deepColor.opacity(0.68))
+                .multilineTextAlignment(.center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .frame(maxWidth: .infinity)
+                .padding(.bottom, 6 * scale)
 
             Text(titleKey)
                 .font(.system(size: 32 * textScale, weight: .heavy, design: .rounded))
@@ -171,7 +184,7 @@ struct ResultView: View {
         HStack(spacing: 4) {
             Text("game.highScore")
                 .lineLimit(1)
-            Image(systemName: "rectangle.stack.fill")
+            CurrencyIcon(size: 13 * textScale)
         }
         // The badge is an overlay pinned to the score capsule's width, so a long
         // translation would wrap; fixedSize lets it grow on one line instead.
@@ -259,48 +272,73 @@ struct ResultView: View {
     }
 }
 
-/// Lightweight falling-confetti burst for a new personal best.
-private struct ConfettiView: View {
-    @State private var pieces: [ConfettiPiece]
-    @State private var fallen = false
+/// A shower of bubbles for a new personal best: they drift down over the card
+/// and pop, one after another, instead of the confetti this used to rain.
+private struct BubbleRainView: View {
+    @State private var bubbles: [RainBubble]
 
     init() {
-        _pieces = State(initialValue: (0..<44).map { _ in ConfettiPiece() })
+        _bubbles = State(initialValue: (0..<34).map { _ in RainBubble() })
     }
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                ForEach(pieces) { piece in
-                    Rectangle()
-                        .fill(piece.color)
-                        .frame(width: piece.size, height: piece.size * 0.5)
-                        .rotationEffect(.degrees(fallen ? piece.spin : 0))
-                        .position(x: piece.x * proxy.size.width,
-                                  y: fallen ? proxy.size.height + 40 : -40)
-                        .opacity(fallen ? 0 : 1)
-                        .animation(.easeIn(duration: piece.duration).delay(piece.delay),
-                                   value: fallen)
+                ForEach(bubbles) { bubble in
+                    FallingBubble(bubble: bubble, area: proxy.size)
                 }
             }
-        }
-        // A short real-time gap guarantees the initial above-screen positions
-        // have been presented before the fall begins. The pieces live in State,
-        // so their identities and random paths stay stable across body updates.
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { fallen = true }
         }
         .accessibilityHidden(true)
     }
 }
 
-private struct ConfettiPiece: Identifiable {
+private struct RainBubble: Identifiable {
     let id = UUID()
-    let x = CGFloat.random(in: 0...1)
-    let size = CGFloat.random(in: 7...13)
-    let spin = Double.random(in: 180...900)
-    let duration = Double.random(in: 1.4...2.6)
-    let delay = Double.random(in: 0...0.5)
-    let color: Color = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
-        .randomElement()!
+    /// Share of the width the bubble falls down.
+    let x = CGFloat.random(in: 0.05...0.95)
+    let diameter = CGFloat.random(in: 10...30)
+    /// Share of the height at which it bursts, so they do not all pop in a line.
+    let burstY = CGFloat.random(in: 0.30...0.92)
+    let fallDuration = Double.random(in: 1.1...2.1)
+    let delay = Double.random(in: 0...0.9)
+    /// A little sideways wander on the way down.
+    let drift = CGFloat.random(in: -22...22)
+}
+
+private struct FallingBubble: View {
+    let bubble: RainBubble
+    let area: CGSize
+
+    @State private var hasFallen = false
+    @State private var hasPopped = false
+
+    var body: some View {
+        Circle()
+            .fill(
+                RadialGradient(colors: [.white.opacity(0.95), .white.opacity(0.30)],
+                               center: UnitPoint(x: 0.34, y: 0.30),
+                               startRadius: 1,
+                               endRadius: bubble.diameter * 0.7)
+            )
+            .overlay { Circle().stroke(.white.opacity(0.9), lineWidth: 1.2) }
+            .frame(width: bubble.diameter, height: bubble.diameter)
+            // The burst: the shell swells out and is gone.
+            .scaleEffect(hasPopped ? 1.8 : 1)
+            .opacity(hasPopped ? 0 : 1)
+            .position(x: area.width * bubble.x + (hasFallen ? bubble.drift : 0),
+                      y: hasFallen ? area.height * bubble.burstY : -bubble.diameter)
+            .onAppear {
+                withAnimation(.easeIn(duration: bubble.fallDuration).delay(bubble.delay)) {
+                    hasFallen = true
+                }
+                // Pops the moment it arrives, so the fall and the burst read as
+                // one movement rather than two.
+                DispatchQueue.main.asyncAfter(
+                    deadline: .now() + bubble.delay + bubble.fallDuration
+                ) {
+                    withAnimation(.easeOut(duration: 0.24)) { hasPopped = true }
+                }
+            }
+    }
 }

@@ -52,6 +52,48 @@ public enum MathTopic: String, CaseIterable, Identifiable, Codable, Sendable {
         case .mixed: return "+ − × %"
         }
     }
+
+    /// Point size for the topic glyph, before the iPad scale. Per symbol,
+    /// because glyphs read optically different at the same size: the filled
+    /// star reads widest, the percent sign reads tallest.
+    public var symbolPointSize: CGFloat {
+        switch self {
+        case .mixed: return 17
+        case .percentages: return 19
+        default: return 21
+        }
+    }
+
+    /// Supermix replaces the three order buttons with the 2×2 star grid: the
+    /// four combinations are separate exercises, not three orderings of one.
+    public var usesSupermixGrid: Bool { self == .mixed }
+
+    /// Fractions and Percentages do not order their sub-levels; the same three
+    /// buttons change what kind of sum comes out. They therefore carry their
+    /// own labels and pop-out copy. Every other topic keeps Order · Random ·
+    /// Mixed.
+    public var modeOverride: ModeLabelOverride? {
+        switch self {
+        case .fractions:
+            return ModeLabelOverride(
+                orderTitleKey: "mode.fractions.single",
+                randomTitleKey: "mode.fractions.multiple",
+                infoHeaderKey: "info.mode.fractions.header",
+                orderInfoKey: "info.mode.fractions.single",
+                randomInfoKey: "info.mode.fractions.multiple"
+            )
+        case .percentages:
+            return ModeLabelOverride(
+                orderTitleKey: "mode.percentages.whole",
+                randomTitleKey: "mode.percentages.decimal",
+                infoHeaderKey: "info.mode.percentages.header",
+                orderInfoKey: "info.mode.percentages.whole",
+                randomInfoKey: "info.mode.percentages.decimal"
+            )
+        default:
+            return nil
+        }
+    }
 }
 
 // MARK: - Difficulty scaling
@@ -89,6 +131,26 @@ public enum MixedVariant: String, CaseIterable, Identifiable, Codable, Sendable 
 
     /// Localization key for the one-line explanation.
     public var detailKey: String { "info.super.\(rawValue)" }
+
+    // MARK: Operator layout
+
+    /// Glyphs that read optically heavier than the rest at the same point size,
+    /// with the factor their own size and slot are scaled by.
+    public static let heavyOperatorGlyphs: [String: CGFloat] = ["%": 0.8]
+
+    /// How many operator slots the column containing this variant reserves: as
+    /// many as its longest button needs. The four buttons fill a 2×2 grid left
+    /// to right, so this is four on the left and five on the right — computed
+    /// rather than hardcoded, so changing the ladder keeps the columns aligned.
+    public static func slotCount(forColumnOf variant: MixedVariant) -> Int {
+        let all = allCases
+        guard let index = all.firstIndex(of: variant) else { return variant.operationCount }
+        let column = index % 2
+        return all.enumerated()
+            .filter { $0.offset % 2 == column }
+            .map { $0.element.operationCount }
+            .max() ?? variant.operationCount
+    }
 }
 
 public enum MathScaling {
@@ -151,6 +213,78 @@ public enum MathScaling {
     public static let premiumFractionDenominators = [2, 4, 5, 8, 10, 20, 25]
     /// The friendly percentages reviewed by high-level percentage questions.
     public static let premiumPercentages = [50, 25, 10, 20, 75, 5]
+
+    // MARK: Mixed-mode pools
+
+    /// The denominators a Mixed fractions round may draw at this level: this
+    /// level's denominator plus the easier ones that were already introduced
+    /// *and* divide it cleanly. A seventh of a whole is not an easier version
+    /// of an eighth, so 8 reviews 2 and 4 — never 3, 5 or 7.
+    public static func easierFractionDenominators(_ level: Int) -> [Int] {
+        let index = clampIndex(level, count: fractionDenominators.count)
+        let current = fractionDenominators[index]
+        var pool: [Int] = []
+        for candidate in fractionDenominators[...index]
+        where current % candidate == 0 && !pool.contains(candidate) {
+            pool.append(candidate)
+        }
+        // Ascending: easy → hard, which is the order `weightedHardPick` wants.
+        return pool.sorted()
+    }
+
+    /// The percentages a Mixed percentages round may draw at this level: this
+    /// one and every percentage taught before it, in learning order.
+    public static func earlierPercentages(_ level: Int) -> [Int] {
+        let index = clampIndex(level, count: percentageLevels.count)
+        // Reversed so the current percentage sits last, where the weighted pick
+        // leans hardest; the earliest ones stay in the mix but come up least.
+        return Array(percentageLevels[...index]).reversed()
+    }
+}
+
+// MARK: - The fixed Order route
+
+/// The predictable climbing route the Order button plays. It is computed
+/// straight from the session's step counter — no randomness at all — so the
+/// same level always walks the same path.
+///
+/// Addition and subtraction run three groups of five sums (fifteen per lap)
+/// and then start over; the tables simply cycle ×1 … ×12.
+public enum PracticeRoute {
+    public static let groupSize = 5
+    /// What each group of five adds to the starting point, so the second and
+    /// third lap are not a literal repeat of the first.
+    public static let groupShifts = [0, 1, 3]
+
+    public static var lapLength: Int { groupSize * groupShifts.count }
+
+    private static func shift(_ step: Int) -> Int {
+        groupShifts[(step / groupSize) % groupShifts.count]
+    }
+
+    private static func position(_ step: Int) -> Int { step % groupSize }
+
+    /// The other operand of `n + ?`. For n = 2 this walks 2+2 … 2+10, then
+    /// 2+3 … 2+11, then 2+5 … 2+13.
+    public static func additionOther(number n: Int, step: Int) -> Int {
+        n + shift(step) + position(step) * n
+    }
+
+    /// The starting number of `? − n`. For n = 2 this walks 12−2 … 4−2, then
+    /// 13−2 … 5−2, then 15−2 … 7−2.
+    public static func subtractionStart(number n: Int, step: Int) -> Int {
+        max(n, 6 * n + shift(step) - position(step) * n)
+    }
+
+    /// The multiplier of `t × ?`, cycling 1 … 12 forever.
+    public static func tableMultiplier(step: Int) -> Int {
+        (step % 12) + 1
+    }
+
+    /// The whole a fraction or percentage question works with, taken from a
+    /// small repeating set of factors so the answers do not simply count up.
+    public static let wholeFactors = Array(1...6)
+    public static let percentageFactors = Array(1...8)
 }
 
 // MARK: - Level

@@ -34,6 +34,12 @@ struct ElephantChallengeApp: App {
         // Bring stored progress up to the current version before anything can
         // read it: data written by Jumping Fox must never reach the new game.
         Progress.store.migrateIfNeeded()
+        // Decimal answers are printed with the separator of the language the
+        // player is reading — a comma in Dutch, a point in English — rather
+        // than the device's. The in-app language switch must win here too.
+        DecimalAnswer.separatorProvider = {
+            LanguageManager.shared.locale.decimalSeparator ?? "."
+        }
         // Capture the first launch date independently of when the player first
         // finishes a game; later review phases use age since installation.
         _ = ReviewRequestCoordinator.shared

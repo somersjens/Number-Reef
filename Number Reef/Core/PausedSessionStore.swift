@@ -19,7 +19,6 @@ public struct PausedSession: Codable, Equatable, Sendable {
     /// paused on one Supermix combination must not resume onto another, where
     /// its cards would be banked against the wrong best.
     public let boardID: String
-    public let cardCount: Int
     public let roundNumber: Int
     public let cards: Int
     public let lifeHalves: Int
@@ -28,9 +27,16 @@ public struct PausedSession: Codable, Equatable, Sendable {
     public let doubleCardsAnswered: Int
     public let bonusCards: Int
     public let flamethrowersUsed: Int
+    /// Optional so sessions written before the in-level streak feature remain
+    /// decodable and simply resume without an active streak/aura.
+    public let correctStreak: Int?
+    public let hasBonusFishPower: Bool?
+    /// Optional for compatibility with sessions saved before heart fish.
+    public let heartFishProgress: Int?
+    public let heartFishTarget: Int?
+    public let isHeartFishAvailable: Bool?
 
     public init(boardID: String,
-                cardCount: Int,
                 roundNumber: Int,
                 cards: Int,
                 lifeHalves: Int,
@@ -38,9 +44,13 @@ public struct PausedSession: Codable, Equatable, Sendable {
                 wrongAnswers: Int,
                 doubleCardsAnswered: Int,
                 bonusCards: Int,
-                flamethrowersUsed: Int) {
+                flamethrowersUsed: Int,
+                correctStreak: Int? = nil,
+                hasBonusFishPower: Bool? = nil,
+                heartFishProgress: Int? = nil,
+                heartFishTarget: Int? = nil,
+                isHeartFishAvailable: Bool? = nil) {
         self.boardID = boardID
-        self.cardCount = cardCount
         self.roundNumber = roundNumber
         self.cards = cards
         self.lifeHalves = lifeHalves
@@ -49,6 +59,11 @@ public struct PausedSession: Codable, Equatable, Sendable {
         self.doubleCardsAnswered = doubleCardsAnswered
         self.bonusCards = bonusCards
         self.flamethrowersUsed = flamethrowersUsed
+        self.correctStreak = correctStreak
+        self.hasBonusFishPower = hasBonusFishPower
+        self.heartFishProgress = heartFishProgress
+        self.heartFishTarget = heartFishTarget
+        self.isHeartFishAvailable = isHeartFishAvailable
     }
 
     /// A record is only usable if it describes a session that can still be
@@ -56,12 +71,14 @@ public struct PausedSession: Codable, Equatable, Sendable {
     public var isResumable: Bool {
         lifeHalves > 0
             && roundNumber >= 1
-            && roundNumber <= GameConfig.maximumRounds
+            && roundNumber <= GameConfig.maximumRoundCeiling
             && lifeHalves <= GameConfig.startingLifeHalves
             && cards >= 0
             && correctAnswers >= 0
             && wrongAnswers >= 0
-            && CardCount(rawValue: cardCount) != nil
+            && (correctStreak ?? 0) >= 0
+            && (heartFishProgress ?? 0) >= 0
+            && (heartFishTarget ?? GameConfig.heartFishCorrectAnswers) >= 1
     }
 }
 

@@ -122,10 +122,21 @@ public struct AnswerValue: Hashable, Sendable, Comparable {
             return
         }
 
+        // A decimal answer ("2,5" or "2.5") is a rational like any other, so it
+        // sorts among the whole numbers and never collides with one by
+        // accident: 2,50 and 2,5 collapse to the same value.
+        if trimmed.contains(",") || trimmed.contains("."),
+           let hundredths = Self.hundredths(trimmed) {
+            let reduced = Self.reduced(hundredths, 100)
+            form = .rational(numerator: reduced.0, denominator: reduced.1)
+            return
+        }
+
         form = .text(trimmed)
     }
 
-    /// Parses "12" or "12.5" into hundredths, used only for percent answers.
+    /// Parses "12", "12.5" or "12,5" into hundredths. Used for percent answers
+    /// and for the decimal answers the Percentages "Decimal" button produces.
     private static func hundredths(_ text: String) -> Int? {
         let normalized = text.replacingOccurrences(of: ",", with: ".")
         let parts = normalized.split(separator: ".", maxSplits: 1).map(String.init)

@@ -17,7 +17,6 @@ enum LevelIntro {
     /// Title plus the three explanation lines for a level.
     static func info(for board: LevelBoard) -> (title: String, bullets: [String]) {
         let level = board.level
-        let cardCount = board.cardCount
         let n = max(1, level.index)
 
         let title: String
@@ -47,16 +46,40 @@ enum LevelIntro {
             topicLine = L("levelIntro.mixed.intro")
         }
 
-        // Line two: this level and every level below it, and picking the right
-        // card out of the ones on the table.
-        let levelLine = n == 1
-            ? L("levelIntro.levelRange.first \(cardCount.answerCards)")
-            : L("levelIntro.levelRange \(n) \(cardCount.answerCards)")
+        // Line two: which sums this run actually draws, which depends on the
+        // order button — and picking the right card out of the ones on offer.
+        let levelLine = modeLine(for: board)
 
         // Line three: what there is to collect here.
         let cardsLine = L("levelIntro.cardsBullet \(board.maximum)")
 
         return (title, [topicLine, levelLine, cardsLine])
+    }
+
+    /// The middle line, written for the mode being played. Mixed is the only
+    /// one that reaches down to the levels below, so it is the only one that
+    /// names a range; Order and Random describe this level's own sums. On
+    /// Fractions and Percentages the three buttons change the *kind* of sum,
+    /// so those two topics get their own wording.
+    private static func modeLine(for board: LevelBoard) -> String {
+        let n = max(1, board.level.index)
+
+        // Supermix has no order buttons — its four combinations are the choice
+        // — and it always draws from this level and every level below it.
+        if board.level.topic.usesSupermixGrid || board.mode == .mixed {
+            return n == 1
+                ? L("levelIntro.levelRange.first")
+                : L("levelIntro.levelRange \(n)")
+        }
+
+        let topicPart: String
+        switch board.level.topic {
+        case .fractions:   topicPart = "fractions."
+        case .percentages: topicPart = "percentages."
+        default:           topicPart = ""
+        }
+        let suffix = board.mode == .order ? "order" : "random"
+        return L(key: "levelIntro.mode.\(topicPart)\(suffix)")
     }
 
     /// The glyph shown beside the first line.
@@ -68,6 +91,9 @@ enum LevelIntro {
 struct LevelIntroCard: View {
     let board: LevelBoard
     let theme: AnimalCharacter
+    /// True when this instance was opened by the in-game pause button. A saved
+    /// session also makes the card a continuation screen on a later visit.
+    var isPauseCard = false
 
     private var level: MathLevel { board.level }
     let onStart: () -> Void
@@ -78,6 +104,8 @@ struct LevelIntroCard: View {
     private var paused: PausedSession? {
         PausedSessionStore.shared.session(board)
     }
+
+    private var isContinuation: Bool { isPauseCard || paused != nil }
 
     @ObservedObject private var audio = AppAudio.shared
     @ObservedObject private var language = LanguageManager.shared
@@ -101,7 +129,7 @@ struct LevelIntroCard: View {
         let features = [
             IntroFeature(icon: LevelIntro.symbol(for: level), text: info.bullets[0]),
             IntroFeature(number: level.cardNumber, text: info.bullets[1]),
-            IntroFeature(icon: "rectangle.stack.fill", text: info.bullets[2])
+            IntroFeature(icon: Currency.icon, text: info.bullets[2])
         ]
 
         return ZStack {
@@ -137,7 +165,7 @@ struct LevelIntroCard: View {
 
                         VStack(spacing: 10) {
                             Button(action: onStart) {
-                                Text(paused == nil ? "game.intro.start" : "game.intro.continue")
+                                Text(isContinuation ? "game.intro.continue" : "game.intro.start")
                                     .font(.system(size: 17 * actionScale, weight: .heavy))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 15 * actionScale)
@@ -163,8 +191,8 @@ struct LevelIntroCard: View {
                             .accessibilityIdentifier("intro-back")
                         }
 
-                        if let paused {
-                            pausedMessage(paused)
+                        if isContinuation {
+                            pausedMessage
                         }
                     }
                     .padding(28 * scale)
@@ -184,13 +212,12 @@ struct LevelIntroCard: View {
         }
     }
 
-    /// Tells the player what they are coming back to, so continuing never
-    /// feels like it lost their progress. The round reached is deliberately not
-    /// mentioned: the score they already banked is what they care about.
-    private func pausedMessage(_ session: PausedSession) -> some View {
+    /// Confirms that the run is safely waiting without repeating a potentially
+    /// awkward singular/plural bubble count.
+    private var pausedMessage: some View {
         HStack(spacing: 6) {
             Image(systemName: "pause.fill")
-            Text(L("game.intro.continueFrom \(session.cards)"))
+            Text("game.intro.progressPaused")
         }
         .font(.system(size: 13 * textScale, weight: .semibold))
         .foregroundStyle(theme.deepColor.opacity(0.62))
@@ -267,9 +294,13 @@ struct LevelIntroCard: View {
                         .minimumScaleFactor(0.48)
                         .allowsTightening(true)
                 } else {
-                    Image(systemName: feature.icon)
-                        .font(.system(size: (feature.icon == "multiply" ? 34 : 28)
-                                      * textScale * featureIconScale, weight: .bold))
+                    if feature.icon == Currency.icon {
+                        CurrencyIcon(size: 28 * textScale * featureIconScale)
+                    } else {
+                        Image(systemName: feature.icon)
+                            .font(.system(size: (feature.icon == "multiply" ? 34 : 28)
+                                          * textScale * featureIconScale, weight: .bold))
+                    }
                 }
             }
             .foregroundStyle(theme.deepColor)

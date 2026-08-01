@@ -178,7 +178,7 @@ struct PremiumView: View {
                 badge(text: L(key: "premium.unlockedWithPremium"), icon: "crown.fill")
             } else {
                 badge(text: localizedInteger("premium.availableAt %lld", cards),
-                      icon: "rectangle.stack.fill")
+                      icon: Currency.icon)
             }
         } else {
             badge(
@@ -190,7 +190,13 @@ struct PremiumView: View {
 
     private func badge(text: String, icon: String?) -> some View {
         HStack(spacing: 6) {
-            if let icon { Image(systemName: icon) }
+            if let icon {
+                if icon == Currency.icon {
+                    CurrencyIcon(size: 13 * scale)
+                } else {
+                    Image(systemName: icon)
+                }
+            }
             Text(text)
         }
         .font(.system(size: 13 * scale, weight: .bold, design: .rounded))
@@ -219,7 +225,7 @@ struct PremiumView: View {
     private var cardCharacterCard: some View {
         characterGroup(
             title: L(key: "premium.unlockWithCards"),
-            icon: "rectangle.stack.fill",
+            icon: Currency.icon,
             animals: CharacterCatalog.cardCharacters
         )
         .padding(14 * scale)
@@ -258,10 +264,17 @@ struct PremiumView: View {
         VStack(spacing: 11 * scale) {
             HStack(spacing: 10) {
                 Rectangle().fill(character.color.opacity(0.42)).frame(height: 1)
-                Label(title, systemImage: icon)
-                    .font(.system(size: 15 * scale, weight: .heavy, design: .rounded))
-                    .foregroundStyle(character.deepColor)
-                    .fixedSize()
+                HStack(spacing: 6) {
+                    if icon == Currency.icon {
+                        CurrencyIcon(size: 15 * scale)
+                    } else {
+                        Image(systemName: icon)
+                    }
+                    Text(title)
+                }
+                .font(.system(size: 15 * scale, weight: .heavy, design: .rounded))
+                .foregroundStyle(character.deepColor)
+                .fixedSize()
                 Rectangle().fill(character.color.opacity(0.42)).frame(height: 1)
             }
 
@@ -467,11 +480,17 @@ struct PremiumView: View {
                             ForEach(0..<16, id: \.self) { index in
                                 let angle = Double(index) * (.pi * 2 / 16)
                                 let radiusVariation: CGFloat = index.isMultiple(of: 2) ? 0.92 : 1.04
-                                Image(systemName: index.isMultiple(of: 4) ? "rectangle.stack.fill" : "sparkle")
-                                    .font(.system(
-                                        size: CGFloat(11 + (index % 3) * 3) * scale,
-                                        weight: .bold
-                                    ))
+                                Group {
+                                    if index.isMultiple(of: 4) {
+                                        CurrencyIcon(size: CGFloat(11 + (index % 3) * 3) * scale)
+                                    } else {
+                                        Image(systemName: "sparkle")
+                                            .font(.system(
+                                                size: CGFloat(11 + (index % 3) * 3) * scale,
+                                                weight: .bold
+                                            ))
+                                    }
+                                }
                                     .foregroundStyle(
                                         index.isMultiple(of: 4) ? animal.deepColor : animal.color
                                     )

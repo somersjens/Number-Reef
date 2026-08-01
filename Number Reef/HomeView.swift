@@ -24,6 +24,9 @@ private struct ScoreCelebration: Identifiable {
     let levelStart: Int
     let topicStart: Int
     let totalStart: Int
+    /// True only when this session turned an unfinished board into a maxed one.
+    /// That inserts the fern-and-crown reveal before its bubble flies away.
+    let revealsMaximum: Bool
     let id = UUID()
     /// Stamped when the celebration actually becomes visible, not when it was
     /// built — a stale timestamp makes every time-driven view skip straight to
@@ -37,8 +40,8 @@ struct HomeView: View {
     @AppStorage(GameSettings.onboardingCompleteKey) private var onboardingComplete = false
     @AppStorage(GameSettings.totalCardsKey) private var totalCards = 0
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
-    @AppStorage(GameSettings.cardCountKey) private var cardCountRaw = CardCount.allCases[0].rawValue
     @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
+    @AppStorage(GameSettings.practiceModeKey) private var practiceModeRaw = PracticeMode.fallback.rawValue
 
     @ObservedObject private var premium = PremiumStore.shared
     @ObservedObject private var progressSync = ProgressSync.shared
@@ -84,10 +87,10 @@ struct HomeView: View {
 
     private var character: AnimalCharacter { CharacterCatalog.current(isPremium: premium.isPremium) }
     private var topic: MathTopic { MathTopic(rawValue: topicRaw) ?? MathTopic.allCases[0] }
-    private var cardCount: CardCount { CardCount(rawValue: cardCountRaw) ?? CardCount.allCases[0] }
     private var mixedVariant: MixedVariant {
         MixedVariant(rawValue: mixedVariantRaw) ?? MixedVariant.allCases[0]
     }
+    private var practiceMode: PracticeMode { PracticeMode.from(rawValue: practiceModeRaw) }
     private var isPad: Bool { AppLayout.isPad }
 
     private var displayName: String {
@@ -108,9 +111,7 @@ struct HomeView: View {
         let _ = progressSync.revision
 
         ZStack {
-            LinearGradient(colors: [character.skyColor, character.tintColor],
-                           startPoint: .top, endPoint: .bottom)
-                .ignoresSafeArea()
+            AmbientReefBackground(character: character)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
@@ -140,8 +141,8 @@ struct HomeView: View {
         .coordinateSpace(name: "home")
         .fullScreenCover(item: $selection, onDismiss: handleSessionDismissed) { item in
             GameView(request: GameSessionRequest(level: item.level,
-                                                 cardCount: cardCount,
-                                                 mixedVariant: mixedVariant))
+                                                 mixedVariant: mixedVariant,
+                                                 mode: practiceMode))
                 .gameEnvironment()
         }
         .sheet(isPresented: $showPremium, onDismiss: {
@@ -241,13 +242,17 @@ struct HomeView: View {
 
             Divider().overlay(character.deepColor.opacity(0.22))
 
+            // The circles, then either the three order buttons or — on the
+            // star, which has no order to choose — the 2×2 grid that replaces
+            // them.
             VStack(spacing: menuControlSpacing) {
                 topicHeader
                 topicPicker
-                if topic == .mixed {
+                if topic.usesSupermixGrid {
                     supermixPicker
+                } else {
+                    modePicker
                 }
-                cardCountPicker
             }
         }
         .padding(isPad ? 22 : 14)
@@ -375,7 +380,7 @@ struct HomeView: View {
             } icon: {
                 // The card that flies up from the level card aims here, so the
                 // reward visibly joins this topic before the totals move.
-                Image(systemName: "rectangle.stack.fill")
+                CurrencyIcon(size: isPad ? 20 : 14)
                     .scaleEffect(highlightsHeaderCards ? 1.32 : 1)
                     .rotationEffect(.degrees(highlightsHeaderCards ? -10 : 0))
                     .reportAnchor("topicTotal")
@@ -401,7 +406,7 @@ struct HomeView: View {
 
     /// The scoreboard the menu is currently showing for a level.
     private func board(for level: MathLevel) -> LevelBoard {
-        LevelBoard(level: level, cardCount: cardCount, mixedVariant: mixedVariant)
+        LevelBoard(level: level, mixedVariant: mixedVariant, mode: practiceMode)
     }
 
     /// The score a level card shows. The level just played keeps its old score
@@ -474,50 +479,60 @@ struct HomeView: View {
         // Bare glyphs, not the `.circle.fill` variants: the button already
         // provides the circle, so the only solid is the selected one. Per-symbol
         // point sizes even out their differing optical heights.
-        let size: CGFloat
-        switch option {
-        case .mixed:       size = 17 * menuScale
-        case .percentages: size = 19 * menuScale
-        default:           size = 21 * menuScale
-        }
+        let size = option.symbolPointSize * menuScale
         return Image(systemName: option.symbolName)
             .font(.system(size: size, weight: .bold))
             .frame(height: 24 * menuScale)
             .foregroundStyle(isSelected ? .white : character.deepColor)
     }
 
-    // MARK: Card count
+    // MARK: Practice mode
 
-    /// How many answer cards a round shows, which is also the difficulty.
-    private var cardCountPicker: some View {
+    /// Order · Random · Mixed: three equally wide buttons that decide the order
+    /// and the spread of the sums, not what they are about. On Fractions and
+    /// Percentages the same three buttons carry different labels, because there
+    /// they change the kind of sum instead — see `MathTopic.modeOverride`.
+    ///
+    /// The label stays on one line and shrinks to fit, so a longer word in
+    /// another language still sits three abreast without shrinking the base
+    /// size of the shorter labels.
+    private var modePicker: some View {
         HStack(spacing: isPad ? 12 : 8) {
-            ForEach(CardCount.allCases) { option in
-                let isSelected = option == cardCount
+            ForEach(PracticeMode.allCases) { mode in
+                let isSelected = mode == practiceMode
                 Button {
                     AppAudio.shared.playMenuTap()
-                    cardCountRaw = option.rawValue
+                    // Tapping the one already chosen explains it instead of
+                    // re-selecting it, which would do nothing.
+                    if isSelected {
+                        showInfoPopup(header: L(key: mode.infoHeaderKey(for: topic)),
+                                      message: L(key: mode.infoKey(for: topic)),
+                                      anchorKey: "mode.\(mode.rawValue)")
+                    } else {
+                        infoPopup = nil
+                        practiceModeRaw = mode.rawValue
+                    }
                 } label: {
-                    Text(verbatim: L(key: "onboarding.cards.\(option.answerCards)"))
-                        // A shorter button with slightly larger type: the row
-                        // takes less of the menu card while the labels read
-                        // more like the topic titles above them.
+                    Text(verbatim: L(key: mode.titleKey(for: topic)))
                         .font(.system(size: isPad ? 20 : 14.5, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: isPad ? 48 : 37)
-                    .background(isSelected ? character.deepColor : .white.opacity(0.7),
-                                in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(character.deepColor.opacity(isSelected ? 0 : 0.25), lineWidth: 1)
-                    )
-                    .foregroundStyle(isSelected ? .white : character.deepColor)
-                    .animation(.snappy(duration: 0.2), value: isSelected)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: isPad ? 48 : 37)
+                        .padding(.horizontal, isPad ? 8 : 2)
+                        .background(isSelected ? character.deepColor : .white.opacity(0.7),
+                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(character.deepColor.opacity(isSelected ? 0 : 0.25), lineWidth: 1)
+                        )
+                        .foregroundStyle(isSelected ? .white : character.deepColor)
+                        .reportAnchor("mode.\(mode.rawValue)")
+                        .animation(.snappy(duration: 0.2), value: isSelected)
                 }
                 .buttonStyle(.plain)
-                .accessibilityIdentifier("card-count-\(option.answerCards)")
-                .accessibilityLabel(Text(verbatim: L(key: "onboarding.cards.\(option.answerCards)")))
+                .accessibilityIdentifier("mode-\(mode.rawValue)")
+                .accessibilityLabel(Text(verbatim: L(key: mode.titleKey(for: topic))))
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
             }
         }
@@ -543,13 +558,7 @@ struct HomeView: View {
                         mixedVariantRaw = variant.rawValue
                     }
                 } label: {
-                    HStack(spacing: isPad ? 7 : 5) {
-                        ForEach(variant.operators, id: \.self) { glyph in
-                            Text(verbatim: glyph)
-                                .font(.system(size: isPad ? 20 : 15,
-                                              weight: .heavy, design: .rounded))
-                        }
-                    }
+                    supermixLabel(variant)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .foregroundStyle(isSelected ? .white : character.deepColor)
@@ -566,6 +575,36 @@ struct HomeView: View {
                 .accessibilityIdentifier("supermix-\(variant.rawValue)")
                 .accessibilityLabel(Text(verbatim: variant.operators.joined(separator: " ")))
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            }
+        }
+    }
+
+    /// Every column reserves as many slots as its longest button needs — four
+    /// on the left (`+ − × ÷`), five on the right (`+ − × ÷ %`) — and a shorter
+    /// button centres itself inside them. That is what puts the operators the
+    /// two buttons in a column share directly underneath one another, instead
+    /// of letting each row pack tight against its own content.
+    ///
+    /// `%` reads optically heavier than the rest at the same point size, so it
+    /// gets its own smaller size and a narrower slot.
+    private func supermixLabel(_ variant: MixedVariant) -> some View {
+        let font = Font.system(size: isPad ? 20 : 15, weight: .heavy, design: .rounded)
+        let heavyFont = Font.system(size: isPad ? 16 : 12, weight: .heavy, design: .rounded)
+        let slotWidth: CGFloat = isPad ? 26 : 18
+        let active = variant.operators
+        let totalSlots = MixedVariant.slotCount(forColumnOf: variant)
+        // A shorter button sits in the middle of the reserved slots: "+ −"
+        // lands in slots 2 and 3 of 4, not at the front.
+        let offset = (totalSlots - active.count) / 2
+
+        return HStack(spacing: 2) {
+            ForEach(0..<totalSlots, id: \.self) { slot in
+                let index = slot - offset
+                let symbol = (index >= 0 && index < active.count) ? active[index] : ""
+                let heavy = MixedVariant.heavyOperatorGlyphs[symbol]
+                Text(verbatim: symbol)
+                    .font(heavy == nil ? font : heavyFont)
+                    .frame(width: slotWidth * (heavy ?? 1))
             }
         }
     }
@@ -774,6 +813,9 @@ struct HomeView: View {
     private static var cardSettleDelay: Double {
         LevelCardView.scoreCountDelay + LevelCardView.scoreCountDuration + 0.1
     }
+    /// Gives the springing max card, ferns and crown a clear beat on screen
+    /// before the reward bubble starts its flight to the topic total.
+    private static let maximumRevealPause = 0.9
     private static let flightDuration = 0.62
 
     /// The `(from, to, startedAt)` a header counter should use. It holds the
@@ -809,10 +851,15 @@ struct HomeView: View {
             .map { Progress.store.bestScore(board(for: $0)) } ?? 0
 
         if let levelID, levelNow > levelStart || totalCards > totalStart {
+            let level = LevelCatalog.level(id: levelID)
+            let revealsMaximum = level.map {
+                levelStart < board(for: $0).maximum && levelNow >= board(for: $0).maximum
+            } ?? false
             let celebration = ScoreCelebration(levelID: levelID,
                                                levelStart: levelStart,
                                                topicStart: topicStart,
-                                               totalStart: totalStart)
+                                               totalStart: totalStart,
+                                               revealsMaximum: revealsMaximum)
             self.celebration = celebration
             cardArrival = nil
             // The celebration now owns these values, and it starts from the
@@ -821,12 +868,14 @@ struct HomeView: View {
             AppAudio.shared.playCardCount()
             // The level card counts up on its own first; the reward only leaves
             // it once that has landed.
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.cardSettleDelay) {
+            let departureDelay = Self.cardSettleDelay
+                + (celebration.revealsMaximum ? Self.maximumRevealPause : 0)
+            DispatchQueue.main.asyncAfter(deadline: .now() + departureDelay) {
                 guard self.celebration?.id == celebration.id else { return }
                 self.launchCardFlight(for: celebration)
             }
             // Clear it once every part of the celebration has played out.
-            let lifetime = Self.cardSettleDelay + Self.flightDuration
+            let lifetime = departureDelay + Self.flightDuration
                 + Self.headerCountDuration + 0.35
             DispatchQueue.main.asyncAfter(deadline: .now() + lifetime) {
                 guard self.celebration?.id == celebration.id else { return }
@@ -907,7 +956,7 @@ struct HomeView: View {
 
         let full = board(for: levels[0]).maximum
         // One celebration from start to the moment the unlock sheet may appear.
-        let step = Self.cardSettleDelay + Self.flightDuration
+        let step = Self.cardSettleDelay + Self.maximumRevealPause + Self.flightDuration
             + Self.headerCountDuration + 0.6
 
         awardForSelfTest(levels[0], cards: full)

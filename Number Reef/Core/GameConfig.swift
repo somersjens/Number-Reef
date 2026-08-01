@@ -9,100 +9,77 @@
 
 import Foundation
 
-// MARK: - Card count (difficulty)
-
-/// How many answer cards are laid out per round. Fewer cards means fewer
-/// possible answers, so this doubles as the difficulty setting. The first case
-/// is the default everywhere: fewest cards, easiest game.
-public enum CardCount: Int, CaseIterable, Identifiable, Codable, Sendable {
-    case two = 2
-    case three = 3
-    case four = 4
-
-    public var id: Int { rawValue }
-
-    /// Number of answer cards shown.
-    public var answerCards: Int { rawValue }
-
-    /// Number of distractors needed (all cards but the correct one).
-    public var distractorCount: Int { rawValue - 1 }
-
-    /// Localization key for the difficulty label ("Easy" / "Medium" / "Hard").
-    public var difficultyKey: String {
-        switch self {
-        case .two: return "difficulty.easy"
-        case .three: return "difficulty.medium"
-        case .four: return "difficulty.hard"
-        }
-    }
-
-    /// Localization key for the one-line explanation under the label.
-    public var difficultyDetailKey: String {
-        switch self {
-        case .two: return "difficulty.easy.detail"
-        case .three: return "difficulty.medium.detail"
-        case .four: return "difficulty.hard.detail"
-        }
-    }
-
-    /// SF Symbol shown next to the option.
-    public var symbolName: String {
-        switch self {
-        case .two: return "leaf.fill"
-        case .three: return "shuffle"
-        case .four: return "bolt.fill"
-        }
-    }
-
-    public static func from(rawValue: Int) -> CardCount {
-        CardCount(rawValue: rawValue) ?? allCases[0]
-    }
-}
-
 // MARK: - Central configuration
 
 public enum GameConfig {
 
+    // MARK: Answers
+
+    /// How many answer bubbles a question offers. One fixed number for every
+    /// topic and every combination: the reef releases the same five answers,
+    /// over and over, for as long as the sum stands. It used to be a choice
+    /// between two, three and four, which made every level three separate
+    /// scoreboards aiming at three different targets — see `migrateToFixed
+    /// AnswerCount` for how those were merged back into one.
+    public static let answerBubbleCount = 5
+
+    /// Wrong answers a question must supply: every bubble but the right one.
+    public static var distractorCount: Int { answerBubbleCount - 1 }
+
     // MARK: Lives
 
-    /// Lives a session starts with. Lives are tracked internally in half units
-    /// so the flamethrower can cost exactly half a life.
+    /// Lives a session starts with. Lives are tracked internally in half units.
     public static let startingLives = 3.0
     /// A wrong answer costs one whole life.
     public static let wrongAnswerCost = 1.0
-    /// Using the flamethrower costs half a life.
-    public static let flamethrowerCost = 0.5
 
-    /// Internal granularity: everything is stored as an integer number of
-    /// halves, so no floating point rounding can ever strand the player on
-    /// 0.4999 lives.
+    /// Internal granularity: lives are stored as an integer number of halves,
+    /// so no floating point rounding can ever strand the player on 0.4999
+    /// lives.
     public static let lifeGranularity = 2
     public static var startingLifeHalves: Int { Int(startingLives * Double(lifeGranularity)) }
     public static var wrongAnswerCostHalves: Int { Int(wrongAnswerCost * Double(lifeGranularity)) }
-    public static var flamethrowerCostHalves: Int { Int(flamethrowerCost * Double(lifeGranularity)) }
 
     // MARK: Session
 
-    /// The session ends after this many rounds even if lives remain.
-    public static let maximumRounds = 20
+    /// A session ends when the board's own target is reached (`LevelBoard
+    /// .maximum`) or the lives run out — never on a flat round count, which is
+    /// what used to stop a 50-bubble board at around 24.
+    ///
+    /// Every round pays at least one bubble, so a board can always be filled
+    /// within `maximum` rounds. This is the ceiling across every board, used
+    /// only to sanity-check a stored session.
+    public static var maximumRoundCeiling: Int { supermixLevelMaximum }
 
-    // MARK: Special double card
-
-    /// Chance that an eligible round carries the thick double card.
-    public static let doubleCardProbability = 0.20
-    /// A double card is never offered before this many rounds have been played,
-    /// so the very first round always teaches the plain flow.
-    public static let doubleCardEarliestRound = 2
-    /// Hard ceiling on consecutive double cards, so a lucky streak cannot turn
-    /// the whole session into double rounds.
-    public static let doubleCardMaxConsecutive = 2
-    /// After this many plain rounds in a row the next eligible round is forced
-    /// to be a double card, so a player is never starved of them.
-    public static let doubleCardPityThreshold = 8
-    /// Cards awarded for a correct answer on a double card.
-    public static let doubleCardReward = 2
     /// Cards awarded for a correct answer on a normal card.
     public static let normalCardReward = 1
+
+    // MARK: Bonuses
+
+    /// Five correct answers in a row starts the fast 2x streak mode. It lasts
+    /// until the next wrong answer.
+    public static let streakThreshold = 5
+    public static let streakMultiplier = 2
+    public static let streakSpeedMultiplier = 1.5
+    /// The first mistake while the streak boost is active breaks the streak,
+    /// but only costs half a life instead of a full one.
+    public static let streakWrongAnswerCostHalves = 1
+
+    /// A 2x fish swims across the level this many times. Catching it doubles
+    /// the next correct answer; a missed fish simply leaves the screen.
+    public static let bonusFishCount = 1...3
+    public static let bonusFishMultiplier = 2
+
+    /// Once a player has been hurt, this many correct answers earn a chance to
+    /// catch a heart fish. Missing it does not throw the work away: four more
+    /// correct answers bring it back.
+    public static let heartFishCorrectAnswers = 8
+    public static let heartFishRetryCorrectAnswers = 4
+    /// A normal catch restores half a life. At the last half-heart it restores
+    /// a whole life, giving the player a meaningful comeback without ever
+    /// exceeding the three-life starting capacity.
+    public static let heartFishRecoveryHalves = 1
+    public static let criticalHeartFishRecoveryHalves = 2
 
     // MARK: Timing (seconds)
     //
@@ -116,8 +93,6 @@ public enum GameConfig {
     /// How long correct/wrong feedback stays on screen before the next round.
     public static let correctFeedbackDuration = 0.32
     public static let wrongFeedbackDuration = 0.55
-    /// Fire sweep across the wrong cards.
-    public static let flamethrowerDuration = 0.42
     /// Gap between feedback ending and the next round's closed cards appearing.
     public static let roundTransitionDuration = 0.12
 
@@ -161,23 +136,15 @@ public enum GameConfig {
 
     // MARK: Level progress
 
-    /// Every answer-card count is its own scoreboard, with its own target: ten
-    /// cards per answer card on the table, so two cards aim at 20, three at 30
-    /// and four at 40. A harder table is worth more, and the three scores never
-    /// mix with one another.
-    public static let levelMaximumPerAnswerCard = 10
+    /// What a full score is worth depends on the chosen exercise. Supermix is
+    /// intentionally the only route that goes all the way to 50 bubbles.
+    public static let orderLevelMaximum = 20
+    public static let randomLevelMaximum = 30
+    public static let mixedLevelMaximum = 40
+    public static let supermixLevelMaximum = 50
 
-    public static func levelMaximum(answerCards: Int) -> Int {
-        levelMaximumPerAnswerCard * max(1, answerCards)
-    }
-
-    public static func levelMaximum(cardCount: CardCount) -> Int {
-        levelMaximum(answerCards: cardCount.answerCards)
-    }
-
-    /// Supermix is the broadest exercise in the game and runs on its own scale:
-    /// every combination reaches for the same 50, whatever the card count.
-    public static let mixedLevelMaximum = 50
+    /// Default used by views before they receive their concrete board.
+    public static let levelMaximum = mixedLevelMaximum
 
     /// Ceiling on the "reached the maximum ×N" tally, so a long-lived save
     /// cannot grow the badge without bound.
@@ -190,5 +157,5 @@ public enum GameConfig {
     // MARK: Storage
 
     /// Bumped whenever the persisted shape changes; drives migration.
-    public static let storageVersion = 3
+    public static let storageVersion = 4
 }

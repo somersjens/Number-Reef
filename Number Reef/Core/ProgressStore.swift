@@ -45,41 +45,57 @@ public final class InMemoryKeyValueStore: KeyValueStore {
 
 // MARK: - Boards
 
-/// One scoreboard. A level does not have a single best: playing it with two,
-/// three or four answer cards are separate exercises, and on Supermix each
-/// combination of operations is separate again. Every one of those keeps its
-/// own best and its own "reached the maximum" tally.
+/// One scoreboard. A level does not have a single best: practising it in Order,
+/// Random or Mixed are separate exercises, and on Supermix each combination of
+/// operations is separate again. Every one of those keeps its own best and its
+/// own "reached the maximum" tally. Targets depend on the chosen exercise;
+/// only Supermix reaches 50 bubbles.
 public struct LevelBoard: Hashable, Sendable {
     public let level: MathLevel
-    public let cardCount: CardCount
     /// Only meaningful on Supermix; ignored for every single-operation topic.
     public let mixedVariant: MixedVariant
+    /// Which of the three order buttons was played. Supermix has none — its
+    /// four combinations replace them — so it always stores `.mixed`.
+    public let mode: PracticeMode
 
-    public init(level: MathLevel, cardCount: CardCount, mixedVariant: MixedVariant = .basic) {
+    public init(level: MathLevel,
+                mixedVariant: MixedVariant = .basic,
+                mode: PracticeMode = .mixed) {
         self.level = level
-        self.cardCount = cardCount
         self.mixedVariant = mixedVariant
+        self.mode = level.topic.usesSupermixGrid ? .mixed : mode
     }
 
-    /// The suffix that identifies this board in storage.
+    /// The suffix that identifies this board in storage. `.mixed` contributes
+    /// no suffix at all, so every score earned before the three buttons existed
+    /// stays exactly where it was — that is the route the game used to play.
     public var storageID: String {
         level.topic == .mixed
-            ? "\(level.id)+\(mixedVariant.rawValue).\(cardCount.answerCards)"
-            : "\(level.id).\(cardCount.answerCards)"
+            ? "\(level.id)+\(mixedVariant.rawValue)"
+            : "\(level.id)\(mode.idSuffix)"
     }
 
-    /// What a full score is worth here.
+    /// What a full score is worth on this board.
     public var maximum: Int {
-        level.topic == .mixed
-            ? GameConfig.mixedLevelMaximum
-            : GameConfig.levelMaximum(cardCount: cardCount)
+        if level.topic.usesSupermixGrid { return GameConfig.supermixLevelMaximum }
+
+        switch mode {
+        case .order:  return GameConfig.orderLevelMaximum
+        case .random: return GameConfig.randomLevelMaximum
+        case .mixed:  return GameConfig.mixedLevelMaximum
+        }
     }
 
     /// Every board a level has, which is what the topic and menu totals add up.
+    /// Nothing may fall out of this list: a score earned in another mode or on
+    /// another Supermix combination must never look lost.
     public static func all(for level: MathLevel) -> [LevelBoard] {
         let variants: [MixedVariant] = level.topic == .mixed ? MixedVariant.allCases : [.basic]
-        return CardCount.allCases.flatMap { cards in
-            variants.map { LevelBoard(level: level, cardCount: cards, mixedVariant: $0) }
+        let modes: [PracticeMode] = level.topic.usesSupermixGrid
+            ? [.mixed]
+            : PracticeMode.allCases
+        return variants.flatMap { variant in
+            modes.map { LevelBoard(level: level, mixedVariant: variant, mode: $0) }
         }
     }
 }
@@ -94,8 +110,8 @@ public final class ProgressStore {
         public static let totalCards = "progress.totalCards"
         public static let selectedTopic = "settings.topic"
         public static let selectedLevel = "settings.level"
-        public static let cardCount = "settings.cardCount"
         public static let mixedVariant = "settings.mixedVariant"
+        public static let practiceMode = "settings.practiceMode"
         public static let characterID = "settings.character"
         public static let playerName = "profile.playerName"
         public static let onboardingComplete = "onboarding.complete"
@@ -116,6 +132,10 @@ public final class ProgressStore {
 
         /// Version 2 kept one best per level, regardless of the card count.
         static func legacyBest(_ levelID: String) -> String { "best.\(levelID)" }
+
+        /// Version 3 appended the answer-card count to every board key.
+        static let legacyCardCounts = [2, 3, 4]
+        static let legacySelectedCardCount = "settings.cardCount"
 
         // Jumping Fox keys, read once during migration.
         public enum Legacy {
@@ -158,35 +178,81 @@ public final class ProgressStore {
         if stored < 2 {
             migrateFromJumpingFox()
         }
-        if stored < 3 {
-            migrateBestsToPerCardCount()
+        if stored < 4 {
+            migrateToFixedAnswerCount(from: stored)
         }
 
         defaults.set(GameConfig.storageVersion, forKey: Key.storageVersion)
         return GameConfig.storageVersion
     }
 
-    /// Version 2 stored one best per level, with no card count and, on
-    /// Supermix, no combination. Those runs cannot be attributed after the
-    /// fact, so they land on the first board — the one every player starts on —
-    /// rather than being thrown away.
-    private func migrateBestsToPerCardCount() {
+    /// Version 3 gave every level three scoreboards — one per answer-card
+    /// count — each aiming at its own target (20, 30, 40). There is now one
+    /// board per level and mode, always five bubbles, always aiming at 50.
+    ///
+    /// The three old boards are folded into one by keeping the **highest** of
+    /// them. Summing them would invent a score the player never reached in a
+    /// single run, and picking one would throw the other two away; the best of
+    /// the three is the one result they genuinely achieved. The same rule
+    /// applies to the "reached the maximum" tally.
+    ///
+    /// Version 2, older still, kept a single best per level with no card count
+    /// at all. For every topic but Supermix that key is *already* the new one,
+    /// so it is left where it is; a Supermix score has no combination attached
+    /// and cannot be attributed after the fact, so it lands on the first one.
+    private func migrateToFixedAnswerCount(from stored: Int) {
         for topic in MathTopic.allCases {
             for index in 1...GameConfig.maximumLevel {
                 let level = MathLevel(topic: topic, index: index)
-                let legacyKey = Key.legacyBest(level.id)
-                let legacy = defaults.integer(forKey: legacyKey)
-                defaults.removeObject(forKey: legacyKey)
-                guard legacy > 0 else { continue }
-                let board = LevelBoard(level: level,
-                                       cardCount: CardCount.allCases[0],
-                                       mixedVariant: MixedVariant.allCases[0])
-                let key = Key.best(board)
-                if legacy > defaults.integer(forKey: key) {
-                    defaults.set(min(legacy, board.maximum), forKey: key)
+
+                if stored < 3, topic.usesSupermixGrid {
+                    let legacyKey = Key.legacyBest(level.id)
+                    let legacy = defaults.integer(forKey: legacyKey)
+                    defaults.removeObject(forKey: legacyKey)
+                    if legacy > 0 {
+                        let board = LevelBoard(level: level,
+                                               mixedVariant: MixedVariant.allCases[0])
+                        raise(key: Key.best(board), to: legacy, ceiling: board.maximum)
+                    }
+                }
+
+                for board in LevelBoard.all(for: level) {
+                    fold(intoKey: Key.best(board),
+                         from: board.storageID,
+                         prefix: "best.",
+                         ceiling: board.maximum)
+                    fold(intoKey: Key.maxCompletions(board),
+                         from: board.storageID,
+                         prefix: "max-completions.",
+                         ceiling: GameConfig.maximumCompletionCount)
                 }
             }
         }
+
+        // A run paused mid-level belonged to a board that no longer exists, and
+        // was played against a different target on a different number of
+        // bubbles. There is nothing coherent to resume, so the records go.
+        defaults.removeObject(forKey: PausedSessionStore.key)
+        defaults.removeObject(forKey: Key.legacySelectedCardCount)
+    }
+
+    /// Merges the three per-card-count keys of one board into its single new
+    /// key, keeping the highest value, and clears the old ones.
+    private func fold(intoKey key: String, from storageID: String,
+                      prefix: String, ceiling: Int) {
+        var best = defaults.integer(forKey: key)
+        for cards in Key.legacyCardCounts {
+            let legacyKey = "\(prefix)\(storageID).\(cards)"
+            best = max(best, defaults.integer(forKey: legacyKey))
+            defaults.removeObject(forKey: legacyKey)
+        }
+        raise(key: key, to: best, ceiling: ceiling)
+    }
+
+    private func raise(key: String, to value: Int, ceiling: Int) {
+        let capped = min(max(0, value), ceiling)
+        guard capped > 0, capped > defaults.integer(forKey: key) else { return }
+        defaults.set(capped, forKey: key)
     }
 
     /// Jumping Fox stored a trophy total, per-level trophy bests keyed by its
@@ -269,7 +335,10 @@ public final class ProgressStore {
     // MARK: - Personal bests
 
     public func bestScore(_ board: LevelBoard) -> Int {
-        mergedValue(forKey: Key.best(board))
+        // Existing saves may contain scores earned before this board received
+        // its shorter target. Keep them for syncing, but never present more
+        // bubbles than the board can now hold.
+        min(mergedValue(forKey: Key.best(board)), board.maximum)
     }
 
     /// Every board a level has been played on, added up. The topic and the menu
@@ -355,12 +424,12 @@ public final class ProgressStore {
         set { defaults.set(newValue.rawValue, forKey: Key.mixedVariant) }
     }
 
-    public var cardCount: CardCount {
-        get {
-            let stored = defaults.integer(forKey: Key.cardCount)
-            return CardCount(rawValue: stored) ?? CardCount.allCases[0]
-        }
-        set { defaults.set(newValue.rawValue, forKey: Key.cardCount) }
+    /// Which of the three order buttons is selected. A player who has never
+    /// chosen lands on the route the game generated before the buttons existed,
+    /// so their existing scores stay on the board they are looking at.
+    public var practiceMode: PracticeMode {
+        get { PracticeMode.from(rawValue: defaults.string(forKey: Key.practiceMode)) }
+        set { defaults.set(newValue.rawValue, forKey: Key.practiceMode) }
     }
 
     public var level: MathLevel {

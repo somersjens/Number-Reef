@@ -9,6 +9,10 @@
 //  This type is deliberately free of SwiftUI and of timers: the view drives it
 //  with explicit calls and asks it what to show. That keeps it fully testable.
 //
+//  The reef scene uses the same state machine: it opens a round straight
+//  through `turnCardsOver` and `beginAnswering` — there is nothing to memorise
+//  under water — and then hands over whichever answer bubble the fish touched.
+//
 
 import Foundation
 
@@ -42,8 +46,8 @@ public enum GameOverReason: String, Equatable, Sendable {
 
 /// What resolving a tap produced, so the view knows which feedback to play.
 public enum AnswerOutcome: Equatable, Sendable {
-    case correct(cardsEarned: Int, wasDoubleCard: Bool)
-    case wrong(correctOptionID: UUID)
+    case correct(cardsEarned: Int, usedBonusFish: Bool, startedStreak: Bool)
+    case wrong(correctOptionID: UUID, lostHalfLife: Bool)
     /// The tap was ignored (wrong state, or the round was already answered).
     case ignored
 }
@@ -54,10 +58,11 @@ public struct SessionResult: Equatable, Sendable {
     public var correctAnswers = 0
     public var wrongAnswers = 0
     public var cardsEarned = 0
-    /// Cards that came from double cards over and above the normal reward.
+    /// Cards awarded over and above the normal one-bubble reward.
     public var bonusCards = 0
+    /// Kept under its persisted name for save compatibility; now counts caught
+    /// 2x fish whose bonus was paid out.
     public var doubleCardsAnswered = 0
-    public var flamethrowersUsed = 0
     public var isNewPersonalBest = false
     public var previousPersonalBest = 0
     public var unlockedCharacterIDs: [String] = []
@@ -72,7 +77,6 @@ public final class MemoryGame {
     // MARK: Configuration
 
     public let level: MathLevel
-    public let cardCount: CardCount
     /// Which scoreboard this session plays on, so a paused run can only ever be
     /// resumed onto the exact board it came from.
     public let board: LevelBoard
@@ -90,16 +94,22 @@ public final class MemoryGame {
     public private(set) var cards = 0
     /// Lives in half units. 6 == three lives.
     public private(set) var lifeHalves = GameConfig.startingLifeHalves
-    /// Options burned away by the flamethrower this round.
-    public private(set) var burnedOptionIDs: Set<UUID> = []
     /// The option the player tapped this round, if any.
     public private(set) var selectedOptionID: UUID?
     public private(set) var lastOutcome: AnswerOutcome?
     public private(set) var result = SessionResult()
-    public private(set) var isFlamethrowerUsedThisRound = false
+    public private(set) var correctStreak = 0
+    public private(set) var heartFishProgress = 0
+    public private(set) var heartFishTarget = GameConfig.heartFishCorrectAnswers
+    public private(set) var isHeartFishAvailable = false
 
     /// Set once the session is over; nil while playing.
     public private(set) var gameOverReason: GameOverReason?
+
+    /// A wrong answer costs a life but leaves the sum standing: the coral keeps
+    /// offering the same answers until the right one is caught. Only a correct
+    /// answer moves the session on to the next sum.
+    private var repeatsRound = false
 
     // MARK: Derived
 
@@ -107,10 +117,13 @@ public final class MemoryGame {
         Double(lifeHalves) / Double(GameConfig.lifeGranularity)
     }
 
-    public var maximumRounds: Int { GameConfig.maximumRounds }
+    /// Rounds this board can run to. Every round pays at least one bubble, so
+    /// the target is always reachable inside this many.
+    public var maximumRounds: Int { board.maximum }
 
     /// Whether a tap on an answer card can be accepted right now.
     public var acceptsInput: Bool { state == .answering }
+    public var isStreakBoostActive: Bool { correctStreak >= GameConfig.streakThreshold }
 
     /// Whether the answer values are readable. They are during the memorising
     /// beat, and again while the round resolves so the player can see what they
@@ -125,28 +138,19 @@ public final class MemoryGame {
         state != .intro && state != .memorising
     }
 
-    /// The flamethrower needs at least half a life left, may be used once per
-    /// round, and only while the answer cards are live. There must also be
-    /// something to burn — it does nothing on a single remaining card.
-    public var canUseFlamethrower: Bool {
-        state == .answering
-            && !isFlamethrowerUsedThisRound
-            && lifeHalves >= GameConfig.flamethrowerCostHalves
-            && (round?.options.count ?? 0) > 1
-    }
-
     // MARK: Init
 
     public init(level: MathLevel,
-                cardCount: CardCount,
                 mixedVariant: MixedVariant = .all,
+                mode: PracticeMode = .mixed,
                 seed: UInt64? = nil) {
         self.level = level
-        self.cardCount = cardCount
-        self.board = LevelBoard(level: level, cardCount: cardCount, mixedVariant: mixedVariant)
+        self.board = LevelBoard(level: level,
+                                mixedVariant: mixedVariant,
+                                mode: mode)
         self.factory = RoundFactory(level: level,
-                                    cardCount: cardCount,
                                     mixedVariant: mixedVariant,
+                                    mode: board.mode,
                                     seed: seed)
     }
 
@@ -175,8 +179,11 @@ public final class MemoryGame {
         result.wrongAnswers = session.wrongAnswers
         result.doubleCardsAnswered = session.doubleCardsAnswered
         result.bonusCards = session.bonusCards
-        result.flamethrowersUsed = session.flamethrowersUsed
         result.cardsEarned = session.cards
+        correctStreak = session.correctStreak ?? 0
+        heartFishProgress = session.heartFishProgress ?? 0
+        heartFishTarget = session.heartFishTarget ?? GameConfig.heartFishCorrectAnswers
+        isHeartFishAvailable = session.isHeartFishAvailable ?? false
         round = factory.makeRound(number: roundNumber)
         preparedRound = factory.makeRound(number: roundNumber + 1)
         state = .memorising
@@ -185,10 +192,9 @@ public final class MemoryGame {
 
     /// A snapshot of the session as it stands, for storing when the player
     /// leaves. Nil once the session is over — there is nothing to come back to.
-    public func pausedSession() -> PausedSession? {
+    public func pausedSession(hasBonusFishPower: Bool = false) -> PausedSession? {
         guard state != .intro, state != .gameOver else { return nil }
         return PausedSession(boardID: board.storageID,
-                             cardCount: cardCount.rawValue,
                              roundNumber: roundNumber,
                              cards: cards,
                              lifeHalves: lifeHalves,
@@ -196,7 +202,13 @@ public final class MemoryGame {
                              wrongAnswers: result.wrongAnswers,
                              doubleCardsAnswered: result.doubleCardsAnswered,
                              bonusCards: result.bonusCards,
-                             flamethrowersUsed: result.flamethrowersUsed)
+                             // Legacy field: the helper it counted is gone.
+                             flamethrowersUsed: 0,
+                             correctStreak: correctStreak,
+                             hasBonusFishPower: hasBonusFishPower,
+                             heartFishProgress: heartFishProgress,
+                             heartFishTarget: heartFishTarget,
+                             isHeartFishAvailable: isHeartFishAvailable)
     }
 
     /// The tap that turns the answer cards face down and brings the question
@@ -223,11 +235,10 @@ public final class MemoryGame {
     /// state — a second tap on the same round, a tap during feedback, a tap on
     /// a burned card — is ignored without touching score or lives.
     @discardableResult
-    public func select(optionID: UUID) -> AnswerOutcome {
+    public func select(optionID: UUID, usesBonusFish: Bool = false) -> AnswerOutcome {
         guard state == .answering,
               let round,
               selectedOptionID == nil,
-              !burnedOptionIDs.contains(optionID),
               let option = round.options.first(where: { $0.id == optionID })
         else {
             // Deliberately leaves `lastOutcome` alone: an ignored tap must not
@@ -241,38 +252,62 @@ public final class MemoryGame {
 
         let outcome: AnswerOutcome
         if option.isCorrect {
-            let earned = round.reward
+            let streakWasActive = isStreakBoostActive
+            let fishMultiplier = usesBonusFish ? GameConfig.bonusFishMultiplier : 1
+            let streakMultiplier = streakWasActive ? GameConfig.streakMultiplier : 1
+            let earned = GameConfig.normalCardReward * fishMultiplier * streakMultiplier
             cards += earned
             result.correctAnswers += 1
             result.cardsEarned += earned
-            if round.isDoubleCard {
+            if usesBonusFish {
                 result.doubleCardsAnswered += 1
-                result.bonusCards += earned - GameConfig.normalCardReward
             }
-            outcome = .correct(cardsEarned: earned, wasDoubleCard: round.isDoubleCard)
+            result.bonusCards += earned - GameConfig.normalCardReward
+            correctStreak += 1
+            advanceHeartFishProgressIfNeeded()
+            let startedStreak = !streakWasActive && isStreakBoostActive
+            outcome = .correct(cardsEarned: earned,
+                               usedBonusFish: usesBonusFish,
+                               startedStreak: startedStreak)
         } else {
+            let streakWasActive = isStreakBoostActive
             result.wrongAnswers += 1
-            spendLifeHalves(GameConfig.wrongAnswerCostHalves)
-            outcome = .wrong(correctOptionID: round.correctOption?.id ?? optionID)
+            correctStreak = 0
+            spendLifeHalves(streakWasActive
+                            ? GameConfig.streakWrongAnswerCostHalves
+                            : GameConfig.wrongAnswerCostHalves)
+            // The sum stays on the coral; `advance` puts this very round back
+            // into play instead of installing the next one.
+            repeatsRound = true
+            outcome = .wrong(correctOptionID: round.correctOption?.id ?? optionID,
+                             lostHalfLife: streakWasActive)
         }
         lastOutcome = outcome
         return outcome
     }
 
-    /// Burns every wrong card for half a life. Returns the burned card ids, or
-    /// nil when the helper is not available — a rapid second tap therefore
-    /// costs nothing and burns nothing.
+    /// Restores life when the passing heart fish is caught. The return value is
+    /// the number of half-hearts restored, or zero when the catch was stale.
     @discardableResult
-    public func useFlamethrower() -> Set<UUID>? {
-        guard canUseFlamethrower, let round else { return nil }
-        // Mark it spent before deducting, so two taps in the same frame cannot
-        // both pass the guard.
-        isFlamethrowerUsedThisRound = true
-        let burned = Set(round.options.filter { !$0.isCorrect }.map(\.id))
-        burnedOptionIDs = burned
-        result.flamethrowersUsed += 1
-        spendLifeHalves(GameConfig.flamethrowerCostHalves)
-        return burned
+    public func catchHeartFish() -> Int {
+        guard isHeartFishAvailable,
+              lifeHalves > 0,
+              lifeHalves < GameConfig.startingLifeHalves else { return 0 }
+        let recovery = lifeHalves == 1
+            ? GameConfig.criticalHeartFishRecoveryHalves
+            : GameConfig.heartFishRecoveryHalves
+        let previous = lifeHalves
+        lifeHalves = min(GameConfig.startingLifeHalves, lifeHalves + recovery)
+        resetHeartFishProgress()
+        return lifeHalves - previous
+    }
+
+    /// A missed heart fish returns after four more correct answers, rather than
+    /// making the player repeat the full eight-answer charge.
+    public func missHeartFish() {
+        guard isHeartFishAvailable else { return }
+        isHeartFishAvailable = false
+        heartFishTarget = heartFishProgress + GameConfig.heartFishRetryCorrectAnswers
     }
 
     // MARK: - Round transitions
@@ -285,7 +320,8 @@ public final class MemoryGame {
         return true
     }
 
-    /// Installs the next round, or ends the session. Returns the new state.
+    /// Installs the next round, puts the current one back into play after a
+    /// wrong answer, or ends the session. Returns the new state.
     @discardableResult
     public func advance() -> GameState {
         guard state == .roundComplete else { return state }
@@ -294,7 +330,22 @@ public final class MemoryGame {
             finish(reason: .outOfLives)
             return state
         }
-        if roundNumber >= GameConfig.maximumRounds {
+        // A missed answer does not use up a round: the same sum comes straight
+        // back, with the life already paid for it.
+        if repeatsRound {
+            repeatsRound = false
+            selectedOptionID = nil
+            lastOutcome = nil
+            state = .answering
+            return state
+        }
+        // The board is full: this is what "level complete" means, and it is
+        // what the target quoted on the start and result cards refers to.
+        if cards >= board.maximum {
+            finish(reason: .roundsCompleted)
+            return state
+        }
+        if roundNumber >= maximumRounds {
             finish(reason: .roundsCompleted)
             return state
         }
@@ -304,8 +355,6 @@ public final class MemoryGame {
         // Build the round after next while the player is looking at this one.
         preparedRound = factory.makeRound(number: roundNumber + 1)
         selectedOptionID = nil
-        burnedOptionIDs.removeAll()
-        isFlamethrowerUsedThisRound = false
         lastOutcome = nil
         state = .memorising
         return state
@@ -320,7 +369,25 @@ public final class MemoryGame {
     // MARK: - Private
 
     private func spendLifeHalves(_ halves: Int) {
+        let wasFull = lifeHalves == GameConfig.startingLifeHalves
         lifeHalves = max(0, lifeHalves - halves)
+        if wasFull && lifeHalves > 0 { resetHeartFishProgress() }
+    }
+
+    private func advanceHeartFishProgressIfNeeded() {
+        guard lifeHalves > 0,
+              lifeHalves < GameConfig.startingLifeHalves,
+              !isHeartFishAvailable else { return }
+        heartFishProgress += 1
+        if heartFishProgress >= heartFishTarget {
+            isHeartFishAvailable = true
+        }
+    }
+
+    private func resetHeartFishProgress() {
+        heartFishProgress = 0
+        heartFishTarget = GameConfig.heartFishCorrectAnswers
+        isHeartFishAvailable = false
     }
 
     private func finish(reason: GameOverReason) {

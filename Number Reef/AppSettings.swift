@@ -31,8 +31,8 @@ enum GameSettings {
     static let totalCardsKey = ProgressStore.Key.totalCards
     static let topicKey = ProgressStore.Key.selectedTopic
     static let levelKey = ProgressStore.Key.selectedLevel
-    static let cardCountKey = ProgressStore.Key.cardCount
     static let mixedVariantKey = ProgressStore.Key.mixedVariant
+    static let practiceModeKey = ProgressStore.Key.practiceMode
     static let gameSoundsEnabledKey = ProgressStore.Key.gameSoundsEnabled
     static let musicEnabledKey = ProgressStore.Key.musicEnabled
 

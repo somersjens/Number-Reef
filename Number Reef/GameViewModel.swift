@@ -3,7 +3,7 @@
 //  Elephant Challenge: Math Memory
 //
 //  The bridge between the pure `MemoryGame` engine and SwiftUI. It owns the
-//  timing of a round (flip → answers → feedback → next round), the audio and
+//  timing of a round (sum → answers → feedback → next sum), the audio and
 //  haptics, and the persistence of a finished session.
 //
 //  It never re-implements a rule: every tap is forwarded to the engine, and the
@@ -29,42 +29,33 @@ final class GameViewModel: ObservableObject {
     @Published private(set) var cards = 0
     @Published private(set) var livesRemaining = GameConfig.startingLives
     @Published private(set) var selectedOptionID: UUID?
-    @Published private(set) var burnedOptionIDs: Set<UUID> = []
-    @Published private(set) var canUseFlamethrower = false
     @Published private(set) var isGameOver = false
     @Published private(set) var result = SessionResult()
-    /// Brief highlight while the fire animation plays.
-    @Published private(set) var isFiring = false
+    @Published private(set) var hasBonusFishPower = false
+    @Published private(set) var correctStreak = 0
+    @Published private(set) var isStreakBoostActive = false
+    @Published private(set) var isHeartFishAvailable = false
+    /// Changes each time the streak boost starts, allowing the view to replay
+    /// its bubble-style announcement even after an earlier streak was broken.
+    @Published private(set) var streakAnnouncementID = 0
 
     /// Invalidates pending timed work when a round is superseded (restart, or
     /// leaving the screen), so a late callback can never touch a newer round.
     private var generation = 0
     private var hasRecordedResult = false
+    private var isPaused = false
+    /// A round-resolution callback that became due while the pause card was
+    /// covering the reef. It runs once on continue instead of behind the card.
+    private var pendingScheduledWork: (() -> Void)?
 
-    var maximumRounds: Int { GameConfig.maximumRounds }
-    var acceptsInput: Bool { state == .answering }
-    /// The answer cards are on the table for the whole round — they are only
-    /// ever face up or face down, never absent.
-    var showsAnswers: Bool { state != .intro }
-    /// Whether the answers are readable: during the memorising beat, and again
-    /// while the round resolves so the player sees where the right card was.
-    var showsAnswerValues: Bool { engine.showsAnswerValues }
-    /// Whether the question is readable. It replaces the answers rather than
-    /// sitting alongside them, which is what makes this a memory game.
-    var showsQuestion: Bool { engine.showsQuestion }
-    /// The correct card is highlighted after a wrong answer, and after the
-    /// flamethrower has burned everything else away.
-    var revealsCorrectAnswer: Bool {
-        if case .wrong = engine.lastOutcome { return true }
-        if case .correct = engine.lastOutcome { return true }
-        return !burnedOptionIDs.isEmpty
-    }
+    var maximumRounds: Int { engine.maximumRounds }
+    var acceptsInput: Bool { state == .answering && !isPaused }
 
     init(request: GameSessionRequest) {
         self.request = request
         self.engine = MemoryGame(level: request.level,
-                            cardCount: request.cardCount,
-                            mixedVariant: request.mixedVariant)
+                            mixedVariant: request.mixedVariant,
+                            mode: request.mode)
     }
 
     // MARK: - Lifecycle
@@ -72,26 +63,31 @@ final class GameViewModel: ObservableObject {
     /// Starts the level, resuming a paused session when one is waiting.
     func begin() {
         guard engine.state == .intro else { return }
+        isPaused = false
         PlaytimeTracker.shared.challengeStarted()
         AppAudio.shared.setGameplayActive(true, questionText: nil)
         AppAudio.shared.playSessionStart()
         if let paused = PausedSessionStore.shared.session(request.board) {
             engine.resume(from: paused)
+            hasBonusFishPower = paused.hasBonusFishPower ?? false
         } else {
             engine.start()
         }
+        openRound()
         announceRound()
         sync()
     }
 
-    /// The double card gets its own arrival sound, so the thicker card is
-    /// noticed while the answers are still readable.
+    /// Opens a round for play. Under water there is nothing to memorise: the
+    /// sum stands on the coral from the first frame, so the round goes straight
+    /// through to accepting an answer.
+    private func openRound() {
+        engine.turnCardsOver()
+        engine.beginAnswering()
+    }
+
     private func announceRound() {
-        if engine.round?.isDoubleCard == true {
-            AppAudio.shared.playDoubleCardAppear()
-        } else {
-            AppAudio.shared.playCardReveal()
-        }
+        AppAudio.shared.playCardReveal()
     }
 
     func end() {
@@ -100,7 +96,35 @@ final class GameViewModel: ObservableObject {
         recordResultIfNeeded()
         PlaytimeTracker.shared.challengeEnded()
         AppAudio.shared.setGameplayActive(false, questionText: nil)
+        AppAudio.shared.setGameplayRate(1)
         generation &+= 1
+        pendingScheduledWork = nil
+    }
+
+    /// Temporarily stops an active run without ending it. The snapshot also
+    /// makes the same run available if the player chooses the main menu from
+    /// the pause card instead of continuing immediately.
+    func pause() {
+        guard engine.state != .gameOver else { return }
+        isPaused = true
+        savePausedSessionIfNeeded()
+        PlaytimeTracker.shared.challengeEnded()
+        AppAudio.shared.setGameplayActive(false, questionText: nil)
+        AppAudio.shared.setGameplayRate(1)
+    }
+
+    /// Continues the in-memory run after its pause card. No round is rebuilt,
+    /// so the player returns to the exact question, score and remaining lives.
+    func resume() {
+        guard engine.state != .intro, engine.state != .gameOver else { return }
+        isPaused = false
+        PlaytimeTracker.shared.challengeStarted()
+        AppAudio.shared.setGameplayActive(true, questionText: nil)
+        AppAudio.shared.setGameplayRate(isStreakBoostActive
+                                        ? Float(GameConfig.streakSpeedMultiplier) : 1)
+        let work = pendingScheduledWork
+        pendingScheduledWork = nil
+        work?()
     }
 
     /// The close button: the level is put on pause with its cards intact, and
@@ -119,7 +143,9 @@ final class GameViewModel: ObservableObject {
     /// storing it would only put a pause marker on the menu for a level the
     /// player would restart from zero anyway.
     private func savePausedSessionIfNeeded() {
-        guard !hasRecordedResult, let paused = engine.pausedSession() else { return }
+        guard !hasRecordedResult,
+              let paused = engine.pausedSession(hasBonusFishPower: hasBonusFishPower)
+        else { return }
         guard paused.cards > 0 else {
             PausedSessionStore.shared.clear(request.board)
             return
@@ -132,99 +158,116 @@ final class GameViewModel: ObservableObject {
     func restart() {
         generation &+= 1
         hasRecordedResult = false
+        isPaused = false
+        pendingScheduledWork = nil
         PausedSessionStore.shared.clear(request.board)
         engine = MemoryGame(level: request.level,
-                            cardCount: request.cardCount,
-                            mixedVariant: request.mixedVariant)
+                            mixedVariant: request.mixedVariant,
+                            mode: request.mode)
         engine.start()
+        hasBonusFishPower = false
+        streakAnnouncementID = 0
         AppAudio.shared.playSessionStart()
+        openRound()
         announceRound()
         sync()
     }
 
     // MARK: - Round flow
 
-    /// The tap that ends the memorising beat: the answer cards turn face down
-    /// and the question comes up in their place.
-    func turnCardsOver() {
-        guard engine.turnCardsOver() else { return }
+    /// Forwards an answer bubble the fish touched. The engine decides whether
+    /// it counts; a touch that arrives while feedback is still playing comes
+    /// back as `.ignored` and changes nothing at all. The returned flag tells
+    /// the reef whether to burst the bubble.
+    @discardableResult
+    func select(optionID: UUID) -> Bool {
+        let outcome = engine.select(optionID: optionID,
+                                    usesBonusFish: hasBonusFishPower)
+        guard outcome != .ignored else { return false }
         // Every real interaction advances the playtime clock. Without these the
-        // tracker only ever sees one gap from the first tap to the last, which
-        // its idle limit then discards — a whole session counting as no time.
-        PlaytimeTracker.shared.registerInteraction()
-        AppAudio.shared.playCardFlip()
-        haptic(.light)
-        sync()
-
-        let token = generation
-        // Input opens as soon as the cards have finished turning; the question
-        // is readable from that moment on.
-        schedule(after: GameConfig.cardFlipDuration, token: token) { [weak self] in
-            guard let self, self.engine.beginAnswering() else { return }
-            self.sync()
-        }
-    }
-
-    /// Forwards a card tap. The engine decides whether it counts; a repeat tap
-    /// comes back as `.ignored` and changes nothing at all.
-    func select(optionID: UUID) {
-        let outcome = engine.select(optionID: optionID)
-        guard outcome != .ignored else { return }
+        // tracker only ever sees one gap from the first touch to the last,
+        // which its idle limit then discards — a whole session counting as no
+        // time.
         PlaytimeTracker.shared.registerInteraction()
         sync()
 
         let token = generation
         let delay: Double
         switch outcome {
-        case .correct(_, let wasDouble):
+        case .correct(_, let usedBonusFish, let startedStreak):
             AppAudio.shared.playCorrect()
-            if wasDouble { AppAudio.shared.playDoubleScore() }
+            if usedBonusFish {
+                hasBonusFishPower = false
+                AppAudio.shared.playDoubleScore()
+            }
+            if startedStreak {
+                streakAnnouncementID &+= 1
+                AppAudio.shared.playDoubleScore()
+            }
             haptic(.success)
             delay = GameConfig.nextRoundDelay.correct
-        case .wrong:
+        case .wrong(_, let lostHalfLife):
             AppAudio.shared.playWrong()
-            AppAudio.shared.playLifeLost()
+            if lostHalfLife {
+                AppAudio.shared.playHalfLife()
+            } else {
+                AppAudio.shared.playLifeLost()
+            }
             haptic(.error)
             delay = GameConfig.nextRoundDelay.wrong
         case .ignored:
-            return
+            return false
         }
 
         schedule(after: delay, token: token) { [weak self] in
             guard let self else { return }
             guard self.engine.finishResolving() else { return }
+            let previousRoundID = self.engine.round?.id
             self.engine.advance()
             if self.engine.state == .gameOver {
                 self.finishSession()
-            } else {
+            } else if self.engine.round?.id != previousRoundID {
+                // A new sum is announced and opened. A wrong answer leaves the
+                // same sum in place, and play simply resumes.
                 self.announceRound()
+                self.openRound()
             }
             self.sync()
         }
+        return true
     }
 
-    /// Burns the wrong cards for half a life. The engine's guard makes a second
-    /// tap free, so hammering the button can never charge twice.
-    func useFlamethrower() {
-        guard engine.useFlamethrower() != nil else { return }
-        PlaytimeTracker.shared.registerInteraction()
-        AppAudio.shared.playFlamethrower()
-        AppAudio.shared.playHalfLife()
+    /// Called by the reef when the player catches the passing 2x fish. Multiple
+    /// catches do not stack: one aura always represents one doubled answer.
+    func catchBonusFish() {
+        guard !hasBonusFishPower else { return }
+        hasBonusFishPower = true
+        AppAudio.shared.playDoubleCardAppear()
         haptic(.rigid)
-        withAnimation(.easeOut(duration: GameConfig.flamethrowerDuration)) { isFiring = true }
-        sync()
+    }
 
-        let token = generation
-        // The flame flourish never blocks input: the single remaining card is
-        // tappable throughout.
-        schedule(after: GameConfig.flamethrowerDuration, token: token) { [weak self] in
-            withAnimation(.easeOut(duration: 0.2)) { self?.isFiring = false }
-        }
+    /// The heart fish is a direct life reward, not a power held for the next
+    /// answer, so the engine applies it immediately.
+    @discardableResult
+    func catchHeartFish() -> Bool {
+        let restoredHalves = engine.catchHeartFish()
+        guard restoredHalves > 0 else { return false }
+        PlaytimeTracker.shared.registerInteraction()
+        sync()
+        AppAudio.shared.playLifeRestored()
+        haptic(.success)
+        return true
+    }
+
+    func missHeartFish() {
+        engine.missHeartFish()
+        sync()
     }
 
     // MARK: - Finishing
 
     private func finishSession() {
+        AppAudio.shared.setGameplayRate(1)
         recordResultIfNeeded()
     }
 
@@ -284,9 +327,12 @@ final class GameViewModel: ObservableObject {
         cards = engine.cards
         livesRemaining = engine.livesRemaining
         selectedOptionID = engine.selectedOptionID
-        burnedOptionIDs = engine.burnedOptionIDs
-        canUseFlamethrower = engine.canUseFlamethrower
         isGameOver = engine.state == .gameOver
+        correctStreak = engine.correctStreak
+        isStreakBoostActive = engine.isStreakBoostActive
+        isHeartFishAvailable = engine.isHeartFishAvailable
+        AppAudio.shared.setGameplayRate(isStreakBoostActive
+                                        ? Float(GameConfig.streakSpeedMultiplier) : 1)
         if isGameOver { result = engine.result }
     }
 
@@ -294,6 +340,10 @@ final class GameViewModel: ObservableObject {
     private func schedule(after delay: Double, token: Int, work: @escaping () -> Void) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.generation == token else { return }
+            guard !self.isPaused else {
+                self.pendingScheduledWork = work
+                return
+            }
             work()
         }
     }

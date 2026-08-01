@@ -2,8 +2,9 @@
 //  ProgressSync.swift
 //  Jumping Fox
 //
-//  Keeps level scores in iCloud's key-value store. Scores are monotonic: if
-//  two devices update the same level independently, the highest score wins.
+//  Keeps durable game progress in iCloud's key-value store. Counters and
+//  scores are monotonic: if two devices update independently, progress can
+//  only move forwards.
 //
 //  The player's name rides along in the same store so that — like the scores —
 //  it survives deleting and reinstalling the app. A restored account then shows
@@ -35,18 +36,19 @@ final class ProgressSync: ObservableObject {
             object: cloudStore,
             queue: .main
         ) { [weak self] _ in
-            self?.reconcileAllScores()
+            self?.reconcileAllProgress()
             self?.restorePlayerNameFromCloudIfNeeded()
         }
 
-        // Push local name edits up to iCloud as they happen. @AppStorage writes
-        // the name straight to UserDefaults, so we watch that store rather than
-        // every individual edit site.
+        // @AppStorage writes progress straight to UserDefaults, so watching the
+        // store catches card rewards, unlocks, onboarding and name edits at
+        // their source without every view needing sync-specific code.
         defaultsToken = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: UserDefaults.standard,
             queue: .main
         ) { [weak self] _ in
+            self?.reconcileDurableProfile()
             self?.pushPlayerNameToCloudIfChanged()
         }
 
@@ -54,7 +56,7 @@ final class ProgressSync: ObservableObject {
         lastKnownPlayerName = UserDefaults.standard.string(forKey: GameSettings.playerNameKey) ?? ""
         // Let the singleton finish initializing before ProgressStore accesses it.
         DispatchQueue.main.async { [weak self] in
-            self?.reconcileAllScores()
+            self?.reconcileAllProgress()
             self?.syncPlayerNameAtLaunch()
         }
     }
@@ -84,15 +86,60 @@ final class ProgressSync: ObservableObject {
         return winner
     }
 
-    /// Re-reads every level's best score through the store, which merges each
-    /// one with iCloud on the way past, then tells the UI to redraw.
-    private func reconcileAllScores() {
+    /// Re-reads every durable value after launch, an account change or an
+    /// incoming iCloud update. Writing the winner to both stores makes this
+    /// safe to call repeatedly and lets @AppStorage update the visible UI.
+    private func reconcileAllProgress() {
         for topic in MathTopic.allCases {
             for level in LevelCatalog.levels(for: topic) {
                 _ = Progress.store.bestScoreAcrossBoards(level: level)
             }
         }
+        reconcileDurableProfile()
         revision &+= 1
+    }
+
+    /// Progress outside the per-level scoreboards also needs to survive an app
+    /// deletion. Total cards drives character unlocks, announced unlocks stops
+    /// old rewards being presented twice, and onboarding completion lets a
+    /// restored player return directly to the game.
+    private func reconcileDurableProfile() {
+        mergeMonotonicInteger(forKey: ProgressStore.Key.totalCards)
+        mergeStringSet(forKey: ProgressStore.Key.announcedUnlocks)
+        mergeTrueFlag(forKey: ProgressStore.Key.onboardingComplete)
+    }
+
+    private func mergeMonotonicInteger(forKey key: String) {
+        let local = max(0, UserDefaults.standard.integer(forKey: key))
+        let cloud = max(0, (cloudStore.object(forKey: key) as? NSNumber)?.intValue ?? 0)
+        let winner = max(local, cloud)
+
+        if cloud < winner {
+            cloudStore.set(NSNumber(value: winner), forKey: key)
+        }
+        if local < winner {
+            UserDefaults.standard.set(winner, forKey: key)
+        }
+    }
+
+    private func mergeTrueFlag(forKey key: String) {
+        let local = UserDefaults.standard.bool(forKey: key)
+        let cloud = cloudStore.bool(forKey: key)
+        guard local || cloud else { return }
+
+        if !cloud { cloudStore.set(true, forKey: key) }
+        if !local { UserDefaults.standard.set(true, forKey: key) }
+    }
+
+    private func mergeStringSet(forKey key: String) {
+        let local = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        let cloud = Set(cloudStore.object(forKey: key) as? [String] ?? [])
+        let merged = local.union(cloud)
+        guard !merged.isEmpty else { return }
+        let value = Array(merged).sorted()
+
+        if cloud != merged { cloudStore.set(value, forKey: key) }
+        if local != merged { UserDefaults.standard.set(value, forKey: key) }
     }
 
     // MARK: - Player name

@@ -2,8 +2,13 @@
 //  OnboardingView.swift
 //  Elephant Challenge: Math Memory
 //
-//  Welcome flow: name → topic → how many answer cards a round shows. The third
-//  step doubles as the difficulty choice (2 cards easy, 3 medium, 4 hard).
+//  Welcome flow: name → topic → starting point.
+//
+//  The last step asks exactly the same question as the three order buttons in
+//  the menu, only in children's language — it is literally a pre-selection of
+//  `PracticeMode`. Pick the star on step two and there is no order to set, so
+//  the same answer is mapped onto the star's simplest and most complete button
+//  instead.
 //
 
 import SwiftUI
@@ -13,7 +18,8 @@ struct OnboardingView: View {
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
     @AppStorage(GameSettings.onboardingCompleteKey) private var isComplete = false
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
-    @AppStorage(GameSettings.cardCountKey) private var cardCountRaw = CardCount.allCases[0].rawValue
+    @AppStorage(GameSettings.practiceModeKey) private var practiceModeRaw = PracticeMode.fallback.rawValue
+    @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
     @ObservedObject private var language = LanguageManager.shared
     @State private var step = 0
     @FocusState private var isNameFieldFocused: Bool
@@ -37,16 +43,14 @@ struct OnboardingView: View {
                             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: step)
 
                         Group {
+                            let availableWidth = min(
+                                contentWidth,
+                                max(0, proxy.size.width - (isPad ? 72 : 48))
+                            )
                             switch step {
                             case 0: nameStep
                             case 1: subjectStep
-                            default:
-                                cardCountStep(
-                                    availableWidth: min(
-                                        contentWidth,
-                                        max(0, proxy.size.width - (isPad ? 72 : 48))
-                                    )
-                                )
+                            default: practiceModeStep(availableWidth: availableWidth)
                             }
                         }
                         .id(step)
@@ -98,12 +102,10 @@ struct OnboardingView: View {
     }
 
     private var onboardingBackground: some View {
-        LinearGradient(
-            colors: [Color.orange.opacity(0.24), Color.yellow.opacity(0.13)],
-            startPoint: .top,
-            endPoint: .bottom
+        AmbientReefBackground(
+            character: CharacterCatalog.character(id: CharacterCatalog.freeCharacterID),
+            showsSeaFloor: true
         )
-        .ignoresSafeArea()
     }
 
     private var nameStep: some View {
@@ -187,50 +189,87 @@ struct OnboardingView: View {
         }
     }
 
-    /// The third step: how many answer cards a round lays out. Fewer cards
-    /// means fewer possible answers, so this is also the difficulty choice.
-    private func cardCountStep(availableWidth: CGFloat) -> some View {
-        let choiceSizing = cardChoiceSizing(availableWidth: availableWidth)
+    private var topic: MathTopic { MathTopic(rawValue: topicRaw) ?? MathTopic.allCases[0] }
+
+    /// The three starting points, in the same order as the buttons in the menu.
+    private static let modeChoices:
+        [(mode: PracticeMode, titleKey: String, subtitleKey: String)] = [
+        (.order,  "onboarding.level.beginner.title",     "onboarding.level.beginner.subtitle"),
+        (.random, "onboarding.level.intermediate.title", "onboarding.level.intermediate.subtitle"),
+        (.mixed,  "onboarding.level.advanced.title",     "onboarding.level.advanced.subtitle")
+    ]
+
+    /// The last step: how far along the player already is. This is the same
+    /// question the three order buttons ask, phrased for a child — answering it
+    /// leaves the menu already set the way they said, and hands over to it.
+    private func practiceModeStep(availableWidth: CGFloat) -> some View {
+        let sizing = choiceSizing(
+            titles: Self.modeChoices.map { L(key: $0.titleKey) },
+            subtitles: Self.modeChoices.map { L(key: $0.subtitleKey) },
+            availableWidth: availableWidth
+        )
+        let topicName = L(key: topic.titleKey)
 
         return VStack(spacing: 14) {
             OnboardingTitle(
-                text: L("onboarding.cards.title"),
+                text: L("onboarding.level.title"),
                 fontSize: isPad ? 42 : 32
             )
 
-            Text("onboarding.cards.subtitle")
+            Text(verbatim: String(format: L("onboarding.level.subtitle %@"), topicName))
                 .font(isPad ? .title3 : .body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.bottom, 6)
 
-            ForEach(CardCount.allCases) { option in
-                Button { select(option) } label: {
+            ForEach(Self.modeChoices, id: \.mode) { choice in
+                Button { select(choice.mode) } label: {
                     OnboardingChoiceLabel(
-                        title: L(key: "onboarding.cards.\(option.answerCards)"),
-                        subtitle: L(key: option.difficultyDetailKey),
-                        icon: option.symbolName,
-                        textScale: choiceSizing.scale,
-                        allowsTwoLines: choiceSizing.allowsTwoLines,
-                        rowHeight: choiceSizing.rowHeight,
-                        isSelected: option.rawValue == cardCountRaw
+                        title: L(key: choice.titleKey),
+                        subtitle: L(key: choice.subtitleKey),
+                        icon: choice.mode.symbolName,
+                        textScale: sizing.scale,
+                        allowsTwoLines: sizing.allowsTwoLines,
+                        rowHeight: sizing.rowHeight,
+                        isSelected: choice.mode.rawValue == practiceModeRaw
                     )
                 }
                 .buttonStyle(OnboardingOptionStyle())
-                .accessibilityIdentifier("onboarding-cards-\(option.answerCards)")
+                .accessibilityIdentifier("onboarding-mode-\(choice.mode.rawValue)")
             }
         }
     }
 
-    /// Uses one shared scale for every card choice, based on the widest title
-    /// or subtitle in the active language. If a modest scale-down is not
-    /// enough, all three rows grow equally and may use a second line.
-    private func cardChoiceSizing(
+    /// Stores the chosen starting point and hands over to the home screen.
+    /// Supermix has no order buttons of its own, so the same answer is mapped
+    /// onto its ladder: the most confident choice opens the most complete
+    /// combination, the other two start on the simplest.
+    ///
+    /// The selection lands first, so the tick is visible for the moment the
+    /// welcome flow fades out rather than the screen swapping out under the tap.
+    private func select(_ mode: PracticeMode) {
+        withAnimation(.snappy(duration: 0.18)) {
+            practiceModeRaw = mode.rawValue
+        }
+        if topic.usesSupermixGrid {
+            let target = mode == .mixed ? MixedVariant.allCases.last : MixedVariant.allCases.first
+            if let target { mixedVariantRaw = target.rawValue }
+        }
+        AppAudio.shared.playMenuTap()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            isComplete = true
+        }
+    }
+
+    /// Uses one shared scale for every row of a choice step, based on the
+    /// widest title or subtitle in the active language, so the rows look
+    /// identical in every language. If a modest scale-down is not enough, all
+    /// three rows grow equally and may use a second line.
+    private func choiceSizing(
+        titles: [String],
+        subtitles: [String],
         availableWidth: CGFloat
     ) -> (scale: CGFloat, allowsTwoLines: Bool, rowHeight: CGFloat) {
-        let titles = CardCount.allCases.map { L(key: "onboarding.cards.\($0.answerCards)") }
-        let subtitles = CardCount.allCases.map { L(key: $0.difficultyDetailKey) }
-
         let titleSize: CGFloat = isPad ? 20 : 20
         let subtitleSize: CGFloat = isPad ? 17 : 16
         let titleFont = UIFont.systemFont(ofSize: titleSize, weight: .semibold)
@@ -246,10 +285,13 @@ struct OnboardingView: View {
         }.max() ?? 0
         let widestText = max(widestTitle, widestSubtitle)
 
-        // Space occupied by the row padding, icon, chevron and HStack gaps.
+        // Space occupied by the row padding, icon, trailing glyph and HStack
+        // gaps. The trailing glyph is measured at its widest: the selected row
+        // carries a tick rather than a chevron, and reserving only the chevron
+        // is what used to truncate the longest subtitle on exactly that row.
         // A small safety inset avoids wrapping caused by fractional glyph
         // measurements at different display scales.
-        let reservedWidth: CGFloat = isPad ? 168 : 128
+        let reservedWidth: CGFloat = isPad ? 190 : 146
         let textWidth = max(1, availableWidth - reservedWidth)
         let requiredScale = min(1, textWidth / max(1, widestText))
         let minimumComfortableScale: CGFloat = isPad ? 0.82 : 0.78
@@ -272,21 +314,6 @@ struct OnboardingView: View {
     private func advance(to newStep: Int) {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.84)) {
             step = newStep
-        }
-    }
-
-    /// Stores the chosen card count and hands over to the home screen. The
-    /// selection is written first so the tick is visible for the moment the
-    /// welcome flow fades out.
-    private func select(_ option: CardCount) {
-        // The selection lands first so the tick is visible while the flow
-        // hands over, rather than the screen swapping out from under the tap.
-        withAnimation(.snappy(duration: 0.18)) {
-            cardCountRaw = option.rawValue
-        }
-        AppAudio.shared.playMenuTap()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-            isComplete = true
         }
     }
 }

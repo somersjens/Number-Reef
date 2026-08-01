@@ -9,6 +9,27 @@
 
 import SwiftUI
 
+/// The game's currency. A player collects bubbles: in the reef, on the menu
+/// totals, on the level cards and in the shop. One glyph, used everywhere, so
+/// the same thing is never drawn two ways.
+enum Currency {
+    static let icon = "bubble"
+}
+
+/// The artwork used anywhere a bubble count is shown. The source PNG is
+/// rendered as a template so it keeps following each character's theme color.
+struct CurrencyIcon: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image(Currency.icon)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+    }
+}
+
 struct AnimalCharacter: Identifiable, Equatable {
     let id: String
     let name: String
