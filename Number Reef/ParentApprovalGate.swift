@@ -27,6 +27,8 @@ struct ParentApprovalGate: View {
     @State private var holdTask: Task<Void, Never>?
     @State private var isShowingSuccess = false
     @State private var isShieldPulsing = false
+    private var isPad: Bool { AppLayout.isPad }
+    private var layoutScale: CGFloat { isPad ? 1.18 : 1 }
 
     private enum Phase { case hold, tap }
 
@@ -36,18 +38,25 @@ struct ParentApprovalGate: View {
                            startPoint: .topLeading, endPoint: .bottomTrailing)
                 .ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                header
-                approvalCard
-                if failures > 0 {
-                    failureIndicator
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 18 * layoutScale) {
+                        header
+                        approvalCard
+                        if failures > 0 {
+                            failureIndicator
+                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        }
+                    }
+                    .padding(.horizontal, 24 * layoutScale)
+                    .padding(.vertical, 28 * layoutScale)
+                    .frame(maxWidth: isPad ? 720 : 620)
+                    .frame(maxWidth: .infinity,
+                           minHeight: proxy.size.height,
+                           alignment: .center)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 28)
-            .padding(.bottom, 40)
-            .frame(maxWidth: 620)
 
             if isShowingSuccess {
                 successOverlay
@@ -64,21 +73,21 @@ struct ParentApprovalGate: View {
     }
 
     private var header: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 8 * layoutScale) {
             Image(systemName: "lock.shield.fill")
-                .font(.system(size: 38, weight: .bold))
+                .font(.system(size: 38 * layoutScale, weight: .bold))
                 .foregroundStyle(deepColor)
                 .scaleEffect(isShieldPulsing ? 1.06 : 0.96)
                 .opacity(isShieldPulsing ? 1 : 0.84)
             Text("parentGate.title")
-                .font(.system(.title2, design: .rounded, weight: .heavy))
+                .font(.system(size: 28 * layoutScale, weight: .heavy, design: .rounded))
                 .foregroundStyle(deepColor)
                 .multilineTextAlignment(.center)
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
                 .frame(maxWidth: .infinity)
             Text("parentGate.subtitle")
-                .font(.subheadline)
+                .font(.system(size: 15 * layoutScale))
                 .foregroundStyle(deepColor.opacity(0.72))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -88,7 +97,7 @@ struct ParentApprovalGate: View {
     }
 
     private var approvalCard: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 16 * layoutScale) {
             instructionCard
 
             Divider()
@@ -101,7 +110,7 @@ struct ParentApprovalGate: View {
 
             progressCard
         }
-        .padding(18)
+        .padding(18 * layoutScale)
         .background(.white.opacity(0.72), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -111,35 +120,35 @@ struct ParentApprovalGate: View {
 
     private var instructionCard: some View {
         Text(instruction)
-            .font(.system(.headline, design: .rounded, weight: .bold))
+            .font(.system(size: 17 * layoutScale, weight: .bold, design: .rounded))
             .foregroundStyle(deepColor)
             .multilineTextAlignment(.center)
             .lineLimit(2)
             .minimumScaleFactor(0.80)
             .frame(maxWidth: .infinity)
-            .frame(minHeight: 62)
+            .frame(minHeight: 62 * layoutScale)
             .contentTransition(.opacity)
             .animation(.easeInOut(duration: 0.42), value: instruction)
     }
 
     private var shapeBoard: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 12 * layoutScale) {
             ForEach(challenge.shapes, id: \.self) { shape in
                 shapeButton(shape)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: 140)
+        .frame(maxWidth: .infinity, minHeight: 140 * layoutScale)
     }
 
     private func shapeButton(_ shape: GateShape) -> some View {
         let isHeld = heldShape == shape
         return shape.symbol
             .fill(accent)
-            .frame(width: 76, height: 76)
+            .frame(width: 76 * layoutScale, height: 76 * layoutScale)
             .shadow(color: deepColor.opacity(isHeld ? 0.32 : 0.12), radius: isHeld ? 14 : 5, y: 4)
             .scaleEffect(isHeld ? 1.13 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.62), value: isHeld)
-            .frame(width: 84, height: 100)
+            .frame(width: 84 * layoutScale, height: 100 * layoutScale)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { _ in touchBegan(on: shape) }
@@ -149,7 +158,7 @@ struct ParentApprovalGate: View {
 
     private var progressCard: some View {
         Text(progressTitle)
-            .font(.system(.headline, design: .rounded, weight: .bold))
+            .font(.system(size: 17 * layoutScale, weight: .bold, design: .rounded))
             .foregroundStyle(deepColor)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)

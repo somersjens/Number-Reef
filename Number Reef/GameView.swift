@@ -116,6 +116,18 @@ struct GameView: View {
         .animation(.easeInOut(duration: 0.28), value: model.isGameOver)
         .animation(.easeInOut(duration: 0.25), value: showsIntro)
         .onAppear { screenInsets = ScreenSafeArea.current }
+#if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIDevice.orientationDidChangeNotification
+        )) { _ in
+            // Safe-area sides change when an iPad rotates. Re-sample after
+            // UIKit has committed the new window geometry so the HUD remains
+            // clear of rounded corners in either landscape direction.
+            DispatchQueue.main.async {
+                screenInsets = ScreenSafeArea.current
+            }
+        }
+#endif
         .onChange(of: model.isGameOver) { _, isOver in
             guard isOver else {
                 showsResult = false
@@ -183,7 +195,8 @@ struct GameView: View {
                           onLevelCompletionFinished: finishLevelCompletion)
 
             hud
-                .padding(.horizontal, isPad ? 28 : 16)
+                .padding(.leading, max(isPad ? 28 : 16, screenInsets.leading + 12))
+                .padding(.trailing, max(isPad ? 28 : 16, screenInsets.trailing + 12))
                 .padding(.top, topInset + (isPad ? 12 : 6))
                 .opacity(playsLevelCompletion ? 0 : 1)
                 .animation(.easeOut(duration: 0.22), value: playsLevelCompletion)

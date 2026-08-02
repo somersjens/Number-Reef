@@ -68,7 +68,7 @@ struct PremiumView: View {
                 }
                 .padding(.horizontal, isPad ? 32 : 22)
                 .padding(.bottom, isPad ? 38 : 28)
-                .frame(maxWidth: isPad ? 760 : 620)
+                .frame(maxWidth: isPad ? 880 : 620)
                 .frame(maxWidth: .infinity)
             }
             .scrollBounceBehavior(.always)

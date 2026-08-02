@@ -9,14 +9,15 @@ import UIKit
 #endif
 
 #if canImport(UIKit)
-/// The game is portrait-only. iPad has to *declare* every orientation, so the
-/// lock is applied here at runtime instead — `UIRequiresFullScreen`, the old
-/// way of saying this, is deprecated and will stop being honoured.
+/// Keep the compact iPhone experience in portrait, while allowing iPad to use
+/// the orientation of the device. iPad players commonly use a keyboard case or
+/// Stage Manager, so forcing portrait there makes an otherwise adaptive
+/// SwiftUI layout feel like an enlarged phone app.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      supportedInterfaceOrientationsFor window: UIWindow?)
     -> UIInterfaceOrientationMask {
-        .portrait
+        UIDevice.current.userInterfaceIdiom == .pad ? .all : .portrait
     }
 }
 #endif

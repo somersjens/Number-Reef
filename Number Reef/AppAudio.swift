@@ -494,7 +494,13 @@ final class AppAudio: NSObject, ObservableObject {
                   self.wantsMusicPlayback,
                   player.isPlaying,
                   player.currentTime >= self.musicLoopEndTime else { return }
+            // The file ends near silence but starts with a strong first beat.
+            // Preserve the active menu/game/duck level and ease that beat in,
+            // otherwise the sudden jump can sound like a brief volume spike.
+            let volumeBeforeLoop = player.volume
+            player.volume = 0
             player.currentTime = 0
+            player.setVolume(volumeBeforeLoop, fadeDuration: 0.4)
         }
         RunLoop.main.add(timer, forMode: .common)
         musicLoopTimer = timer

@@ -91,6 +91,9 @@ struct HomeView: View {
     }
     private var practiceMode: PracticeMode { PracticeMode.from(rawValue: practiceModeRaw) }
     private var isPad: Bool { AppLayout.isPad }
+    /// A full-width landscape iPad can comfortably show a fourth level card.
+    /// Portrait and narrow multitasking windows retain the established layout.
+    private var isWidePad: Bool { isPad && viewportWidth >= 980 }
 
     private var displayName: String {
         playerName.isEmpty ? CharacterCatalog.defaultPlayerName : playerName
@@ -98,10 +101,10 @@ struct HomeView: View {
 
     // MARK: - Metrics
 
-    private var menuScale: CGFloat { isPad ? 1.4 : 1 }
+    private var menuScale: CGFloat { isPad ? 1.55 : 1 }
     private var menuCardSectionSpacing: CGFloat { isPad ? 18 : 12 }
     private var menuControlSpacing: CGFloat { isPad ? 14 : 10 }
-    private var topicButtonDiameter: CGFloat { isPad ? 62 : 44 }
+    private var topicButtonDiameter: CGFloat { isPad ? 70 : 44 }
     private var levelGridSpacing: CGFloat { isPad ? 16 : 10 }
     private var levelCardHeight: CGFloat { isPad ? 132 : 96 }
 
@@ -115,10 +118,12 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
                     menuCard
+                        .frame(maxWidth: 760)
+                        .frame(maxWidth: .infinity)
                     levelGrid
                 }
                 .padding(isPad ? 26 : 16)
-                .frame(maxWidth: isPad ? 760 : 640)
+                .frame(maxWidth: isWidePad ? 1080 : (isPad ? 760 : 640))
                 .frame(maxWidth: .infinity)
             }
             .background(
@@ -161,7 +166,7 @@ struct HomeView: View {
                 if !trimmed.isEmpty { playerName = trimmed }
             }
             // A short sheet that rises over the menu, tinted to the character.
-            .presentationDetents([.height(300)])
+            .presentationDetents([.height(isPad ? 380 : 300)])
             .presentationDragIndicator(.visible)
             .presentationBackground {
                 LinearGradient(colors: [character.skyColor, character.tintColor],
@@ -205,7 +210,7 @@ struct HomeView: View {
                         showNameEditor = true
                     } label: {
                         Text(verbatim: displayName)
-                            .font(.system(size: isPad ? 30 : 20, weight: .heavy, design: .rounded))
+                            .font(.system(size: isPad ? 34 : 20, weight: .heavy, design: .rounded))
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                             .minimumScaleFactor(0.6)
@@ -231,7 +236,7 @@ struct HomeView: View {
                         showGoalPicker = true
                     }
                 }
-                .frame(width: isPad ? 150 : 106)
+                .frame(width: isPad ? 168 : 106)
                 .popover(isPresented: $showGoalPicker, arrowEdge: .top) {
                     DailyGoalPicker(theme: character)
                         .padding()
@@ -373,7 +378,7 @@ struct HomeView: View {
                                 current: topicCards)
         return HStack(alignment: .center, spacing: 8) {
             Text(verbatim: L(key: topic.titleKey))
-                .font(.system(size: isPad ? 30 : 20, weight: .heavy, design: .rounded))
+                .font(.system(size: isPad ? 32 : 20, weight: .heavy, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.62)
             Label {
@@ -384,12 +389,12 @@ struct HomeView: View {
             } icon: {
                 // The card that flies up from the level card aims here, so the
                 // reward visibly joins this topic before the totals move.
-                CurrencyIcon(size: isPad ? 20 : 14)
+                    CurrencyIcon(size: isPad ? 22 : 14)
                     .scaleEffect(highlightsHeaderCards ? 1.32 : 1)
                     .rotationEffect(.degrees(highlightsHeaderCards ? -10 : 0))
                     .reportAnchor("topicTotal")
             }
-            .font(.system(size: isPad ? 22 : 15, weight: .bold))
+            .font(.system(size: isPad ? 24 : 15, weight: .bold))
             Spacer(minLength: 0)
         }
         .foregroundStyle(character.deepColor)
@@ -518,11 +523,11 @@ struct HomeView: View {
                     }
                 } label: {
                     Text(verbatim: L(key: mode.titleKey(for: topic)))
-                        .font(.system(size: isPad ? 20 : 14.5, weight: .bold, design: .rounded))
+                        .font(.system(size: isPad ? 22 : 14.5, weight: .bold, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                         .frame(maxWidth: .infinity)
-                        .frame(height: isPad ? 48 : 37)
+                        .frame(height: isPad ? 56 : 37)
                         .padding(.horizontal, isPad ? 8 : 2)
                         .background(isSelected ? character.deepColor : .white.opacity(0.7),
                                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -567,7 +572,7 @@ struct HomeView: View {
                     .minimumScaleFactor(0.85)
                     .foregroundStyle(isSelected ? .white : character.deepColor)
                     .frame(maxWidth: .infinity)
-                    .frame(height: isPad ? 48 : 37)
+                    .frame(height: isPad ? 56 : 37)
                     .background(isSelected ? character.deepColor : .white.opacity(0.62),
                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -592,9 +597,9 @@ struct HomeView: View {
     /// `%` reads optically heavier than the rest at the same point size, so it
     /// gets its own smaller size and a narrower slot.
     private func supermixLabel(_ variant: MixedVariant) -> some View {
-        let font = Font.system(size: isPad ? 26 : 19, weight: .heavy, design: .rounded)
-        let heavyFont = Font.system(size: isPad ? 21 : 15, weight: .heavy, design: .rounded)
-        let slotWidth: CGFloat = isPad ? 30 : 20
+        let font = Font.system(size: isPad ? 29 : 19, weight: .heavy, design: .rounded)
+        let heavyFont = Font.system(size: isPad ? 23 : 15, weight: .heavy, design: .rounded)
+        let slotWidth: CGFloat = isPad ? 33 : 20
         let active = variant.operators
         let totalSlots = MixedVariant.slotCount(forColumnOf: variant)
         // A shorter button sits in the middle of the reserved slots: "+ −"
@@ -668,7 +673,7 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 14) {
             AdaptiveLevelGrid(spacing: levelGridSpacing,
                               minimumCardWidth: isPad ? 180 : 104,
-                              maximumColumns: 3,
+                              maximumColumns: isWidePad ? 4 : 3,
                               cardHeight: levelCardHeight) {
                 ForEach(regular) { level in
                     levelCard(level, recommendedID: recommendedID)
@@ -740,7 +745,7 @@ struct HomeView: View {
 
                 AdaptiveLevelGrid(spacing: levelGridSpacing,
                                   minimumCardWidth: isPad ? 180 : 104,
-                                  maximumColumns: 3,
+                                  maximumColumns: isWidePad ? 4 : 3,
                                   cardHeight: levelCardHeight) {
                     ForEach(levels) { level in
                         levelCard(level, recommendedID: nil)

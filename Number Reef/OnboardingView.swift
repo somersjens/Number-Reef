@@ -50,7 +50,8 @@ struct OnboardingView: View {
                             )
                             switch step {
                             case 0: nameStep
-                            case 1: subjectStep
+                            case 1:
+                                subjectStep(usesTwoColumns: isPad && proxy.size.width > proxy.size.height)
                             default: practiceModeStep(availableWidth: availableWidth)
                             }
                         }
@@ -147,7 +148,7 @@ struct OnboardingView: View {
         }
     }
 
-    private var subjectStep: some View {
+    private func subjectStep(usesTwoColumns: Bool) -> some View {
         VStack(spacing: 14) {
             OnboardingTitle(
                 text: L("onboarding.subject.title"),
@@ -161,7 +162,13 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, 4)
 
-            VStack(spacing: 8) {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 12),
+                    count: usesTwoColumns ? 2 : 1
+                ),
+                spacing: usesTwoColumns ? 12 : 8
+            ) {
                 ForEach(MathTopic.allCases) { option in
                     Button {
                         topicRaw = option.rawValue

@@ -42,7 +42,7 @@ struct CompactStreakView: View {
 
     // One factor drives every dimension, so the widget keeps its proportions
     // when it scales up for the larger iPad layout.
-    private var scale: CGFloat { isPad ? 1.4 : 1 }
+    private var scale: CGFloat { isPad ? 1.55 : 1 }
     private var railWidth: CGFloat { 74 * scale }
     private var rowSpacing: CGFloat { 5 * scale }
 
@@ -132,6 +132,7 @@ struct DailyGoalPicker: View {
     @AppStorage("ui.goalPeriod") private var goalPeriodRaw = GoalPeriod.weekly.rawValue
 
     private var goalPeriod: GoalPeriod { GoalPeriod(rawValue: goalPeriodRaw) ?? .weekly }
+    private var isPad: Bool { AppLayout.isPad }
     private let goalOptions = Array(stride(from: 5, through: 60, by: 5))
 
     var body: some View {
@@ -164,7 +165,7 @@ struct DailyGoalPicker: View {
                 }
             }
         }
-        .frame(width: 280)
+        .frame(width: isPad ? 360 : 280)
     }
 
     private var selectedGoalMinutes: Int {
@@ -184,6 +185,8 @@ struct NameEditorSheet: View {
     let onSave: () -> Void
     @FocusState private var focused: Bool
     @State private var hasRequestedInitialFocus = false
+    private var isPad: Bool { AppLayout.isPad }
+    private var scale: CGFloat { isPad ? 1.2 : 1 }
 
     private func save() {
         onSave()
@@ -191,29 +194,29 @@ struct NameEditorSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 20 * scale) {
             Spacer(minLength: 0)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 6 * scale) {
                 theme.artwork
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 54, height: 54)
+                    .frame(width: 54 * scale, height: 54 * scale)
 
                 Text("name.whatsYourName")
-                    .font(.system(size: 24, weight: .heavy, design: .rounded))
+                    .font(.system(size: 24 * scale, weight: .heavy, design: .rounded))
                     .foregroundStyle(theme.deepColor)
             }
 
             TextField(String(), text: $name, prompt: Text("name.placeholder"))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 22 * scale, weight: .bold, design: .rounded))
                 .multilineTextAlignment(.center)
                 .focused($focused)
                 .textContentType(.name)
                 .submitLabel(.done)
                 .onSubmit(save)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 13)
+                .padding(.horizontal, 16 * scale)
+                .padding(.vertical, 13 * scale)
                 .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -222,12 +225,12 @@ struct NameEditorSheet: View {
                 )
                 .animation(.snappy(duration: 0.2), value: focused)
 
-            HStack(spacing: 12) {
+            HStack(spacing: 12 * scale) {
                 Button { dismiss() } label: {
                     Text("common.cancel")
-                        .font(.headline)
+                        .font(isPad ? .title3.weight(.semibold) : .headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
+                        .padding(.vertical, 13 * scale)
                         .background(.white.opacity(0.7), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -238,9 +241,9 @@ struct NameEditorSheet: View {
 
                 Button(action: save) {
                     Text("common.save")
-                        .font(.headline)
+                        .font(isPad ? .title3.weight(.semibold) : .headline)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
+                        .padding(.vertical, 13 * scale)
                         .background(
                             LinearGradient(colors: [theme.color, theme.deepColor],
                                            startPoint: .top, endPoint: .bottom),
@@ -253,7 +256,8 @@ struct NameEditorSheet: View {
 
             Spacer(minLength: 0)
         }
-        .padding(24)
+        .padding(24 * scale)
+        .frame(maxWidth: isPad ? 620 : .infinity)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             // Requesting focus during the sheet's own presentation makes iOS
@@ -1196,9 +1200,9 @@ struct AlternatingCardSummary: View {
     @State private var handledImmediatePreviewID = 0
     @State private var availableWidth: CGFloat = 0
 
-    private var scale: CGFloat { isPad ? 1.4 : 1 }
-    private var baseFontSize: CGFloat { isPad ? 20 : 14 }
-    private var iconSize: CGFloat { isPad ? 17 : 12 }
+    private var scale: CGFloat { isPad ? 1.5 : 1 }
+    private var baseFontSize: CGFloat { isPad ? 22 : 14 }
+    private var iconSize: CGFloat { isPad ? 19 : 12 }
     private var artworkSide: CGFloat { 28 * scale }
     /// Both alternatives share this height, so the taller artwork grows around
     /// the text line instead of pushing the player's name upward.
