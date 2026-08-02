@@ -71,6 +71,13 @@ enum CharacterCatalog {
     /// The character available from the very first card.
     static let freeCharacterID = CharacterUnlocks.starterCharacterID
 
+    /// The localized fallback used when the player leaves their name empty.
+    /// Resolve it through the character catalog so it can never drift from the
+    /// name shown for Octopus in the active language.
+    static var defaultPlayerName: String {
+        character(id: "octopus").localizedName
+    }
+
     /// Order must match `CharacterUnlocks.orderedCharacterIDs`; a test asserts it.
     static let all: [AnimalCharacter] = [
         AnimalCharacter(id: "fox", name: "Fox", emoji: "🦊", imageName: "no_background",

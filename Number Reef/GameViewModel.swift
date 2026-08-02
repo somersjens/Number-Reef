@@ -327,13 +327,15 @@ final class GameViewModel: ObservableObject {
         cards = engine.cards
         livesRemaining = engine.livesRemaining
         selectedOptionID = engine.selectedOptionID
+        // Publish the completed result before the game-over flag. GameView
+        // uses its reason to decide whether to play the reef finale first.
+        if engine.state == .gameOver { result = engine.result }
         isGameOver = engine.state == .gameOver
         correctStreak = engine.correctStreak
         isStreakBoostActive = engine.isStreakBoostActive
         isHeartFishAvailable = engine.isHeartFishAvailable
         AppAudio.shared.setGameplayRate(isStreakBoostActive
                                         ? Float(GameConfig.streakSpeedMultiplier) : 1)
-        if isGameOver { result = engine.result }
     }
 
     /// Runs `work` after a delay, unless the session moved on in the meantime.

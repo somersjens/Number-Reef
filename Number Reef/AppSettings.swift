@@ -28,6 +28,10 @@ enum GameSettings {
     static let characterKey = ProgressStore.Key.characterID
     static let playerNameKey = ProgressStore.Key.playerName
     static let onboardingCompleteKey = ProgressStore.Key.onboardingComplete
+    /// A device-local request to show onboarding again. Unlike the durable
+    /// completion flag, this must not be merged monotonically through iCloud:
+    /// doing so would immediately undo a user's long-press from the home menu.
+    static let onboardingReplayRequestedKey = "onboarding.replayRequested"
     static let totalCardsKey = ProgressStore.Key.totalCards
     static let topicKey = ProgressStore.Key.selectedTopic
     static let levelKey = ProgressStore.Key.selectedLevel

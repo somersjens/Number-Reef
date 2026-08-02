@@ -17,6 +17,7 @@ import UIKit
 struct OnboardingView: View {
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
     @AppStorage(GameSettings.onboardingCompleteKey) private var isComplete = false
+    @AppStorage(GameSettings.onboardingReplayRequestedKey) private var replayRequested = false
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
     @AppStorage(GameSettings.practiceModeKey) private var practiceModeRaw = PracticeMode.fallback.rawValue
     @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
@@ -258,6 +259,7 @@ struct OnboardingView: View {
         AppAudio.shared.playMenuTap()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
             isComplete = true
+            replayRequested = false
         }
     }
 
@@ -306,7 +308,7 @@ struct OnboardingView: View {
 
     private func goToSubjects() {
         let trimmedName = playerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        playerName = trimmedName.isEmpty ? L("home.defaultName") : trimmedName
+        playerName = trimmedName.isEmpty ? CharacterCatalog.defaultPlayerName : trimmedName
         isNameFieldFocused = false
         advance(to: 1)
     }

@@ -104,6 +104,7 @@ final class AppAudio: NSObject, ObservableObject {
     // MARK: Players
 
     private var musicPlayer: AVAudioPlayer?
+    private var musicLoopTimer: Timer?
     private var speechPlayer: AVAudioPlayer?
     private var speechFileURL: URL?
     private let synthesizer = AVSpeechSynthesizer()
@@ -138,7 +139,7 @@ final class AppAudio: NSObject, ObservableObject {
     // Short effects are shipped as uncompressed CAF/PCM: unlike MP3 they need no
     // runtime decode, so re-triggering one (rewind to `lead` + `play`) during a
     // busy frame costs no CPU and can't contend for the shared audio decoder.
-    // The four `wav` files were already PCM. `volume`/`lead` are unchanged: the
+    // The three `wav` files were already PCM. `volume`/`lead` are unchanged: the
     // conversion preserved each file's sample rate, channels and timing exactly.
     private static let effects: [Effect] = [
         Effect(key: "correct",       file: "sfx_correct",        ext: "caf", volume: 0.14, lead: 0.0),
@@ -161,7 +162,7 @@ final class AppAudio: NSObject, ObservableObject {
         // The card counters on the result screen and the home header.
         Effect(key: "cardCount",     file: "sfx_card_count",     ext: "caf", volume: 1.0,  lead: 0.065),
         Effect(key: "cardFlight",    file: "sfx_card_flight",    ext: "caf", volume: 0.812, lead: 0.35),
-        Effect(key: "cardTotal",     file: "sfx_card_total",     ext: "wav", volume: 0.08, lead: 0.015),
+        Effect(key: "cardTotal",     file: "score_increase",     ext: "caf", volume: 1.0,  lead: 0.0),
         Effect(key: "select",        file: "sfx_select",         ext: "wav", volume: 0.17, lead: 0.0),
         Effect(key: "switchOn",      file: "sfx_switch_on",      ext: "caf", volume: 0.89, lead: 0.200),
         Effect(key: "switchOff",     file: "sfx_switch_off",     ext: "caf", volume: 1.0,  lead: 0.170)
@@ -180,6 +181,11 @@ final class AppAudio: NSObject, ObservableObject {
     private let menuMusicVolume: Float = 0.10
     private let gameMusicVolume: Float = 0.30
     private let duckedMusicVolume: Float = 0.05
+
+    /// The source track fades to inaudible by ~88.6 s but contains another
+    /// 1.4 s of near-silence before its physical end at 90.04 s. Restart after
+    /// a short musical breath instead of making every loop wait for that tail.
+    private let musicLoopEndTime: TimeInterval = 88.95
 
     /// The volume the music should currently sit at, given where the player is.
     private var currentMusicTarget: Float { isGameplayActive ? gameMusicVolume : menuMusicVolume }
@@ -473,6 +479,30 @@ final class AppAudio: NSObject, ObservableObject {
         } else {
             setMusicVolume(currentMusicTarget)
         }
+        startMusicLoopMonitoringIfNeeded()
+    }
+
+    /// `AVAudioPlayer` can only loop at a file's physical end. A lightweight
+    /// timer moves it back to the start during the silent tail, while the
+    /// player's own endless loop remains a safe fallback if the app is busy.
+    private func startMusicLoopMonitoringIfNeeded() {
+        guard musicLoopTimer == nil else { return }
+        let timer = Timer(timeInterval: 0.025, repeats: true) { [weak self] _ in
+            guard let self,
+                  let player = self.musicPlayer,
+                  self.musicEnabled,
+                  self.wantsMusicPlayback,
+                  player.isPlaying,
+                  player.currentTime >= self.musicLoopEndTime else { return }
+            player.currentTime = 0
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        musicLoopTimer = timer
+    }
+
+    private func stopMusicLoopMonitoring() {
+        musicLoopTimer?.invalidate()
+        musicLoopTimer = nil
     }
 
     private func setMusicVolume(_ volume: Float, fade: TimeInterval = 0.4) {
@@ -490,6 +520,7 @@ final class AppAudio: NSObject, ObservableObject {
     /// (or paused for backgrounding, via `pause`).
     private func stopMusic() {
         wantsMusicPlayback = false
+        stopMusicLoopMonitoring()
         guard let player = musicPlayer, player.isPlaying else {
             musicPlayer?.stop()
             deactivateSessionIfUnused()
@@ -871,6 +902,7 @@ final class AppAudio: NSObject, ObservableObject {
         switch type {
         case .began:
             musicPlayer?.pause()
+            stopMusicLoopMonitoring()
             stopSpeechPlayback()
             // The system deactivates our session and stops the engine; mirror
             // that so `ended` can cleanly reactivate and bring the effects back.
@@ -898,6 +930,7 @@ final class AppAudio: NSObject, ObservableObject {
 
     @objc private func appWillResignActive() {
         musicPlayer?.pause()
+        stopMusicLoopMonitoring()
         stopSpeechPlayback()
         sessionStartupToken += 1
         sessionOutputReady = false

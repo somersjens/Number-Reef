@@ -37,7 +37,7 @@ private struct ScoreCelebration: Identifiable {
 struct HomeView: View {
     @AppStorage(GameSettings.characterKey) private var characterID = CharacterCatalog.freeCharacterID
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
-    @AppStorage(GameSettings.onboardingCompleteKey) private var onboardingComplete = false
+    @AppStorage(GameSettings.onboardingReplayRequestedKey) private var onboardingReplayRequested = false
     @AppStorage(GameSettings.totalCardsKey) private var totalCards = 0
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
     @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
@@ -59,7 +59,6 @@ struct HomeView: View {
     @State private var infoPopup: InfoPopup?
     @State private var controlAnchors: [String: CGRect] = [:]
     @State private var viewportWidth: CGFloat = 0
-    @State private var suppressCharacterTap = false
     @State private var suppressTopicTap = false
     /// The brief return-to-menu celebration after a session earned cards.
     @State private var celebration: ScoreCelebration?
@@ -94,7 +93,7 @@ struct HomeView: View {
     private var isPad: Bool { AppLayout.isPad }
 
     private var displayName: String {
-        playerName.isEmpty ? L("home.defaultName") : playerName
+        playerName.isEmpty ? CharacterCatalog.defaultPlayerName : playerName
     }
 
     // MARK: - Metrics
@@ -270,47 +269,52 @@ struct HomeView: View {
     // MARK: Character
 
     private var characterButton: some View {
-        Button {
-            // A long press may also end as a button tap; consume that trailing
-            // action instead of opening the collection.
-            guard !suppressCharacterTap else {
-                suppressCharacterTap = false
-                return
-            }
-            AppAudio.shared.playMenuTap()
-            openCharacterCollection()
-        } label: {
-            let box: CGFloat = isPad ? 118 : 68
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(LinearGradient(colors: [character.skyColor, character.tintColor],
-                                         startPoint: .top, endPoint: .bottom))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(.white.opacity(0.9), lineWidth: 2)
-                    }
-                character.artwork
-                    .resizable()
-                    .scaledToFit()
-                    .padding(box * 0.08)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            }
-            .frame(width: box, height: box)
-            .shadow(color: character.deepColor.opacity(0.18), radius: 7, y: 3)
+        let box: CGFloat = isPad ? 118 : 68
+        return ZStack {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(LinearGradient(colors: [character.skyColor, character.tintColor],
+                                     startPoint: .top, endPoint: .bottom))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(.white.opacity(0.9), lineWidth: 2)
+                }
+            character.artwork
+                .resizable()
+                .scaledToFit()
+                .padding(box * 0.08)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .frame(width: box, height: box)
+        .shadow(color: character.deepColor.opacity(0.18), radius: 7, y: 3)
         .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        // One exclusive recognizer decides between the two actions. A
+        // successful hold can therefore never fall through into the tap that
+        // opens the character collection.
+        .gesture(characterGesture)
         .accessibilityIdentifier("home-character")
         .accessibilityLabel(Text(verbatim: character.localizedName))
-        // Deliberately high priority: a 2-second hold cannot be won by the
-        // ordinary character-button tap.
-        .highPriorityGesture(
-            LongPressGesture(minimumDuration: 2)
-                .onEnded { _ in
-                    suppressCharacterTap = true
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { openCharacterCollectionFromCharacter() }
+    }
+
+    private var characterGesture: some Gesture {
+        LongPressGesture(minimumDuration: 2, maximumDistance: 24)
+            .exclusively(before: TapGesture())
+            .onEnded { result in
+                switch result {
+                case .first(let completed) where completed:
                     restartOnboarding()
+                case .second:
+                    openCharacterCollectionFromCharacter()
+                default:
+                    break
                 }
-        )
+            }
+    }
+
+    private func openCharacterCollectionFromCharacter() {
+        AppAudio.shared.playMenuTap()
+        openCharacterCollection()
     }
 
     /// The running card total, with the next animal to earn taking its place
@@ -563,7 +567,7 @@ struct HomeView: View {
                     .minimumScaleFactor(0.85)
                     .foregroundStyle(isSelected ? .white : character.deepColor)
                     .frame(maxWidth: .infinity)
-                    .frame(height: isPad ? 60 : 42)
+                    .frame(height: isPad ? 48 : 37)
                     .background(isSelected ? character.deepColor : .white.opacity(0.62),
                                 in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -588,9 +592,9 @@ struct HomeView: View {
     /// `%` reads optically heavier than the rest at the same point size, so it
     /// gets its own smaller size and a narrower slot.
     private func supermixLabel(_ variant: MixedVariant) -> some View {
-        let font = Font.system(size: isPad ? 20 : 15, weight: .heavy, design: .rounded)
-        let heavyFont = Font.system(size: isPad ? 16 : 12, weight: .heavy, design: .rounded)
-        let slotWidth: CGFloat = isPad ? 26 : 18
+        let font = Font.system(size: isPad ? 26 : 19, weight: .heavy, design: .rounded)
+        let heavyFont = Font.system(size: isPad ? 21 : 15, weight: .heavy, design: .rounded)
+        let slotWidth: CGFloat = isPad ? 30 : 20
         let active = variant.operators
         let totalSlots = MixedVariant.slotCount(forColumnOf: variant)
         // A shorter button sits in the middle of the reserved slots: "+ −"
@@ -800,7 +804,7 @@ struct HomeView: View {
     private func restartOnboarding() {
         AppAudio.shared.playMenuTap()
         withAnimation(.easeInOut(duration: 0.35)) {
-            onboardingComplete = false
+            onboardingReplayRequested = true
         }
     }
 
@@ -876,7 +880,7 @@ struct HomeView: View {
             }
             // Clear it once every part of the celebration has played out.
             let lifetime = departureDelay + Self.flightDuration
-                + Self.headerCountDuration + 0.35
+                + Self.headerCountDuration + 0.12
             DispatchQueue.main.asyncAfter(deadline: .now() + lifetime) {
                 guard self.celebration?.id == celebration.id else { return }
                 self.celebration = nil
@@ -914,7 +918,9 @@ struct HomeView: View {
                                 sourcePointSize: isPad ? 13 : 9,
                                 destinationPointSize: isPad ? 22 : 15,
                                 arcHeight: isPad ? 64 : 44,
-                                color: character.color,
+                                color: celebration.revealsMaximum
+                                    ? LevelCardView.completedPalette(for: character).hero
+                                    : character.color,
                                 startedAt: Date(),
                                 duration: Self.flightDuration)
         flights.append(flight)

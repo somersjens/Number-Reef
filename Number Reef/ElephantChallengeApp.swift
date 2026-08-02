@@ -27,6 +27,7 @@ struct ElephantChallengeApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 #endif
     @AppStorage(GameSettings.onboardingCompleteKey) private var onboardingComplete = false
+    @AppStorage(GameSettings.onboardingReplayRequestedKey) private var onboardingReplayRequested = false
     @StateObject private var language = LanguageManager.shared
     @StateObject private var promotedPurchase = PromotedPurchaseCoordinator.shared
 
@@ -56,7 +57,7 @@ struct ElephantChallengeApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                if onboardingComplete {
+                if onboardingComplete && !onboardingReplayRequested {
                     HomeView()
                         // Both screens fade through each other rather than one
                         // replacing the other, so the hand-over reads as a
@@ -67,7 +68,8 @@ struct ElephantChallengeApp: App {
                         .transition(.opacity.combined(with: .scale(scale: 0.99)))
                 }
             }
-            .animation(.easeInOut(duration: 0.42), value: onboardingComplete)
+            .animation(.easeInOut(duration: 0.42),
+                       value: onboardingComplete && !onboardingReplayRequested)
             // Re-renders every `Text` (and formats numbers) when the language
             // changes; combined with the bundle redirection this makes the
             // switch instant, no restart required.

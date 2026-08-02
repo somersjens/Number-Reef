@@ -2,9 +2,9 @@
 //  ResultView.swift
 //  Math Memory
 //
-//  The end-of-session card, restored to the original layout: the character, a
-//  title, a word of encouragement, the score out of what the level holds, and
-//  the two ways onward. Only the unit has changed — cards instead of trophies.
+//  The end-of-session card: a level-specific completion title (or game-over
+//  title), a short message, the score out of what the board holds, and the two
+//  ways onward. Its sizing mirrors the Jumping Fox end-level card.
 //
 
 import SwiftUI
@@ -27,20 +27,19 @@ struct ResultView: View {
     private var textScale: CGFloat { isPad ? 1.296 : 1 }
 
     private var maximum: Int { board.maximum }
-    /// Mirrors the identifying heading from the start card, so the result is
-    /// unmistakably attached to the level that was just played.
-    private var levelTitle: String { LevelIntro.info(for: board).title }
     /// The level's score tops out at its maximum, exactly as the menu stores
     /// it; cards beyond that still count toward the player's grand total.
     private var levelScore: Int { min(result.cardsEarned, maximum) }
     private var showsNewBest: Bool { result.isNewPersonalBest && result.cardsEarned > 0 }
 
-    /// Ten graded messages, scaled to what this level actually holds, plus a
-    /// dedicated message for a completed board.
+    private var isCompleted: Bool { result.reason == .roundsCompleted }
+
+    /// A completed board always gets the same celebratory description. When
+    /// the player runs out of lives, every three bubbles advance to the next
+    /// encouraging message, capped at the tenth message.
     private var encouragement: String {
-        guard levelScore < maximum else { return L(key: "game.encouragement.complete") }
-        let step = max(1, maximum / 10)
-        let index = min(max(levelScore, 0) / step, 9)
+        guard !isCompleted else { return L(key: "game.end.completionSubtitle") }
+        let index = min(max(levelScore, 0) / 3, 9)
         return L(key: "game.encouragement.\(index)")
     }
 
@@ -54,7 +53,10 @@ struct ResultView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.5).ignoresSafeArea()
+            Color.black
+                .opacity(isPresented ? 0.56 : 0)
+                .ignoresSafeArea()
+                .animation(.easeOut(duration: 0.24), value: isPresented)
 
             GeometryReader { proxy in
                 ScrollView {
@@ -113,30 +115,26 @@ struct ResultView: View {
 
     private var card: some View {
         VStack(spacing: 0) {
-            character.artwork
-                .resizable()
-                .scaledToFit()
-                .frame(width: 130 * scale, height: 104 * scale)
+            resultIllustration
                 .accessibilityHidden(true)
                 .padding(.bottom, 18 * scale)
 
-            Text(verbatim: levelTitle)
-                .font(.system(size: 18 * textScale, weight: .heavy, design: .rounded))
-                .foregroundStyle(character.deepColor.opacity(0.68))
-                .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 6 * scale)
-
-            Text(titleKey)
-                .font(.system(size: 32 * textScale, weight: .heavy, design: .rounded))
-                .foregroundStyle(character.deepColor)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
+            if isCompleted {
+                completionTitle
+                    .frame(maxWidth: .infinity)
+            } else {
+                Text(titleKey)
+                    .font(.system(size: 29 * textScale, weight: .heavy, design: .rounded))
+                    .foregroundStyle(character.deepColor)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .frame(maxWidth: .infinity)
+            }
 
             Text(verbatim: encouragement)
-                .font(.system(size: 20 * textScale, weight: .semibold))
+                .font(.system(size: (isCompleted ? 17 : 20) * textScale,
+                              weight: isCompleted ? .medium : .semibold))
                 .foregroundStyle(character.deepColor.opacity(0.64))
                 .multilineTextAlignment(.center)
                 .padding(.top, 10 * scale)
@@ -153,6 +151,101 @@ struct ResultView: View {
             buttons
                 .padding(.top, 24 * scale)
         }
+    }
+
+    @ViewBuilder
+    private var resultIllustration: some View {
+        if isCompleted {
+            ZStack {
+                Text(verbatim: "✦")
+                    .font(.system(size: 25 * scale, weight: .bold))
+                    .foregroundStyle(character.color.opacity(0.68))
+                    .offset(x: -54 * scale, y: -20 * scale)
+                Text(verbatim: "✦")
+                    .font(.system(size: 20 * scale, weight: .bold))
+                    .foregroundStyle(character.color.opacity(0.68))
+                    .offset(x: 53 * scale, y: -8 * scale)
+                Text(verbatim: "🏆")
+                    .font(.system(size: 70 * scale))
+                    .scaleEffect(isPresented ? 1 : 0.4)
+                    .rotationEffect(.degrees(isPresented ? 0 : -25))
+                    .animation(.spring(response: 0.55, dampingFraction: 0.5),
+                               value: isPresented)
+            }
+            .frame(height: 92 * scale)
+        } else {
+            character.artwork
+                .resizable()
+                .scaledToFit()
+                .frame(width: 130 * scale, height: 92 * scale)
+        }
+    }
+
+    private var completionTitle: some View {
+        let fontSize = 29 * textScale
+        return HStack(spacing: 7 * scale) {
+            operationLabel(fontSize: fontSize)
+            Text("game.end.completionSuffix")
+                .font(.system(size: fontSize, weight: .heavy, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(character.deepColor)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func operationLabel(fontSize: CGFloat) -> some View {
+        let level = board.level
+        let font = Font.system(size: fontSize, weight: .heavy, design: .rounded)
+
+        switch level.topic {
+        case .addition:
+            scalableTitleText("+\(level.cardNumber)", font: font)
+        case .subtraction:
+            scalableTitleText("−\(level.cardNumber)", font: font)
+        case .tables:
+            scalableTitleText("×\(level.cardNumber)", font: font)
+        case .percentages:
+            scalableTitleText("\(level.cardNumber)%", font: font)
+        case .fractions:
+            stackedTitleFraction(denominator: level.cardNumber, fontSize: fontSize)
+        case .mixed:
+            HStack(spacing: 5 * scale) {
+                scalableTitleText(level.cardNumber, font: font)
+                Image(systemName: "star.fill")
+                    .font(.system(size: fontSize * 0.7, weight: .heavy))
+            }
+        }
+    }
+
+    private func scalableTitleText(_ value: String, font: Font) -> some View {
+        Text(verbatim: value)
+            .font(font)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+    }
+
+    private func stackedTitleFraction(denominator: String, fontSize: CGFloat) -> some View {
+        let thickness = max(2, fontSize * 0.07)
+        let font = Font.system(size: fontSize * 0.6, weight: .heavy, design: .rounded)
+
+        return VStack(spacing: thickness + 3 * scale) {
+            Text(verbatim: "1")
+                .font(font)
+                .lineLimit(1)
+            Text(verbatim: denominator)
+                .font(font)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+        }
+        .overlay {
+            Rectangle()
+                .fill(character.deepColor)
+                .frame(height: thickness)
+        }
+        .fixedSize()
+        .padding(.horizontal, 2 * scale)
     }
 
     private var scoreCapsule: some View {
@@ -278,7 +371,9 @@ private struct BubbleRainView: View {
     @State private var bubbles: [RainBubble]
 
     init() {
-        _bubbles = State(initialValue: (0..<34).map { _ in RainBubble() })
+        // Keep the reward visible without covering the result card in a dense
+        // curtain. The varied timing still makes this feel organic.
+        _bubbles = State(initialValue: (0..<18).map { _ in RainBubble() })
     }
 
     var body: some View {
@@ -296,14 +391,14 @@ private struct BubbleRainView: View {
 private struct RainBubble: Identifiable {
     let id = UUID()
     /// Share of the width the bubble falls down.
-    let x = CGFloat.random(in: 0.05...0.95)
-    let diameter = CGFloat.random(in: 10...30)
+    let x = CGFloat.random(in: 0.08...0.92)
+    let diameter = CGFloat.random(in: 8...22)
     /// Share of the height at which it bursts, so they do not all pop in a line.
-    let burstY = CGFloat.random(in: 0.30...0.92)
-    let fallDuration = Double.random(in: 1.1...2.1)
-    let delay = Double.random(in: 0...0.9)
+    let burstY = CGFloat.random(in: 0.34...0.86)
+    let fallDuration = Double.random(in: 1.55...2.45)
+    let delay = Double.random(in: 0...1.1)
     /// A little sideways wander on the way down.
-    let drift = CGFloat.random(in: -22...22)
+    let drift = CGFloat.random(in: -14...14)
 }
 
 private struct FallingBubble: View {
@@ -311,34 +406,51 @@ private struct FallingBubble: View {
     let area: CGSize
 
     @State private var hasFallen = false
-    @State private var hasPopped = false
+    @State private var isBursting = false
+    @State private var burstFinished = false
 
     var body: some View {
-        Circle()
-            .fill(
-                RadialGradient(colors: [.white.opacity(0.95), .white.opacity(0.30)],
-                               center: UnitPoint(x: 0.34, y: 0.30),
-                               startRadius: 1,
-                               endRadius: bubble.diameter * 0.7)
-            )
-            .overlay { Circle().stroke(.white.opacity(0.9), lineWidth: 1.2) }
-            .frame(width: bubble.diameter, height: bubble.diameter)
-            // The burst: the shell swells out and is gone.
-            .scaleEffect(hasPopped ? 1.8 : 1)
-            .opacity(hasPopped ? 0 : 1)
-            .position(x: area.width * bubble.x + (hasFallen ? bubble.drift : 0),
-                      y: hasFallen ? area.height * bubble.burstY : -bubble.diameter)
-            .onAppear {
-                withAnimation(.easeIn(duration: bubble.fallDuration).delay(bubble.delay)) {
-                    hasFallen = true
-                }
-                // Pops the moment it arrives, so the fall and the burst read as
-                // one movement rather than two.
-                DispatchQueue.main.asyncAfter(
-                    deadline: .now() + bubble.delay + bubble.fallDuration
-                ) {
-                    withAnimation(.easeOut(duration: 0.24)) { hasPopped = true }
+        ZStack {
+            // A faint ring lingers for a moment after the shell dissolves. It
+            // gives each bubble a soft finish instead of a sudden large pop.
+            Circle()
+                .stroke(.white.opacity(0.62), lineWidth: 0.8)
+                .scaleEffect(isBursting ? (burstFinished ? 1.5 : 1.08) : 0.88)
+                .opacity(isBursting && !burstFinished ? 0.3 : 0)
+
+            Circle()
+                .fill(
+                    RadialGradient(colors: [.white.opacity(0.78), .white.opacity(0.16)],
+                                   center: UnitPoint(x: 0.34, y: 0.30),
+                                   startRadius: 1,
+                                   endRadius: bubble.diameter * 0.7)
+                )
+                .overlay { Circle().stroke(.white.opacity(0.66), lineWidth: 0.9) }
+                .scaleEffect(isBursting ? 1.14 : 1)
+                .opacity(isBursting ? 0 : 0.78)
+        }
+        .frame(width: bubble.diameter, height: bubble.diameter)
+        .position(x: area.width * bubble.x + (hasFallen ? bubble.drift : 0),
+                  y: hasFallen ? area.height * bubble.burstY : -bubble.diameter)
+        .onAppear {
+            withAnimation(
+                .timingCurve(0.32, 0.48, 0.42, 1,
+                             duration: bubble.fallDuration)
+                    .delay(bubble.delay)
+            ) {
+                hasFallen = true
+            }
+
+            // Let the bubble settle, dissolve its shell, then gently fade
+            // the remaining ring. The two short phases avoid a hard cut.
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + bubble.delay + bubble.fallDuration + 0.06
+            ) {
+                withAnimation(.easeOut(duration: 0.18)) { isBursting = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                    withAnimation(.easeOut(duration: 0.34)) { burstFinished = true }
                 }
             }
+        }
     }
 }

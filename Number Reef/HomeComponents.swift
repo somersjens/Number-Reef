@@ -452,16 +452,30 @@ struct LevelCardView: View {
 
     /// Tier boundaries come from the central configuration, so the card art
     /// follows the economy rather than repeating its numbers.
-    private var tier: Tier {
-        if best >= maximum { return .maxed }
+    private func tier(for score: Int) -> Tier {
+        if score >= maximum { return .maxed }
         let maximum = Double(maximum)
         let shares = GameConfig.levelTierShares
-        switch Double(best) {
+        switch Double(score) {
         case ..<(maximum * shares[0]): return .empty
         case ..<(maximum * shares[1]): return .one
         case ..<(maximum * shares[2]): return .two
         default:                       return .three
         }
+    }
+
+    private var tier: Tier { tier(for: best) }
+
+    /// During a return animation the score still starts at its old value. Keep
+    /// every score-coloured detail in that old tier too; otherwise a maxed
+    /// bubble turns green before its number has actually reached the maximum.
+    private var displayedTier: Tier {
+        guard isNewMaximumCelebration, !completionRevealed else { return tier }
+        return tier(for: celebrationStart ?? best)
+    }
+
+    private var displayedBest: Int {
+        isNewMaximumCelebration && !completionRevealed ? (celebrationStart ?? best) : best
     }
 
     private var showsCompletedAppearance: Bool {
@@ -548,7 +562,8 @@ struct LevelCardView: View {
                     .foregroundStyle(theme.deepColor)
                 centerLine
                 Spacer(minLength: 2)
-                progressDots(active: tier.activeDots, color: tier.color(for: theme))
+                progressDots(active: displayedTier.activeDots,
+                             color: displayedTier.color(for: theme))
                     .padding(.bottom, 2)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -567,12 +582,14 @@ struct LevelCardView: View {
     }
 
     private var cardFill: Color {
-        best == 0 ? Color.white.opacity(0.6) : .white
+        displayedBest == 0 ? Color.white.opacity(0.6) : .white
     }
 
     private var borderColor: Color {
         if status == .recommended { return theme.color }
-        return best == 0 ? Color(white: 0.85) : tier.color(for: theme).opacity(0.35)
+        return displayedBest == 0
+            ? Color(white: 0.85)
+            : displayedTier.color(for: theme).opacity(0.35)
     }
 
     // MARK: Center score line
@@ -637,7 +654,9 @@ struct LevelCardView: View {
                 .scaleEffect(scorePulse ? 1.48 : 1)
                 .rotationEffect(.degrees(scorePulse ? -12 : 0))
         }
-        .foregroundStyle(tier == .empty ? Color(white: 0.6) : tier.color(for: theme))
+        .foregroundStyle(displayedTier == .empty
+                         ? Color(white: 0.6)
+                         : displayedTier.color(for: theme))
     }
 
     /// The level's own score is the first thing that moves on returning: it
@@ -649,23 +668,23 @@ struct LevelCardView: View {
 
     @ViewBuilder
     private var tierBadge: some View {
-        switch tier {
+        switch displayedTier {
         case .empty:
             // No score yet: leave the corner empty.
             EmptyView()
         case .one:
             RoundedRectangle(cornerRadius: 1.5)
-                .fill(tier.color(for: theme))
+                .fill(displayedTier.color(for: theme))
                 .frame(width: 9 * cardScale, height: 9 * cardScale)
                 .rotationEffect(.degrees(45))
                 .padding(.leading, 1)
         case .two:
             CornerFlagShape()
-                .fill(tier.color(for: theme))
+                .fill(displayedTier.color(for: theme))
                 .frame(width: 12 * cardScale, height: 14 * cardScale)
         case .three, .maxed:
             PennantShape()
-                .fill(tier.color(for: theme))
+                .fill(displayedTier.color(for: theme))
                 .frame(width: 12 * cardScale, height: 14 * cardScale)
         }
     }
@@ -689,15 +708,19 @@ struct LevelCardView: View {
     /// Green would disappear into a green theme, so that one case swaps to
     /// violet — which is what keeps the contrast strong in every theme.
     private var completedPalette: (hero: Color, metal: Color) {
+        Self.completedPalette(for: theme)
+    }
+
+    static func completedPalette(for theme: AnimalCharacter) -> (hero: Color, metal: Color) {
         let green = Color(red: 0.24, green: 0.60, blue: 0.28)
         let gold = Color(red: 0.87, green: 0.66, blue: 0.12)
         let violet = Color(red: 0.42, green: 0.35, blue: 0.78)
-        return (80...175).contains(themeHue) ? (violet, gold) : (green, gold)
+        return (80...175).contains(themeHue(for: theme)) ? (violet, gold) : (green, gold)
     }
 
     /// Hue (0–360°) of the selected theme, used to keep the completed card's
     /// festive colours distinct from whichever animal is active.
-    private var themeHue: Double {
+    private static func themeHue(for theme: AnimalCharacter) -> Double {
         let (r, g, b) = theme.primaryRGB
         let mx = max(r, g, b), mn = min(r, g, b), d = mx - mn
         guard d > 0 else { return 0 }
@@ -787,14 +810,14 @@ struct LevelCardView: View {
     /// score without narrowing the number or bubble line.
     private func completedFerns(color _: Color, highlight: Color) -> some View {
         HStack(spacing: 0) {
-            CompletionFern(color: highlight)
+            CompletionFern(color: highlight, revealStartedAt: fernRevealStartedAt)
                 .frame(width: 25 * cardScale, height: 52 * cardScale)
                 .rotationEffect(.degrees(-3), anchor: .bottom)
                 .offset(x: 9 * cardScale, y: 3 * cardScale)
 
             Spacer(minLength: 0)
 
-            CompletionFern(color: highlight)
+            CompletionFern(color: highlight, revealStartedAt: fernRevealStartedAt)
                 .frame(width: 25 * cardScale, height: 52 * cardScale)
                 .scaleEffect(x: -1, y: 1)
                 .rotationEffect(.degrees(3), anchor: .bottom)
@@ -802,6 +825,14 @@ struct LevelCardView: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    /// The completed card is inserted at this exact instant. Giving the ferns
+    /// the shared timestamp keeps both sides perfectly synchronized even when
+    /// SwiftUI creates one side a frame later than the other.
+    private var fernRevealStartedAt: Date? {
+        guard isNewMaximumCelebration, let celebrationStartedAt else { return nil }
+        return celebrationStartedAt.addingTimeInterval(Self.scoreCountDelay + Self.scoreCountDuration)
     }
 
     /// A small ribbon overlapping the top edge, carrying the crown. The ribbon
@@ -849,6 +880,8 @@ struct LevelCardView: View {
 /// irregular spacing keeps it organic enough for the reef setting.
 private struct CompletionFern: View {
     let color: Color
+    /// Nil means this is an already-completed card and should render fully.
+    let revealStartedAt: Date?
 
     private struct Leaf: Identifiable {
         let id: Int
@@ -872,25 +905,90 @@ private struct CompletionFern: View {
     ]
 
     var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                FernStemShape()
-                    .stroke(color.opacity(0.5),
-                            style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.045),
-                                               lineCap: .round))
+        TimelineView(.animation) { context in
+            let elapsed = revealStartedAt.map {
+                max(0, context.date.timeIntervalSince($0))
+            } ?? .greatestFiniteMagnitude
+            GeometryReader { proxy in
+                ZStack {
+                    FernStemShape()
+                        .trim(from: 0, to: stemProgress(at: elapsed))
+                        .stroke(color.opacity(0.62),
+                                style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.05),
+                                                   lineCap: .round))
 
-                ForEach(leaves) { leaf in
-                    Capsule(style: .continuous)
-                        .fill(color.opacity(0.78))
-                        .frame(width: proxy.size.width * leaf.width,
-                               height: proxy.size.height * leaf.height)
-                        .rotationEffect(.degrees(leaf.rotation))
-                        .position(x: proxy.size.width * leaf.x,
-                                  y: proxy.size.height * leaf.y)
+                    ForEach(leaves) { leaf in
+                        let progress = leafProgress(leaf, at: elapsed)
+                        let leafX = proxy.size.width * leaf.x
+                        let leafY = proxy.size.height * leaf.y
+
+                        // A short petiole connects every leaf to the bowed
+                        // stem, so the ornament reads as a growing fern rather
+                        // than a loose row of capsules.
+                        Path { path in
+                            path.move(to: CGPoint(x: proxy.size.width * stemX(at: leaf.y),
+                                                  y: leafY))
+                            path.addLine(to: CGPoint(x: leafX, y: leafY))
+                        }
+                        .trim(from: 0, to: min(1, progress))
+                        .stroke(color.opacity(0.48),
+                                style: StrokeStyle(lineWidth: max(0.7, proxy.size.width * 0.025),
+                                                   lineCap: .round))
+
+                        FernLeafShape()
+                            .fill(
+                                LinearGradient(colors: [color.opacity(0.95), color.opacity(0.62)],
+                                               startPoint: .topLeading,
+                                               endPoint: .bottomTrailing)
+                            )
+                            .frame(width: proxy.size.width * leaf.width,
+                                   height: proxy.size.height * leaf.height)
+                            .scaleEffect(x: progress, y: progress, anchor: .leading)
+                            .rotationEffect(.degrees(leaf.rotation
+                                + (leaf.x < stemX(at: leaf.y) ? -14 : 14) * (1 - progress)))
+                            .opacity(min(1, progress))
+                            .position(x: leafX, y: leafY)
+                    }
                 }
             }
         }
         .shadow(color: color.opacity(0.16), radius: 1, y: 0.5)
+    }
+
+    private func stemProgress(at elapsed: TimeInterval) -> CGFloat {
+        CGFloat(min(1, max(0, elapsed / 0.48)))
+    }
+
+    private func leafProgress(_ leaf: Leaf, at elapsed: TimeInterval) -> CGFloat {
+        let delay = 0.16 + Double(leaf.id) * 0.055
+        let raw = min(1, max(0, (elapsed - delay) / 0.30))
+        // Back ease: each leaf opens with a tiny organic overshoot.
+        let c1 = 1.70158
+        let c3 = c1 + 1
+        return CGFloat(1 + c3 * pow(raw - 1, 3) + c1 * pow(raw - 1, 2))
+    }
+
+    /// Approximation of the stem's horizontal position at a leaf's height.
+    private func stemX(at y: CGFloat) -> CGFloat {
+        let fromBottom = 1 - y
+        return 0.76 - 0.10 * fromBottom - 0.34 * sin(fromBottom * .pi)
+    }
+}
+
+/// A pointed, slightly asymmetric leaf reads more naturally at this tiny size
+/// than a capsule, while remaining crisp on both phone and iPad.
+private struct FernLeafShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
+        path.addCurve(to: CGPoint(x: rect.maxX, y: rect.midY),
+                      control1: CGPoint(x: rect.width * 0.30, y: rect.minY),
+                      control2: CGPoint(x: rect.width * 0.78, y: rect.minY + rect.height * 0.08))
+        path.addCurve(to: CGPoint(x: rect.minX, y: rect.midY),
+                      control1: CGPoint(x: rect.width * 0.72, y: rect.maxY),
+                      control2: CGPoint(x: rect.width * 0.22, y: rect.maxY - rect.height * 0.04))
+        path.closeSubpath()
+        return path
     }
 }
 
@@ -1264,22 +1362,17 @@ struct AlternatingCardSummary: View {
 
         do {
             if displayedPrompt != prompt {
-                let hadPreviousValue = displayedPrompt != nil
-                if !hadPreviousValue { displayedPrompt = prompt }
-
                 if immediatePreviewID != handledImmediatePreviewID {
                     // Only a completed level return bumps the trigger; a launch
                     // or an iCloud merge updates the value silently and waits
-                    // for the ordinary cycle.
-                    withAnimation(.easeInOut(duration: 0.55)) { showsPreview = true }
-                    if hadPreviousValue {
-                        try await Task.sleep(nanoseconds: 650_000_000)
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.78)) {
-                            displayedPrompt = prompt
-                        }
-                    }
-                    try await Task.sleep(nanoseconds: 3_000_000_000)
-                    withAnimation(.easeInOut(duration: 0.55)) { showsPreview = false }
+                    // for the ordinary cycle. Install the *new* remaining
+                    // value before fading it in; showing the previous prompt
+                    // for a beat made the end of the sequence feel one step
+                    // behind the counters.
+                    displayedPrompt = prompt
+                    withAnimation(.easeInOut(duration: 0.32)) { showsPreview = true }
+                    try await Task.sleep(nanoseconds: 2_200_000_000)
+                    withAnimation(.easeInOut(duration: 0.32)) { showsPreview = false }
                 } else {
                     displayedPrompt = prompt
                     showsPreview = false

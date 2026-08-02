@@ -60,7 +60,9 @@ public enum GameConfig {
     /// until the next wrong answer.
     public static let streakThreshold = 5
     public static let streakMultiplier = 2
-    public static let streakSpeedMultiplier = 1.5
+    /// The reef already has an active base tempo. A streak adds a noticeable
+    /// push without making the denser answer stream overwhelming.
+    public static let streakSpeedMultiplier = 1.3
     /// The first mistake while the streak boost is active breaks the streak,
     /// but only costs half a life instead of a full one.
     public static let streakWrongAnswerCostHalves = 1

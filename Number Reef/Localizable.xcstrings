@@ -562,6 +562,40 @@
         }
       }
     },
+    "game.end.completionSubtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You collected all the bubbles."
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Je hebt alle bubbels verzameld."
+          }
+        }
+      }
+    },
+    "game.end.completionSuffix" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "complete!"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "afgerond!"
+          }
+        }
+      }
+    },
     "game.end.mainMenu" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -925,13 +959,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Elephant"
+            "value" : "Octopus"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Olifant"
+            "value" : "Inktvis"
           }
         }
       }

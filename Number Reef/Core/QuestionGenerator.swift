@@ -620,7 +620,7 @@ public final class QuestionGenerator {
         // suddenly much bigger multiplication.
         let familyCeiling = source > GameConfig.freeLevelCount
             ? MathScaling.premiumCeiling(source)
-            : Self.percentageBase(percentage) * 12
+            : Self.percentageBase(percentage) * 8
         let highestWhole = max(1, min(familyCeiling,
                                       DecimalAnswer.maximumHundredths / percentage))
         var candidates: [Int] = []

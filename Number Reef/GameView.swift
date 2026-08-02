@@ -58,6 +58,12 @@ struct GameView: View {
     @State private var playsFishEntrance = false
     @State private var showsStreakBanner = false
     @State private var streakBannerToken = 0
+    /// A completed board gets one last moment in the reef before its result
+    /// card appears. Other endings (no lives, or leaving) remain immediate.
+    @State private var playsLevelCompletion = false
+    @State private var showsResult = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(request: GameSessionRequest) {
         self.request = request
@@ -83,11 +89,15 @@ struct GameView: View {
             playfield
                 .transition(.opacity)
 
-            if model.isGameOver {
+            if showsResult {
                 ResultView(result: model.result,
                            board: request.board,
                            character: character,
-                           onPlayAgain: { model.restart() },
+                           onPlayAgain: {
+                               showsResult = false
+                               playsLevelCompletion = false
+                               model.restart()
+                           },
                            onExit: { dismiss() })
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .zIndex(1)
@@ -106,6 +116,18 @@ struct GameView: View {
         .animation(.easeInOut(duration: 0.28), value: model.isGameOver)
         .animation(.easeInOut(duration: 0.25), value: showsIntro)
         .onAppear { screenInsets = ScreenSafeArea.current }
+        .onChange(of: model.isGameOver) { _, isOver in
+            guard isOver else {
+                showsResult = false
+                playsLevelCompletion = false
+                return
+            }
+            if model.result.reason == .roundsCompleted {
+                playsLevelCompletion = true
+            } else {
+                showsResult = true
+            }
+        }
         .onDisappear { model.end() }
     }
 
@@ -147,18 +169,25 @@ struct GameView: View {
                           playsFishEntrance: playsFishEntrance,
                           hasBonusFishPower: model.hasBonusFishPower,
                           isHeartFishAvailable: model.isHeartFishAvailable,
+                          heartFishRestoresWholeLife: model.livesRemaining <= 0.5,
                           isStreakBoostActive: model.isStreakBoostActive,
+                          playsLevelCompletion: playsLevelCompletion,
+                          reduceMotion: reduceMotion,
                           topReserve: topInset + (isPad ? 54 : 42),
                           bottomReserve: screenInsets.bottom,
                           onHit: { model.select(optionID: $0) },
                           onBonusFishCaught: model.catchBonusFish,
                           onHeartFishCaught: model.catchHeartFish,
                           onHeartFishMissed: model.missHeartFish,
-                          onFishEntranceComplete: finishFishEntrance)
+                          onFishEntranceComplete: finishFishEntrance,
+                          onLevelCompletionFinished: finishLevelCompletion)
 
             hud
                 .padding(.horizontal, isPad ? 28 : 16)
                 .padding(.top, topInset + (isPad ? 12 : 6))
+                .opacity(playsLevelCompletion ? 0 : 1)
+                .animation(.easeOut(duration: 0.22), value: playsLevelCompletion)
+                .allowsHitTesting(!playsLevelCompletion)
 
             if showsStreakBanner {
                 StreakBoostBanner(character: character, isPad: isPad)
@@ -184,6 +213,18 @@ struct GameView: View {
             withAnimation(.easeOut(duration: 0.25)) {
                 showsStreakBanner = false
             }
+        }
+    }
+
+    private func finishLevelCompletion() {
+        guard playsLevelCompletion else { return }
+        withAnimation(.spring(response: 0.48, dampingFraction: 0.84)) {
+            showsResult = true
+        }
+        // Keep the final bubble bloom under the card during its entrance so
+        // there is never a flash of the bare playfield between both scenes.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            playsLevelCompletion = false
         }
     }
 
@@ -262,7 +303,7 @@ struct GameView: View {
     /// behind the start card or the result card, and never while the app is in
     /// the background.
     private var isReefRunning: Bool {
-        !showsIntro && !model.isGameOver && scenePhase == .active
+        !showsIntro && (!model.isGameOver || playsLevelCompletion) && scenePhase == .active
     }
 }
 
