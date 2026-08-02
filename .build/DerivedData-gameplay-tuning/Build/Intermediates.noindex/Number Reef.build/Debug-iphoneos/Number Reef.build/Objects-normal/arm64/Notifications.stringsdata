@@ -1,0 +1,136 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/Notifications.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "notif.day3.title",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 365
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.day3.body %lld",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 366
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.streak.title %lld",
+        "location": {
+          "startingColumn": 30,
+          "startingLine": 371
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.streak.body %lld",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 372
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.animal.title %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 384
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.animal.body %@",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 385
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.comeback.title",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 393
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.comeback.body",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 394
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.reactivate.title",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 401
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.reactivate.body %lld",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 402
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.weekly.title %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 409
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.weekly.body %lld",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 410
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.cards.title %lld",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 418
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.cards.body %lld",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 419
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.premium.title",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 427
+        }
+      },
+      {
+        "comment": "",
+        "key": "notif.premium.body %lld",
+        "location": {
+          "startingColumn": 25,
+          "startingLine": 428
+        }
+      }
+    ]
+  },
+  "version": 1
+}

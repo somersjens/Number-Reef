@@ -1,0 +1,72 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/ParentApprovalGate.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "parentGate.title",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 73
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.subtitle",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 80
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.holdInstruction %@ %lld",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 197
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.tapInstruction %lld %@",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 198
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.holdProgress %lld",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.tapProgress %lld %lld",
+        "location": {
+          "startingColumn": 17,
+          "startingLine": 204
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.attempts %lld %lld",
+        "location": {
+          "startingColumn": 11,
+          "startingLine": 212
+        }
+      },
+      {
+        "comment": "",
+        "key": "parentGate.approved",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 185
+        }
+      }
+    ]
+  },
+  "version": 1
+}

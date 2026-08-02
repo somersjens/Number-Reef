@@ -1,0 +1,48 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/GameView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "game.bubblesCollected %lld",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 299
+        }
+      },
+      {
+        "comment": "",
+        "key": "game.pause",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 273
+        }
+      },
+      {
+        "comment": "",
+        "key": "game.streakBoost.title",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 318
+        }
+      },
+      {
+        "comment": "",
+        "key": "game.streakBoost.subtitle",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 320
+        }
+      },
+      {
+        "comment": "",
+        "key": "game.livesRemaining %@",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 449
+        }
+      }
+    ]
+  },
+  "version": 1
+}

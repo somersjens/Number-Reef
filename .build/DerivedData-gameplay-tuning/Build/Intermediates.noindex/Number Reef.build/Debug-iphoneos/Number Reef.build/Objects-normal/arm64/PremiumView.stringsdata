@@ -1,0 +1,112 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/PremiumView.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "premium.feature.levels.title",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 213
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.feature.levels.subtitle",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 214
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.feature.animals.title",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 216
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.feature.animals.subtitle",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 217
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.feature.noAds.title",
+        "location": {
+          "startingColumn": 33,
+          "startingLine": 219
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.feature.noAds.subtitle",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 220
+        }
+      },
+      {
+        "comment": "",
+        "key": "unlocked",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 321
+        }
+      },
+      {
+        "comment": "",
+        "key": "locked",
+        "location": {
+          "startingColumn": 57,
+          "startingLine": 321
+        }
+      },
+      {
+        "comment": "",
+        "key": "common.done",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 355
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.oneTime",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 387
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.restore",
+        "location": {
+          "startingColumn": 24,
+          "startingLine": 391
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.unlockWithPrice %@",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 409
+        }
+      },
+      {
+        "comment": "",
+        "key": "premium.unlock",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 411
+        }
+      }
+    ]
+  },
+  "version": 1
+}

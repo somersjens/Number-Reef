@@ -1,0 +1,74 @@
+/* MenuKit — English
+   Taken from Jumping Fox. Add these lines to your own Localizable.strings
+   (or use MenuKit.xcstrings in the folder above). */
+
+/* --- Topics: the six circles --- */
+"filter.addition"     = "Addition";
+"filter.subtraction"  = "Subtraction";
+"filter.tables"       = "Tables";
+"filter.fractions"    = "Fractions";
+"filter.percentages"  = "Percentages";
+"filter.mixed"        = "Supermix";           /* the star */
+
+/* --- Pop-out for a topic --- */
+"info.filter.header"       = "Types of problems";
+"info.filter.addition"     = "Addition only";
+"info.filter.subtraction"  = "Subtraction only";
+"info.filter.tables"       = "Multiplication only";
+"info.filter.fractions"    = "Division only";
+"info.filter.percentages"  = "Percentages only";
+"info.filter.mixed"        = "Mixed operations";
+
+/* --- The three order buttons --- */
+"mode.order"   = "Order";
+"mode.random"  = "Random";
+"mode.mixed"   = "Mixed";
+
+/* Different labels for Fractions and Percentages */
+"mode.fractions.single"     = "Single";
+"mode.fractions.multiple"   = "Multiple";
+"mode.percentages.whole"    = "Whole";
+"mode.percentages.decimal"  = "Decimal";
+
+/* --- Pop-out for an order button --- */
+"info.mode.header"  = "Order";
+"info.mode.order"   = "Fixed order";
+"info.mode.random"  = "Random order";
+"info.mode.mixed"   = "Mixed with lower levels";
+
+"info.mode.fractions.header"    = "Parts";
+"info.mode.fractions.single"    = "Always a single part";
+"info.mode.fractions.multiple"  = "Single and multiple parts";
+
+"info.mode.percentages.header"   = "Type";
+"info.mode.percentages.whole"    = "Without decimal numbers";
+"info.mode.percentages.decimal"  = "Including decimal numbers";
+
+/* --- Pop-out for the star's four buttons --- */
+"info.super.basic"     = "Addition and subtraction";
+"info.super.times"     = "Addition, subtraction, and multiplication";
+"info.super.fraction"  = "Addition, subtraction, multiplication, and division";
+"info.super.all"       = "Addition, subtraction, multiplication, division, and percentages";
+
+/* --- Accessibility --- */
+"menu.accessibility.chooseMode" = "Choose %@";
+
+/* --- Welcome screen 2: topic --- */
+"onboarding.subject.title"     = "What do you want to learn?";
+"onboarding.subject.subtitle"  = "Choose a topic to start with.";
+
+/* --- Welcome screen 3: starting point --- */
+"onboarding.level.title"     = "How good are you at this already?";
+"onboarding.level.subtitle"  = "Choose a starting point for %@.";
+"onboarding.level.thisTopic" = "this topic";
+
+"onboarding.level.beginner.title"        = "Just started";          /* → Order  */
+"onboarding.level.beginner.subtitle"     = "Practice with sums in order.";
+"onboarding.level.intermediate.title"    = "Some practice already"; /* → Random */
+"onboarding.level.intermediate.subtitle" = "Sums in random order.";
+"onboarding.level.advanced.title"        = "Pretty good already";   /* → Mixed  */
+"onboarding.level.advanced.subtitle"     = "Different mixed sums together.";
+
+/* --- Common --- */
+"common.continue" = "Continue";
+"common.back"     = "Back";

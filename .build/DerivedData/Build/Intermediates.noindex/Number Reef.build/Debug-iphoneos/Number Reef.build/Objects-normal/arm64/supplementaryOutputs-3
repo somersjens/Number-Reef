@@ -1,0 +1,23 @@
+{
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/PausedSessionStore.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PausedSessionStore.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PausedSessionStore.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PausedSessionStore.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PausedSessionStore.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PausedSessionStore.swiftdeps"
+  },
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/PracticeMode.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PracticeMode.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PracticeMode.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PracticeMode.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PracticeMode.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/PracticeMode.swiftdeps"
+  },
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/ProgressStore.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/ProgressStore.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/ProgressStore.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/ProgressStore.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/ProgressStore.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/ProgressStore.swiftdeps"
+  }
+}

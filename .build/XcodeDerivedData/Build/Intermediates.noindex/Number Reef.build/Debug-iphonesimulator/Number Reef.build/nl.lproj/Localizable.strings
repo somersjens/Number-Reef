@@ -1,0 +1,459 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>character.bear</key>
+	<string>Beer</string>
+	<key>character.bunny</key>
+	<string>Konijn</string>
+	<key>character.crab</key>
+	<string>Krab</string>
+	<key>character.dog</key>
+	<string>Hond</string>
+	<key>character.elephant</key>
+	<string>Olifant</string>
+	<key>character.fox</key>
+	<string>Vos</string>
+	<key>character.frog</key>
+	<string>Kikker</string>
+	<key>character.lion</key>
+	<string>Leeuw</string>
+	<key>character.octopus</key>
+	<string>Inktvis</string>
+	<key>character.penguin</key>
+	<string>Pinguïn</string>
+	<key>common.back</key>
+	<string>Terug</string>
+	<key>common.cancel</key>
+	<string>Annuleren</string>
+	<key>common.close</key>
+	<string>Sluiten</string>
+	<key>common.continue</key>
+	<string>Verder</string>
+	<key>common.done</key>
+	<string>Klaar</string>
+	<key>common.minutesShort %lld %lld</key>
+	<string>%1$lld/%2$lld min</string>
+	<key>common.save</key>
+	<string>Opslaan</string>
+	<key>game.accessibility.scoreOutOf %lld %lld</key>
+	<string>%lld van %lld</string>
+	<key>game.bubblesCollected %lld</key>
+	<string>%lld bubbels verzameld</string>
+	<key>game.encouragement.0</key>
+	<string>Goed geprobeerd</string>
+	<key>game.encouragement.1</key>
+	<string>Het begin is er</string>
+	<key>game.encouragement.2</key>
+	<string>Blijf oefenen</string>
+	<key>game.encouragement.3</key>
+	<string>Lang niet slecht</string>
+	<key>game.encouragement.4</key>
+	<string>Goed bezig</string>
+	<key>game.encouragement.5</key>
+	<string>Mooie prestatie</string>
+	<key>game.encouragement.6</key>
+	<string>Knap gedaan</string>
+	<key>game.encouragement.7</key>
+	<string>Heel goed gespeeld</string>
+	<key>game.encouragement.8</key>
+	<string>Het einde is in zicht</string>
+	<key>game.encouragement.9</key>
+	<string>Je bent er bijna</string>
+	<key>game.encouragement.complete</key>
+	<string>Perfect, alles goed!</string>
+	<key>game.end.gameOverTitle</key>
+	<string>Game over</string>
+	<key>game.end.mainMenu</key>
+	<string>Hoofdmenu</string>
+	<key>game.end.playAgain</key>
+	<string>Nog een keer</string>
+	<key>game.highScore</key>
+	<string>Record</string>
+	<key>game.intro.backToMainMenu</key>
+	<string>Terug naar het hoofdmenu</string>
+	<key>game.intro.continue</key>
+	<string>Verdergaan</string>
+	<key>game.intro.continueFrom %lld</key>
+	<string>Gepauzeerd met %lld bubbels.</string>
+	<key>game.intro.progressPaused</key>
+	<string>Je voortgang is gepauzeerd.</string>
+	<key>game.intro.start</key>
+	<string>Starten</string>
+	<key>game.livesRemaining %@</key>
+	<string>%@ levens over</string>
+	<key>game.pause</key>
+	<string>Pauzeren</string>
+	<key>game.question %@</key>
+	<string>Vraag: %@</string>
+	<key>game.streakBoost.subtitle</key>
+	<string>2× bubbels • 1,5× snelheid</string>
+	<key>game.streakBoost.title</key>
+	<string>Streakboost!</string>
+	<key>goal.period</key>
+	<string>Periode</string>
+	<key>goal.promptDaily</key>
+	<string>Hoeveel minuten per dag wil je spelen?</string>
+	<key>goal.promptWeekly</key>
+	<string>Hoeveel minuten per week wil je spelen?</string>
+	<key>goal.title</key>
+	<string>Speeldoel</string>
+	<key>goalPeriod.daily</key>
+	<string>Dagelijks</string>
+	<key>goalPeriod.weekly</key>
+	<string>Wekelijks</string>
+	<key>home.cardCount</key>
+	<string>Antwoordkaarten</string>
+	<key>home.cards</key>
+	<string>bubbels</string>
+	<key>home.cardsRemaining %lld</key>
+	<string>nog %lld</string>
+	<key>home.cardsTotal %lld</key>
+	<string>%lld bubbels verzameld</string>
+	<key>home.defaultName</key>
+	<string>Olifant</string>
+	<key>home.level</key>
+	<string>Level</string>
+	<key>home.levelAccessibility %lld</key>
+	<string>Level %lld</string>
+	<key>home.nextCharacter %lld %@</key>
+	<string>Nog %1$lld bubbels tot %2$@</string>
+	<key>home.pausedCards %lld</key>
+	<string>%lld bubbels gepauzeerd</string>
+	<key>home.premiumLevels</key>
+	<string>Level 13–99 ontgrendelen</string>
+	<key>home.streakDays %lld</key>
+	<string>%lld dagen op rij</string>
+	<key>home.todayGoal %lld %lld</key>
+	<string>%1$lld van %2$lld minuten vandaag</string>
+	<key>home.topic</key>
+	<string>Onderwerp</string>
+	<key>info.mode.fractions.header</key>
+	<string>Delen</string>
+	<key>info.mode.fractions.multiple</key>
+	<string>Enkele en meerdere delen</string>
+	<key>info.mode.fractions.single</key>
+	<string>Altijd een enkel deel</string>
+	<key>info.mode.header</key>
+	<string>Volgorde</string>
+	<key>info.mode.mixed</key>
+	<string>Gemengd met lagere niveaus</string>
+	<key>info.mode.order</key>
+	<string>Vaste volgorde</string>
+	<key>info.mode.percentages.decimal</key>
+	<string>Ook getallen achter de komma</string>
+	<key>info.mode.percentages.header</key>
+	<string>Soort</string>
+	<key>info.mode.percentages.whole</key>
+	<string>Zonder getallen achter de komma</string>
+	<key>info.mode.random</key>
+	<string>Willekeurige volgorde</string>
+	<key>info.super.all</key>
+	<string>Optellen, aftrekken, vermenigvuldigen, delen en percentages</string>
+	<key>info.super.basic</key>
+	<string>Optellen en aftrekken</string>
+	<key>info.super.fraction</key>
+	<string>Optellen, aftrekken, vermenigvuldigen en delen</string>
+	<key>info.super.times</key>
+	<string>Optellen, aftrekken en vermenigvuldigen</string>
+	<key>info.topic.header</key>
+	<string>Soorten sommen</string>
+	<key>language.select</key>
+	<string>Kies taal</string>
+	<key>levelIntro.addition.intro</key>
+	<string>Sommen waarbij je een getal |optelt|.</string>
+	<key>levelIntro.addition.title %lld</key>
+	<string>Plus %lld</string>
+	<key>levelIntro.cardsBullet %lld</key>
+	<string>Je kunt in dit level maximaal |%lld bubbels| verzamelen.</string>
+	<key>levelIntro.fractions.intro</key>
+	<string>Sommen waarbij je een getal |deelt|.</string>
+	<key>levelIntro.fractions.title %lld</key>
+	<string>Delen door %lld</string>
+	<key>levelIntro.levelRange %lld</key>
+	<string>Vragen t/m |level %lld|.</string>
+	<key>levelIntro.levelRange %lld %lld</key>
+	<string>Vragen t/m |level %1$lld|, uit |%2$lld bubbels|.</string>
+	<key>levelIntro.levelRange.first</key>
+	<string>Vragen uit |level 1|.</string>
+	<key>levelIntro.mixed.intro</key>
+	<string>|Alles door elkaar|: plus, min, keer, breuken en procenten.</string>
+	<key>levelIntro.mixed.title %lld</key>
+	<string>Supermix %lld</string>
+	<key>levelIntro.mode.fractions.order</key>
+	<string>Altijd |één deel| van een geheel.</string>
+	<key>levelIntro.mode.fractions.random</key>
+	<string>|Eén of meer delen| van een geheel.</string>
+	<key>levelIntro.mode.order</key>
+	<string>Vragen in |vaste volgorde|.</string>
+	<key>levelIntro.mode.percentages.order</key>
+	<string>Antwoorden |zonder komma|.</string>
+	<key>levelIntro.mode.percentages.random</key>
+	<string>Ook antwoorden |met een komma|.</string>
+	<key>levelIntro.mode.random</key>
+	<string>Vragen |door elkaar|.</string>
+	<key>levelIntro.percentages.intro</key>
+	<string>Sommen met |procenten|.</string>
+	<key>levelIntro.percentages.title %@</key>
+	<string>%@ van een getal</string>
+	<key>levelIntro.subtraction.intro</key>
+	<string>Sommen waarbij je een getal |aftrekt|.</string>
+	<key>levelIntro.subtraction.title %lld</key>
+	<string>Min %lld</string>
+	<key>levelIntro.tables.intro</key>
+	<string>Sommen waarbij je |vermenigvuldigt|.</string>
+	<key>levelIntro.tables.title %lld</key>
+	<string>Tafel van %lld</string>
+	<key>menu.maximumCount</key>
+	<string>MAX</string>
+	<key>menu.maximumCount.accessibility %lld</key>
+	<string>Maximum %lld keer behaald</string>
+	<key>menu.moreLevels</key>
+	<string>Meer levels</string>
+	<key>menu.premiumLevels</key>
+	<string>Premium-levels</string>
+	<key>menu.startHere</key>
+	<string>Begin hier</string>
+	<key>menu.unlockWithPremium</key>
+	<string>Ontgrendel met Premium</string>
+	<key>mode.fractions.multiple</key>
+	<string>Meerdere</string>
+	<key>mode.fractions.single</key>
+	<string>Eén deel</string>
+	<key>mode.mixed</key>
+	<string>Gemixt</string>
+	<key>mode.order</key>
+	<string>Reeks</string>
+	<key>mode.percentages.decimal</key>
+	<string>Komma</string>
+	<key>mode.percentages.whole</key>
+	<string>Heel</string>
+	<key>mode.random</key>
+	<string>Hussel</string>
+	<key>name.placeholder</key>
+	<string>Jouw naam</string>
+	<key>name.whatsYourName</key>
+	<string>Hoe heet je?</string>
+	<key>notif.animal.body %@</key>
+	<string>%@: Verdien nog een paar trofeeën om dit dier vrij te spelen! 🐼</string>
+	<key>notif.animal.title %lld</key>
+	<string>Nog maar %lld trofeeën te gaan! 🏆</string>
+	<key>notif.cards.body %lld</key>
+	<string>Speel vandaag %lld minuten en verzamel er nog een paar.</string>
+	<key>notif.cards.title %lld</key>
+	<string>%lld bubbels verzameld! 🫧</string>
+	<key>notif.comeback.body</key>
+	<string>Je dieren wachten op je. Spring weer verder en verzamel meer trofeeën!</string>
+	<key>notif.comeback.title</key>
+	<string>We missen je! 👋</string>
+	<key>notif.day3.body %lld</key>
+	<string>Speel %lld minuten en bouw verder aan je reeks.</string>
+	<key>notif.day3.title</key>
+	<string>Maak dag 3 compleet! ⭐</string>
+	<key>notif.premium.body %lld</key>
+	<string>Met Premium open je %lld levels per onderwerp en alle tien de dieren.</string>
+	<key>notif.premium.title</key>
+	<string>Speel meer niveaus en dieren vrij! 🌈</string>
+	<key>notif.reactivate.body %lld</key>
+	<string>Het is %lld dagen geleden. Tijd voor wat sommen en nieuwe trofeeën!</string>
+	<key>notif.reactivate.title</key>
+	<string>Klaar om weer te spelen? 🎮</string>
+	<key>notif.streak.body %lld</key>
+	<string>Speel %lld minuten en houd je reeks vast!</string>
+	<key>notif.streak.title %lld</key>
+	<string>Je reeks van %lld dagen staat in vuur en vlam! 🔥</string>
+	<key>notif.weekly.body %lld</key>
+	<string>Je hebt in totaal %lld bubbels. Klaar voor nog een paar?</string>
+	<key>notif.weekly.title %lld</key>
+	<string>%lld bubbels deze week! 🎉</string>
+	<key>onboarding.level.advanced.subtitle</key>
+	<string>Verschillende mix-sommen door elkaar.</string>
+	<key>onboarding.level.advanced.title</key>
+	<string>Al aardig goed</string>
+	<key>onboarding.level.beginner.subtitle</key>
+	<string>Oefenen met oplopende sommen.</string>
+	<key>onboarding.level.beginner.title</key>
+	<string>Net begonnen</string>
+	<key>onboarding.level.intermediate.subtitle</key>
+	<string>Sommen in willekeurige volgorde.</string>
+	<key>onboarding.level.intermediate.title</key>
+	<string>Al wat geoefend</string>
+	<key>onboarding.level.subtitle %@</key>
+	<string>Kies een startpunt voor %@.</string>
+	<key>onboarding.level.title</key>
+	<string>Hoe goed ben je hier al in?</string>
+	<key>onboarding.name.subtitle</key>
+	<string>Laten we beginnen. Hoe heet je?</string>
+	<key>onboarding.name.title</key>
+	<string>Sommen maken was
+nog nooit zo leuk!</string>
+	<key>onboarding.subject.subtitle</key>
+	<string>Kies een onderwerp om mee te beginnen.</string>
+	<key>onboarding.subject.title</key>
+	<string>Wat wil je leren?</string>
+	<key>parentGate.approved</key>
+	<string>Goedgekeurd</string>
+	<key>parentGate.attempts %lld %lld</key>
+	<string>Pogingen: %1$lld van %2$lld</string>
+	<key>parentGate.holdInstruction %@ %lld</key>
+	<string>Houd de %@ %lld seconden ingedrukt.</string>
+	<key>parentGate.holdProgress %lld</key>
+	<string>Ingedrukt houden: %lld</string>
+	<key>parentGate.shape.circle</key>
+	<string>cirkel</string>
+	<key>parentGate.shape.diamond</key>
+	<string>ruit</string>
+	<key>parentGate.shape.heart</key>
+	<string>hart</string>
+	<key>parentGate.shape.hexagon</key>
+	<string>zeshoek</string>
+	<key>parentGate.shape.plus</key>
+	<string>plusteken</string>
+	<key>parentGate.shape.square</key>
+	<string>vierkant</string>
+	<key>parentGate.shape.star</key>
+	<string>ster</string>
+	<key>parentGate.shape.triangle</key>
+	<string>driehoek</string>
+	<key>parentGate.subtitle</key>
+	<string>Om jonge spelers te beschermen, moet een volwassene deze controle voltooien voordat de aankoop kan worden voortgezet.</string>
+	<key>parentGate.tapInstruction %lld %@</key>
+	<string>Tik nu %1$lld keer op de %2$@.</string>
+	<key>parentGate.tapProgress %lld %lld</key>
+	<string>Aantal tikken: %1$lld van %2$lld</string>
+	<key>parentGate.title</key>
+	<string>Goedkeuring door een volwassene vereist</string>
+	<key>premium.availableAt %lld</key>
+	<string>Beschikbaar vanaf %lld bubbels</string>
+	<key>premium.availableFromStart</key>
+	<string>Beschikbaar vanaf de start</string>
+	<key>premium.characterUnlocked</key>
+	<string>NIEUW KARAKTER VRIJGESPEELD</string>
+	<key>premium.characterUnlocked %@</key>
+	<string>%@ vrijgespeeld</string>
+	<key>premium.earnedCards %lld</key>
+	<string>Je hebt %lld bubbels verdiend</string>
+	<key>premium.exclusiveBadge</key>
+	<string>Exclusief met Premium</string>
+	<key>premium.exclusiveWithPremium</key>
+	<string>Exclusief met Premium</string>
+	<key>premium.feature.animals.subtitle</key>
+	<string>Met premium speel je vrij met alle 10 de dieren.</string>
+	<key>premium.feature.animals.title</key>
+	<string>Toegang tot alle dieren</string>
+	<key>premium.feature.cards.subtitle</key>
+	<string>Niet wachten op bubbels — elk karakter is meteen van jou.</string>
+	<key>premium.feature.cards.title</key>
+	<string>Alle tien de dieren meteen</string>
+	<key>premium.feature.levels.subtitle</key>
+	<string>Altijd genoeg nieuwe sommen om te oefenen.</string>
+	<key>premium.feature.levels.title</key>
+	<string>99 levels per onderwerp</string>
+	<key>premium.feature.noAds.subtitle</key>
+	<string>Volledig zonder onderbrekingen spelen.</string>
+	<key>premium.feature.noAds.title</key>
+	<string>Geen advertenties</string>
+	<key>premium.oneTime</key>
+	<string>Eenmalige aankoop. Voor altijd van jou.</string>
+	<key>premium.restore</key>
+	<string>Aankopen herstellen</string>
+	<key>premium.start</key>
+	<string>Start</string>
+	<key>premium.storeUnavailable</key>
+	<string>De winkel is nu niet beschikbaar. Probeer het later opnieuw.</string>
+	<key>premium.unlock</key>
+	<string>Premium ontgrendelen</string>
+	<key>premium.unlockWithCards</key>
+	<string>Vrijspelen met bubbels</string>
+	<key>premium.unlockWithPrice %@</key>
+	<string>Premium ontgrendelen · %@</string>
+	<key>premium.unlockedWithPremium</key>
+	<string>Vrijgespeeld met Premium</string>
+	<key>premium.youHavePremium</key>
+	<string>Je hebt Premium!</string>
+	<key>profile.editName</key>
+	<string>Jouw naam</string>
+	<key>result.backToMenu</key>
+	<string>Terug naar het menu</string>
+	<key>result.bonusCards</key>
+	<string>Bonusbubbels</string>
+	<key>result.cardsEarned</key>
+	<string>bubbels</string>
+	<key>result.complete</key>
+	<string>Level afgerond!</string>
+	<key>result.correct</key>
+	<string>Goede antwoorden</string>
+	<key>result.doubleCards</key>
+	<string>2×-visbonussen</string>
+	<key>result.newRecord</key>
+	<string>Nieuw persoonlijk record!</string>
+	<key>result.outOfLives</key>
+	<string>Geen levens meer</string>
+	<key>result.personalBest</key>
+	<string>Persoonlijk record</string>
+	<key>result.playAgain</key>
+	<string>Opnieuw spelen</string>
+	<key>result.stopped</key>
+	<string>Gepauzeerd</string>
+	<key>result.unlocked</key>
+	<string>Nieuw karakter ontgrendeld!</string>
+	<key>result.wrong</key>
+	<string>Foute antwoorden</string>
+	<key>settings.character</key>
+	<string>Personage</string>
+	<key>settings.characterInfo</key>
+	<string>Elk dier geeft het hele spel zijn eigen kleurenthema.</string>
+	<key>settings.customMinutes %lld</key>
+	<string>Aangepast: %lld min</string>
+	<key>settings.dailyGoal</key>
+	<string>Dagelijks doel</string>
+	<key>settings.goalInfo</key>
+	<string>Het streakdoel begint bij 5 minuten per dag. Alleen actieve speeltijd telt mee.</string>
+	<key>settings.music</key>
+	<string>Muziek</string>
+	<key>settings.playGoals</key>
+	<string>Speeldoelen</string>
+	<key>settings.premiumUnlocked</key>
+	<string>Premium ontgrendeld. Bedankt!</string>
+	<key>settings.sound</key>
+	<string>Geluid</string>
+	<key>settings.soundEffects</key>
+	<string>Muziek en effecten</string>
+	<key>settings.soundInfo</key>
+	<string>Zet het geluid uit om stil te spelen. Het spel werkt precies hetzelfde.</string>
+	<key>settings.spokenSums</key>
+	<string>Sommen voorlezen</string>
+	<key>settings.title</key>
+	<string>Instellingen</string>
+	<key>streak.accessibility.choosePeriod</key>
+	<string>Kies je speeldoel</string>
+	<key>streak.accessibility.compact %@ %lld %lld %lld</key>
+	<string>%1$@ doel: %2$lld van %3$lld minuten. Reeks: %4$lld dagen.</string>
+	<key>streak.dayOne</key>
+	<string>Dag 1</string>
+	<key>topic.addition</key>
+	<string>Optellen</string>
+	<key>topic.addition.detail</key>
+	<string>Alleen optellen</string>
+	<key>topic.fractions</key>
+	<string>Breuken</string>
+	<key>topic.fractions.detail</key>
+	<string>Alleen delen</string>
+	<key>topic.mixed</key>
+	<string>Supermix</string>
+	<key>topic.mixed.detail</key>
+	<string>Gemengde sommen</string>
+	<key>topic.percentages</key>
+	<string>Procenten</string>
+	<key>topic.percentages.detail</key>
+	<string>Alleen percentages</string>
+	<key>topic.subtraction</key>
+	<string>Aftrekken</string>
+	<key>topic.subtraction.detail</key>
+	<string>Alleen aftrekken</string>
+	<key>topic.tables</key>
+	<string>Tafels</string>
+	<key>topic.tables.detail</key>
+	<string>Alleen vermenigvuldigen</string>
+</dict>
+</plist>

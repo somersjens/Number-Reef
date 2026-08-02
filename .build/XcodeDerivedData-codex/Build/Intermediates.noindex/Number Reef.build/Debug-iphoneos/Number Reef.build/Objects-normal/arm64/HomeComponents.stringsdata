@@ -1,0 +1,192 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/HomeComponents.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "goalPeriod.daily",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 26
+        }
+      },
+      {
+        "comment": "",
+        "key": "goalPeriod.weekly",
+        "location": {
+          "startingColumn": 52,
+          "startingLine": 26
+        }
+      },
+      {
+        "comment": "",
+        "key": "streak.accessibility.compact %@ %lld %lld %lld",
+        "location": {
+          "startingColumn": 29,
+          "startingLine": 81
+        }
+      },
+      {
+        "comment": "",
+        "key": "streak.accessibility.choosePeriod",
+        "location": {
+          "startingColumn": 28,
+          "startingLine": 82
+        }
+      },
+      {
+        "comment": "",
+        "key": "common.minutesShort %lld %lld",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 70
+        }
+      },
+      {
+        "comment": "",
+        "key": "streak.dayOne",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 93
+        }
+      },
+      {
+        "comment": "",
+        "key": "goal.title",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 139
+        }
+      },
+      {
+        "comment": "",
+        "key": "goal.period",
+        "location": {
+          "startingColumn": 20,
+          "startingLine": 141
+        }
+      },
+      {
+        "comment": "",
+        "key": "goal.promptWeekly",
+        "location": {
+          "startingColumn": 42,
+          "startingLine": 148
+        }
+      },
+      {
+        "comment": "",
+        "key": "goal.promptDaily",
+        "location": {
+          "startingColumn": 64,
+          "startingLine": 148
+        }
+      },
+      {
+        "comment": "",
+        "key": "name.placeholder",
+        "location": {
+          "startingColumn": 59,
+          "startingLine": 208
+        }
+      },
+      {
+        "comment": "",
+        "key": "name.whatsYourName",
+        "location": {
+          "startingColumn": 22,
+          "startingLine": 203
+        }
+      },
+      {
+        "comment": "",
+        "key": "common.cancel",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 227
+        }
+      },
+      {
+        "comment": "",
+        "key": "common.save",
+        "location": {
+          "startingColumn": 26,
+          "startingLine": 240
+        }
+      },
+      {
+        "comment": "",
+        "key": "home.levelAccessibility %lld",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 527
+        }
+      },
+      {
+        "comment": "",
+        "key": "home.pausedCards %lld",
+        "location": {
+          "startingColumn": 27,
+          "startingLine": 529
+        }
+      },
+      {
+        "comment": "",
+        "key": "menu.startHere",
+        "location": {
+          "startingColumn": 18,
+          "startingLine": 600
+        }
+      },
+      {
+        "comment": "",
+        "key": "menu.maximumCount",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 857
+        }
+      },
+      {
+        "comment": "",
+        "key": "menu.maximumCount",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 873
+        }
+      },
+      {
+        "comment": "",
+        "key": "menu.maximumCount.accessibility %lld",
+        "location": {
+          "startingColumn": 21,
+          "startingLine": 874
+        }
+      },
+      {
+        "comment": "",
+        "key": "home.cardsTotal %lld",
+        "location": {
+          "startingColumn": 44,
+          "startingLine": 1253
+        }
+      },
+      {
+        "comment": "",
+        "key": "home.nextCharacter %lld %@",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 1302
+        }
+      },
+      {
+        "comment": "",
+        "key": "home.cardsRemaining %lld",
+        "location": {
+          "startingColumn": 11,
+          "startingLine": 1307
+        }
+      }
+    ]
+  },
+  "version": 1
+}

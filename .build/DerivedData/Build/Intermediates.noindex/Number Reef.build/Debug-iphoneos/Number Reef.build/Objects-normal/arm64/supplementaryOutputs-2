@@ -1,0 +1,23 @@
+{
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/MathQuestion.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathQuestion.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathQuestion.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathQuestion.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathQuestion.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathQuestion.swiftdeps"
+  },
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/MathTopic.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathTopic.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathTopic.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathTopic.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathTopic.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MathTopic.swiftdeps"
+  },
+  "/Users/jenssomers/Desktop/Number Reef/Number Reef/Core/MemoryGame.swift" : {
+    "const-values" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MemoryGame.swiftconstvalues",
+    "dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MemoryGame.d",
+    "diagnostics" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MemoryGame.dia",
+    "object" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MemoryGame.o",
+    "swift-dependencies" : "/Users/jenssomers/Desktop/Number Reef/.build/DerivedData/Build/Intermediates.noindex/Number Reef.build/Debug-iphoneos/Number Reef.build/Objects-normal/arm64/MemoryGame.swiftdeps"
+  }
+}

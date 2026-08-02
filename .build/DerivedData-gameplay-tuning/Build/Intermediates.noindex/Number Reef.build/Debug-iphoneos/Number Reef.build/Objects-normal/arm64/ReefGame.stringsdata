@@ -1,0 +1,16 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/ReefGame.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "game.question %@",
+        "location": {
+          "startingColumn": 36,
+          "startingLine": 2959
+        }
+      }
+    ]
+  },
+  "version": 1
+}

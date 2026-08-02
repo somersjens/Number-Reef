@@ -1,0 +1,16 @@
+{
+  "source": "/Users/jenssomers/Desktop/Number Reef/Number Reef/Localization.swift",
+  "tables": {
+    "Localizable": [
+      {
+        "comment": "",
+        "key": "language.select",
+        "location": {
+          "startingColumn": 34,
+          "startingLine": 270
+        }
+      }
+    ]
+  },
+  "version": 1
+}
