@@ -118,7 +118,11 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
                     menuCard
-                        .frame(maxWidth: 760)
+                        // The card always spans exactly as wide as the level
+                        // grid below it. In wide landscape that grid opens up
+                        // to four cards, and a menu card left at its portrait
+                        // width would sit visibly narrower than the row under it.
+                        .frame(maxWidth: isWidePad ? .infinity : 760)
                         .frame(maxWidth: .infinity)
                     levelGrid
                 }

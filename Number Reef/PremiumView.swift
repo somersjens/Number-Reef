@@ -325,20 +325,20 @@ struct PremiumView: View {
         if animal.id == CharacterCatalog.freeCharacterID {
             if totalCards >= (CharacterUnlockStore.requirement(for: "frog") ?? 500) {
                 Image(systemName: "checkmark.circle.fill")
-                    .characterChipStyle(character: character)
+                    .characterChipStyle(character: character, scale: scale)
             } else {
                 Text(verbatim: L(key: "premium.start"))
-                    .characterChipStyle(character: character)
+                    .characterChipStyle(character: character, scale: scale)
             }
         } else if canUse(animal) {
             Image(systemName: "checkmark.circle.fill")
-                .characterChipStyle(character: character)
+                .characterChipStyle(character: character, scale: scale)
         } else if let cards = CharacterUnlockStore.requirement(for: animal.id) {
             Text(verbatim: "\(cards)")
-                .characterChipStyle(character: character)
+                .characterChipStyle(character: character, scale: scale)
         } else {
             Image(systemName: "crown.fill")
-                .characterChipStyle(character: character)
+                .characterChipStyle(character: character, scale: scale)
         }
     }
 
@@ -645,9 +645,11 @@ struct PremiumView: View {
 }
 
 private extension View {
-    func characterChipStyle(character: AnimalCharacter) -> some View {
+    /// `scale` mirrors the factor `PremiumView` applies to every other metric so
+    /// the chip grows with the cell on iPad instead of staying at iPhone size.
+    func characterChipStyle(character: AnimalCharacter, scale: CGFloat = 1) -> some View {
         self
-            .font(.system(size: 10, weight: .heavy, design: .rounded))
+            .font(.system(size: 10 * scale, weight: .heavy, design: .rounded))
             .foregroundStyle(character.deepColor)
             .lineLimit(1)
             // Card requirements are at most four digits and always fit at full
@@ -655,8 +657,8 @@ private extension View {
             // safety net for a long translated label.
             .minimumScaleFactor(0.7)
             .allowsTightening(true)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 5 * scale)
+            .padding(.vertical, 4 * scale)
             .frame(maxWidth: .infinity)
             .background(character.color.opacity(0.16), in: Capsule())
     }
