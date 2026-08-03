@@ -136,23 +136,25 @@ final class AppAudio: NSObject, ObservableObject {
         /// sound fires immediately (measured per file; no re-encoding needed).
         let lead: TimeInterval
     }
-    // Short effects are shipped as uncompressed CAF/PCM: unlike MP3 they need no
-    // runtime decode, so re-triggering one (rewind to `lead` + `play`) during a
-    // busy frame costs no CPU and can't contend for the shared audio decoder.
-    // The three `wav` files were already PCM. `volume`/`lead` are unchanged: the
-    // conversion preserved each file's sample rate, channels and timing exactly.
+    // Short effects are shipped as Apple Lossless CAF. `prepare()` decodes each
+    // one exactly once, off the main thread, into a PCM buffer; playing is only
+    // a `scheduleBuffer` on an already-running node, so the on-disk encoding
+    // costs nothing at trigger time and never touches the shared decoder mid-
+    // game. ALAC is bit-exact, so `volume`/`lead` — and the buffers themselves —
+    // are identical to the uncompressed PCM these files used to be, at under a
+    // third of the bundle size.
     private static let effects: [Effect] = [
         Effect(key: "correct",       file: "sfx_correct",        ext: "caf", volume: 0.14, lead: 0.0),
         Effect(key: "wrong",         file: "sfx_wrong",          ext: "caf", volume: 0.11, lead: 0.065),
         // The card flip that opens a round.
-        Effect(key: "cardFlip",      file: "sfx_card_flip",      ext: "wav", volume: 0.10, lead: 0.015),
+        Effect(key: "cardFlip",      file: "sfx_card_flip",      ext: "caf", volume: 0.10, lead: 0.015),
         // The question card turning face up.
         Effect(key: "cardReveal",    file: "sfx_card_reveal",    ext: "caf", volume: 0.19, lead: 0.010),
         // The thick double card appearing, and the doubled score landing.
         Effect(key: "doubleCard",    file: "sfx_double_card",    ext: "caf", volume: 0.18, lead: 0.0),
         Effect(key: "doubleScore",   file: "sfx_double_score",   ext: "caf", volume: 0.15, lead: 0.0),
         // Half a life leaving the HUD when the flamethrower is fired.
-        Effect(key: "halfLife",      file: "sfx_half_life",      ext: "wav", volume: 0.12, lead: 0.0),
+        Effect(key: "halfLife",      file: "sfx_half_life",      ext: "caf", volume: 0.12, lead: 0.0),
         Effect(key: "lifeLost",      file: "sfx_life_lost",      ext: "caf", volume: 0.24, lead: 0.045),
         Effect(key: "flamethrower",  file: "sfx_flamethrower",   ext: "caf", volume: 0.31, lead: 0.045),
         Effect(key: "sessionStart",  file: "sfx_session_start",  ext: "caf", volume: 0.16, lead: 0.225),
@@ -163,7 +165,7 @@ final class AppAudio: NSObject, ObservableObject {
         Effect(key: "cardCount",     file: "sfx_card_count",     ext: "caf", volume: 1.0,  lead: 0.065),
         Effect(key: "cardFlight",    file: "sfx_card_flight",    ext: "caf", volume: 0.812, lead: 0.35),
         Effect(key: "cardTotal",     file: "score_increase",     ext: "caf", volume: 1.0,  lead: 0.0),
-        Effect(key: "select",        file: "sfx_select",         ext: "wav", volume: 0.17, lead: 0.0),
+        Effect(key: "select",        file: "sfx_select",         ext: "caf", volume: 0.17, lead: 0.0),
         Effect(key: "switchOn",      file: "sfx_switch_on",      ext: "caf", volume: 0.89, lead: 0.200),
         Effect(key: "switchOff",     file: "sfx_switch_off",     ext: "caf", volume: 1.0,  lead: 0.170)
     ]
@@ -313,7 +315,7 @@ final class AppAudio: NSObject, ObservableObject {
 
     /// Builds a fully prepared player. Runs the decode/`prepareToPlay` cost on
     /// whatever (background) queue calls it.
-    private static func makePlayer(named name: String, ext: String = "mp3",
+    private static func makePlayer(named name: String, ext: String = "m4a",
                                    loops: Int, volume: Float) -> AVAudioPlayer? {
         guard let url = Bundle.main.url(forResource: name, withExtension: ext),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
