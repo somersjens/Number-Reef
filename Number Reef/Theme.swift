@@ -34,14 +34,20 @@ struct AnimalCharacter: Identifiable, Equatable {
     let id: String
     let name: String
     let emoji: String
-    /// Name of the artwork in the asset catalog.
-    let imageName: String
+    /// Position in the catalog, 1-based. It is also the suffix of both artwork
+    /// assets, so a character can never be paired with someone else's picture.
+    let slot: Int
 
     // Colour components (0–1).
     let primaryRGB: (Double, Double, Double)
     let deepRGB: (Double, Double, Double)
     let skyRGB: (Double, Double, Double)
     let tintRGB: (Double, Double, Double)
+
+    /// Width ÷ height of the swimming artwork, measured from the asset itself.
+    /// The reef draws every character at its own proportions rather than
+    /// squeezing them all into one silhouette.
+    let sideAspectRatio: CGFloat
 
     static func == (lhs: AnimalCharacter, rhs: AnimalCharacter) -> Bool {
         lhs.id == rhs.id
@@ -52,13 +58,15 @@ struct AnimalCharacter: Identifiable, Equatable {
     var skyColor: Color { Color(red: skyRGB.0, green: skyRGB.1, blue: skyRGB.2) }
     var tintColor: Color { Color(red: tintRGB.0, green: tintRGB.1, blue: tintRGB.2) }
 
+    /// Facing the player: menus, cards, the shop and every portrait slot.
+    /// All ten assets are square and optically equalised, so one square frame
+    /// renders any character at the same apparent size.
+    var imageName: String { "front_\(slot)" }
     var artwork: Image { Image(imageName) }
 
-    /// Penguin and octopus artwork already fills more of its source canvas, so
-    /// every other asset is scaled up slightly to match.
-    var selectorArtworkScale: CGFloat {
-        id == "penguin" || id == "octopus" ? 1 : 1.1
-    }
+    /// Facing the way it swims, used while playing.
+    var sideImageName: String { "side_\(slot)" }
+    var sideArtwork: Image { Image(sideImageName) }
 
     /// Localized display name, resolved per language from the string catalog
     /// ("character.fox", "character.frog", …).
@@ -73,43 +81,57 @@ enum CharacterCatalog {
 
     /// The localized fallback used when the player leaves their name empty.
     /// Resolve it through the character catalog so it can never drift from the
-    /// name shown for Octopus in the active language.
+    /// name shown for the starter character in the active language.
     static var defaultPlayerName: String {
-        character(id: "octopus").localizedName
+        character(id: freeCharacterID).localizedName
     }
 
     /// Order must match `CharacterUnlocks.orderedCharacterIDs`; a test asserts it.
+    ///
+    /// Every palette is sampled from that character's own artwork, so the reef,
+    /// the menu and the motion trail behind a portrait all carry the colours
+    /// the player is actually looking at.
     static let all: [AnimalCharacter] = [
-        AnimalCharacter(id: "fox", name: "Fox", emoji: "🦊", imageName: "no_background",
-                        primaryRGB: (0.96, 0.55, 0.14), deepRGB: (0.80, 0.33, 0.04),
-                        skyRGB: (1.00, 0.94, 0.86), tintRGB: (1.00, 0.90, 0.78)),
-        AnimalCharacter(id: "frog", name: "Frog", emoji: "🐸", imageName: "frog_no_background",
-                        primaryRGB: (0.36, 0.70, 0.29), deepRGB: (0.16, 0.47, 0.18),
-                        skyRGB: (0.92, 0.98, 0.89), tintRGB: (0.84, 0.95, 0.80)),
-        AnimalCharacter(id: "penguin", name: "Penguin", emoji: "🐧", imageName: "pinquin_no_background",
-                        primaryRGB: (0.35, 0.68, 0.88), deepRGB: (0.13, 0.42, 0.65),
-                        skyRGB: (0.90, 0.96, 1.00), tintRGB: (0.80, 0.91, 1.00)),
-        AnimalCharacter(id: "bunny", name: "Bunny", emoji: "🐰", imageName: "bunny_no_background",
-                        primaryRGB: (0.95, 0.58, 0.71), deepRGB: (0.78, 0.32, 0.48),
-                        skyRGB: (1.00, 0.94, 0.96), tintRGB: (1.00, 0.88, 0.93)),
-        AnimalCharacter(id: "dog", name: "Dog", emoji: "🐶", imageName: "dog_no_background",
-                        primaryRGB: (0.16, 0.72, 0.72), deepRGB: (0.06, 0.48, 0.49),
-                        skyRGB: (0.89, 0.98, 0.98), tintRGB: (0.79, 0.95, 0.95)),
-        AnimalCharacter(id: "lion", name: "Lion", emoji: "🦁", imageName: "lion_no_background",
-                        primaryRGB: (0.93, 0.75, 0.18), deepRGB: (0.72, 0.52, 0.05),
-                        skyRGB: (1.00, 0.97, 0.85), tintRGB: (1.00, 0.93, 0.72)),
-        AnimalCharacter(id: "octopus", name: "Octopus", emoji: "🐙", imageName: "octupus_no_background",
-                        primaryRGB: (0.62, 0.40, 0.80), deepRGB: (0.42, 0.22, 0.60),
-                        skyRGB: (0.96, 0.92, 1.00), tintRGB: (0.91, 0.84, 1.00)),
-        AnimalCharacter(id: "crab", name: "Crab", emoji: "🦀", imageName: "crab_no_background",
-                        primaryRGB: (0.88, 0.30, 0.25), deepRGB: (0.65, 0.15, 0.12),
-                        skyRGB: (1.00, 0.92, 0.90), tintRGB: (1.00, 0.85, 0.82)),
-        AnimalCharacter(id: "elephant", name: "Elephant", emoji: "🐘", imageName: "elephant_no_background",
-                        primaryRGB: (0.48, 0.58, 0.74), deepRGB: (0.29, 0.39, 0.56),
-                        skyRGB: (0.93, 0.95, 0.99), tintRGB: (0.86, 0.90, 0.97)),
-        AnimalCharacter(id: "bear", name: "Bear", emoji: "🐻", imageName: "bear_no_background",
-                        primaryRGB: (0.62, 0.44, 0.28), deepRGB: (0.42, 0.28, 0.16),
-                        skyRGB: (0.97, 0.93, 0.88), tintRGB: (0.93, 0.87, 0.79))
+        AnimalCharacter(id: "octopus", name: "Octopus", emoji: "🐙", slot: 1,
+                        primaryRGB: (0.62, 0.40, 0.87), deepRGB: (0.35, 0.18, 0.60),
+                        skyRGB: (0.93, 0.88, 0.99), tintRGB: (0.88, 0.79, 0.98),
+                        sideAspectRatio: 1.599),
+        AnimalCharacter(id: "crab", name: "Crab", emoji: "🦀", slot: 2,
+                        primaryRGB: (0.90, 0.27, 0.10), deepRGB: (0.62, 0.13, 0.03),
+                        skyRGB: (1.00, 0.90, 0.87), tintRGB: (1.00, 0.82, 0.77),
+                        sideAspectRatio: 1.071),
+        AnimalCharacter(id: "elephant", name: "Elephant", emoji: "🐘", slot: 3,
+                        primaryRGB: (0.36, 0.58, 0.78), deepRGB: (0.19, 0.38, 0.58),
+                        skyRGB: (0.90, 0.94, 0.97), tintRGB: (0.81, 0.89, 0.96),
+                        sideAspectRatio: 1.606),
+        AnimalCharacter(id: "bear", name: "Bear", emoji: "🐻", slot: 4,
+                        primaryRGB: (0.72, 0.44, 0.16), deepRGB: (0.42, 0.20, 0.06),
+                        skyRGB: (0.99, 0.94, 0.88), tintRGB: (0.98, 0.89, 0.79),
+                        sideAspectRatio: 1.411),
+        AnimalCharacter(id: "fox", name: "Fox", emoji: "🦊", slot: 5,
+                        primaryRGB: (0.94, 0.60, 0.26), deepRGB: (0.68, 0.30, 0.07),
+                        skyRGB: (1.00, 0.94, 0.87), tintRGB: (1.00, 0.89, 0.77),
+                        sideAspectRatio: 1.266),
+        AnimalCharacter(id: "frog", name: "Frog", emoji: "🐸", slot: 6,
+                        primaryRGB: (0.45, 0.76, 0.18), deepRGB: (0.12, 0.47, 0.15),
+                        skyRGB: (0.93, 0.99, 0.88), tintRGB: (0.88, 0.97, 0.80),
+                        sideAspectRatio: 1.810),
+        AnimalCharacter(id: "penguin", name: "Penguin", emoji: "🐧", slot: 7,
+                        primaryRGB: (0.22, 0.36, 0.68), deepRGB: (0.08, 0.16, 0.38),
+                        skyRGB: (0.89, 0.92, 0.98), tintRGB: (0.81, 0.86, 0.96),
+                        sideAspectRatio: 1.356),
+        AnimalCharacter(id: "bunny", name: "Bunny", emoji: "🐰", slot: 8,
+                        primaryRGB: (0.94, 0.56, 0.60), deepRGB: (0.72, 0.29, 0.37),
+                        skyRGB: (1.00, 0.87, 0.89), tintRGB: (0.99, 0.78, 0.80),
+                        sideAspectRatio: 1.352),
+        AnimalCharacter(id: "dog", name: "Dog", emoji: "🐶", slot: 9,
+                        primaryRGB: (0.20, 0.66, 0.69), deepRGB: (0.06, 0.42, 0.46),
+                        skyRGB: (0.89, 0.97, 0.98), tintRGB: (0.81, 0.95, 0.96),
+                        sideAspectRatio: 1.544),
+        AnimalCharacter(id: "lion", name: "Lion", emoji: "🦁", slot: 10,
+                        primaryRGB: (0.95, 0.74, 0.20), deepRGB: (0.68, 0.45, 0.08),
+                        skyRGB: (1.00, 0.96, 0.87), tintRGB: (1.00, 0.94, 0.77),
+                        sideAspectRatio: 1.384)
     ]
 
     static func character(id: String) -> AnimalCharacter {

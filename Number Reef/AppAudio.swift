@@ -319,6 +319,10 @@ final class AppAudio: NSObject, ObservableObject {
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.numberOfLoops = loops
         player.volume = volume
+        // `AVAudioPlayer` only honours rate changes during playback when this
+        // is enabled before `prepareToPlay()` / `play()`. Enabling it when a
+        // streak begins makes the new rate take effect only on the next loop.
+        player.enableRate = true
         player.prepareToPlay()
         return player
     }
@@ -518,7 +522,6 @@ final class AppAudio: NSObject, ObservableObject {
     /// Keeps the soundtrack in step with the temporary fast streak mode.
     func setGameplayRate(_ rate: Float) {
         guard let player = musicPlayer else { return }
-        player.enableRate = true
         player.rate = min(max(rate, 0.5), 2)
     }
 

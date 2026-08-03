@@ -134,7 +134,14 @@ enum ReefConfig {
 
     // MARK: Fish
 
+    /// The character's nominal size. Everything that has to agree with the
+    /// player's body — the hit radius, the wake, the entrance spiral, the walls
+    /// — is measured from this one number, so it stays the same for all ten.
     static func fishLength(isPad: Bool) -> CGFloat { isPad ? 96 : 72 }
+    /// How large the artwork is drawn against that nominal size. Applied to the
+    /// geometric mean of the asset's own width and height, so every character
+    /// covers the same amount of water at its own proportions.
+    static let fishArtworkSpan: CGFloat = 0.85
     /// Body radius used for touches, a little inside the artwork so a near miss
     /// reads as a miss.
     static let fishHitFactor: CGFloat = 0.30
@@ -174,6 +181,9 @@ enum ReefConfig {
     static let wakeLifetime = 0.78
     static let miniBubbleLifetime = 1.05
     static let wakeInterval = 0.075
+    /// How long a resting character waits between two breath bubbles. Random
+    /// within the range, so the rhythm never becomes a metronome.
+    static let idleBreathGap: ClosedRange<Double> = 0.9...1.8
 
     /// After a touch, no second answer can be taken for this long — one bump
     /// can never select two bubbles.
@@ -495,6 +505,7 @@ final class ReefEngine: ObservableObject {
     private var wakeCountdown: Double = 0
     private var wakeSide: CGFloat = -1
     private var wakeEmissionIndex = 0
+    private var idleBreathCountdown = Double.random(in: ReefConfig.idleBreathGap)
 
     // Completed-level swim. It deliberately lives in this engine so the real
     // fish continues from its final gameplay position without a visual jump.
@@ -1036,45 +1047,75 @@ final class ReefEngine: ObservableObject {
         wakeCountdown -= dt
         let dx = fish.position.x - previous.x
         let dy = fish.position.y - previous.y
-        guard dx * dx + dy * dy > 0.7, wakeCountdown <= 0 else { return }
+        guard dx * dx + dy * dy > 0.7, wakeCountdown <= 0 else {
+            leaveIdleBreathIfDue(dt)
+            return
+        }
+        idleBreathCountdown = Double.random(in: ReefConfig.idleBreathGap)
         wakeCountdown = ReefConfig.wakeInterval
 
         let speed = (dx * dx + dy * dy).squareRoot() / max(CGFloat(dt), 0.001)
         let strength = min(max(speed / 360, 0.55), 1.15)
+        // How hard the player is actually driving, 0 at a crawl and 1 at full
+        // tilt. Everything below scales with it, so the water reacts to the
+        // steering instead of ticking over at a constant rate.
+        let effort = min(max((speed - 40) / 420, 0), 1)
         let tailDistance = fishLength * 0.43
-        let side = wakeSide
-        let perpendicular = fishLength * 0.075 * side
         let cosHeading = CGFloat(cos(fish.heading))
         let sinHeading = CGFloat(sin(fish.heading))
-        let tail = CGPoint(
-            x: fish.position.x - cosHeading * tailDistance - sinHeading * perpendicular,
-            y: fish.position.y - sinHeading * tailDistance + cosHeading * perpendicular
-        )
+
+        func tailPoint(side: CGFloat, spread: CGFloat) -> CGPoint {
+            let perpendicular = fishLength * spread * side
+            return CGPoint(
+                x: fish.position.x - cosHeading * tailDistance - sinHeading * perpendicular,
+                y: fish.position.y - sinHeading * tailDistance + cosHeading * perpendicular
+            )
+        }
 
         // Water is pushed mostly sideways by the tail, with only a small
         // backward component. The wisp then slows in place instead of
         // expanding like a ring on the surface.
-        let lateralSpeed = CGFloat(24) * strength * side
-        let backwardSpeed = CGFloat(8) * strength
-        wakes.append(ReefWake(position: tail,
-                              radius: fishLength * 0.10 * strength,
-                              kind: .wisp,
-                              heading: fish.heading,
-                              side: side,
-                              velocity: CGPoint(
-                                x: -cosHeading * backwardSpeed - sinHeading * lateralSpeed,
-                                y: -sinHeading * backwardSpeed + cosHeading * lateralSpeed
-                              )))
+        func shedWisp(side: CGFloat, spread: CGFloat, scale: CGFloat) {
+            let lateralSpeed = CGFloat(24) * strength * side
+            let backwardSpeed = CGFloat(8) * strength
+            wakes.append(ReefWake(position: tailPoint(side: side, spread: spread),
+                                  radius: fishLength * 0.10 * strength * scale,
+                                  kind: .wisp,
+                                  heading: fish.heading,
+                                  side: side,
+                                  velocity: CGPoint(
+                                    x: -cosHeading * backwardSpeed - sinHeading * lateralSpeed,
+                                    y: -sinHeading * backwardSpeed + cosHeading * lateralSpeed
+                                  )))
+        }
+
+        let side = wakeSide
+        // A little jitter on every streak. Without it a steady finger produces
+        // a perfectly regular zig-zag, which is exactly what makes a trail
+        // read as a drawn pattern rather than as disturbed water.
+        shedWisp(side: side,
+                 spread: CGFloat.random(in: 0.055...0.105),
+                 scale: CGFloat.random(in: 0.85...1.2))
+        // Hard steering throws a second, shorter streak off the other side of
+        // the tail. At a drift only the single one appears, so the density of
+        // the trail is itself a readout of how fast the player is going.
+        if effort > 0.35 {
+            shedWisp(side: -side,
+                     spread: CGFloat.random(in: 0.16...0.24),
+                     scale: (0.62 + 0.3 * effort) * CGFloat.random(in: 0.85...1.15))
+        }
 
         // A sparse, uneven bubble trail reads as trapped air. Emitting one on
-        // two out of every three tail beats avoids a foamy motorboat wake.
+        // two out of every three tail beats avoids a foamy motorboat wake;
+        // pushing hard adds an extra, larger pocket on the same beat.
         if wakeEmissionIndex % 3 != 2 {
             let sizeStep = CGFloat(wakeEmissionIndex % 3) * 0.006
             let bubbleSide = side * fishLength * 0.035
+            let tail = tailPoint(side: side, spread: 0.075)
             wakes.append(ReefWake(
                 position: CGPoint(x: tail.x - sinHeading * bubbleSide,
                                   y: tail.y + cosHeading * bubbleSide),
-                radius: fishLength * (0.020 + sizeStep),
+                radius: fishLength * (0.020 + sizeStep) * (0.85 + 0.5 * effort),
                 kind: .bubble,
                 heading: fish.heading,
                 side: side,
@@ -1082,8 +1123,45 @@ final class ReefEngine: ObservableObject {
                                   y: -sinHeading * 5 - 13)
             ))
         }
+        if effort > 0.55, wakeEmissionIndex.isMultiple(of: 2) {
+            let tail = tailPoint(side: -side, spread: 0.16)
+            wakes.append(ReefWake(
+                position: tail,
+                radius: fishLength * 0.030 * (0.7 + 0.6 * effort),
+                kind: .bubble,
+                heading: fish.heading,
+                side: -side,
+                velocity: CGPoint(x: -cosHeading * 9 + sinHeading * side * 4,
+                                  y: -sinHeading * 9 - 17)
+            ))
+        }
         wakeEmissionIndex += 1
         wakeSide *= -1
+    }
+
+    /// A single small bubble every second or so while the player is holding
+    /// still. Just enough that a resting character is breathing rather than
+    /// parked — and far too sparse to read as a permanent decoration.
+    private func leaveIdleBreathIfDue(_ dt: Double) {
+        idleBreathCountdown -= dt
+        guard idleBreathCountdown <= 0, size.width > 0 else { return }
+        idleBreathCountdown = Double.random(in: ReefConfig.idleBreathGap)
+
+        let cosHeading = CGFloat(cos(fish.heading))
+        let sinHeading = CGFloat(sin(fish.heading))
+        // Out of the mouth, at the front of the body.
+        let snout = CGPoint(
+            x: fish.position.x + cosHeading * fishLength * 0.34,
+            y: fish.position.y + sinHeading * fishLength * 0.34 - fishLength * 0.06
+        )
+        wakes.append(ReefWake(
+            position: snout,
+            radius: fishLength * CGFloat.random(in: 0.016...0.030),
+            kind: .bubble,
+            heading: fish.heading,
+            side: 1,
+            velocity: CGPoint(x: CGFloat.random(in: -4...4), y: -16)
+        ))
     }
 
     private func moveWakes(_ dt: Double) {
@@ -1720,7 +1798,7 @@ struct ReefPlayfield: View {
                 MoteField(motes: engine.motes)
                     .allowsHitTesting(false)
 
-                FishWakeField(wakes: engine.wakes)
+                FishWakeField(wakes: engine.wakes, character: character)
                     .allowsHitTesting(false)
 
                 ForEach(engine.ambientBubbles) { bubble in
@@ -1756,6 +1834,7 @@ struct ReefPlayfield: View {
                 ZStack {
                     if isStreakBoostActive {
                         StreakAuraView(fish: engine.fish,
+                                       character: character,
                                        clock: engine.clock,
                                        isPad: isPad)
                     }
@@ -1955,11 +2034,11 @@ private struct BonusFishView: View {
 
 private struct StreakAuraView: View {
     let fish: ReefFish
+    let character: AnimalCharacter
     let clock: Double
     let isPad: Bool
 
-    private var length: CGFloat { ReefConfig.fishLength(isPad: isPad) }
-    private var height: CGFloat { length * 0.58 }
+    private var artworkSize: CGSize { fishArtworkSize(for: character, isPad: isPad) }
     private var isFacingLeft: Bool { cos(fish.heading) < 0 }
 
     var body: some View {
@@ -1971,51 +2050,42 @@ private struct StreakAuraView: View {
         ZStack {
             // A broad, low-opacity underlay softens the edge against both the
             // light surface water and the darker deep-water gradient.
-            FishAuraSilhouette(length: length, height: height, color: .orange)
+            FishAuraSilhouette(character: character, size: artworkSize, color: .orange)
                 .scaleEffect(1.25 + pulse)
                 .blur(radius: isPad ? 8 : 6)
                 .opacity(0.52)
 
             // The smaller bright layer is mostly covered by FishView. What
-            // remains is a clean 5-8 pt rim that follows tail, fin and body.
-            FishAuraSilhouette(length: length, height: height, color: .yellow)
+            // remains is a clean 5-8 pt rim that follows ears, tail and fins.
+            FishAuraSilhouette(character: character, size: artworkSize, color: .yellow)
                 .scaleEffect(1.15 + pulse)
                 .shadow(color: .white.opacity(0.95), radius: isPad ? 2.5 : 2)
                 .shadow(color: .yellow.opacity(0.72), radius: isPad ? 7 : 5)
         }
-        .frame(width: length, height: height)
+        .frame(width: artworkSize.width, height: artworkSize.height)
         .scaleEffect(x: 1, y: isFacingLeft ? -1 : 1)
         .rotationEffect(.radians(fish.heading))
         .accessibilityHidden(true)
     }
 }
 
-/// A solid copy of only the fish's outside shapes. Enlarging this underneath
-/// `FishView` produces a true contour instead of a generic circular halo.
+/// A solid copy of the character's own outline, taken from the alpha channel of
+/// its swimming artwork. Enlarging this underneath `FishView` produces a true
+/// contour — the bunny's ears, the octopus's arms — instead of a generic halo
+/// that would fit none of the ten.
 private struct FishAuraSilhouette: View {
-    let length: CGFloat
-    let height: CGFloat
+    let character: AnimalCharacter
+    let size: CGSize
     let color: Color
 
     var body: some View {
-        ZStack {
-            TailShape()
-                .fill(color)
-                .frame(width: length * 0.30, height: height * 0.82)
-                .offset(x: -length * 0.40)
-
-            Capsule()
-                .fill(color)
-                .frame(width: length * 0.30, height: height * 0.22)
-                .rotationEffect(.degrees(-16))
-                .offset(x: -length * 0.04, y: -height * 0.40)
-
-            Ellipse()
-                .fill(color)
-                .frame(width: length * 0.80, height: height)
-        }
-        .frame(width: length, height: height)
-        .compositingGroup()
+        character.sideArtwork
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(color)
+            .frame(width: size.width, height: size.height)
+            .compositingGroup()
     }
 }
 
@@ -2109,100 +2179,61 @@ private struct AnswerBubbleView: View {
 
 // MARK: - Fish
 
-/// The playable character, drawn in the player's own colours so the reef stays
-/// themed to whichever animal they picked.
+/// The size the swimming artwork is drawn at.
+///
+/// Each character keeps the proportions of its own asset — a long octopus and a
+/// stubby crab are not forced into one silhouette — while the *area* stays the
+/// same for everyone. That keeps `fishHitFactor` a fair, single number: nobody
+/// gets a larger target by being drawn wider.
+private func fishArtworkSize(for character: AnimalCharacter, isPad: Bool) -> CGSize {
+    let span = ReefConfig.fishLength(isPad: isPad) * ReefConfig.fishArtworkSpan
+    let root = max(0.2, character.sideAspectRatio).squareRoot()
+    return CGSize(width: span * root, height: span / root)
+}
+
+/// The playable character: its own artwork, swimming the way it is drawn.
 private struct FishView: View {
     let fish: ReefFish
     let character: AnimalCharacter
     let isPad: Bool
     let clock: Double
 
-    private var length: CGFloat { ReefConfig.fishLength(isPad: isPad) }
-    private var height: CGFloat { length * 0.58 }
+    private var artworkSize: CGSize { fishArtworkSize(for: character, isPad: isPad) }
 
-    /// Facing left is a mirror rather than an upside-down turn, so the fish is
-    /// never swimming on its back.
+    /// The assets all face right, so facing left is a mirror rather than an
+    /// upside-down turn: the character is never swimming on its back.
     private var isFacingLeft: Bool { cos(fish.heading) < 0 }
-    /// Even at rest a fish balances itself in the current. The active beat is
-    /// deliberately much quicker and wider, so starting to swim is legible.
-    private var tailAngle: Double {
-        fish.isSwimming ? sin(clock * 12.5) * 16 : sin(clock * 2.2) * 4
+    /// Even at rest a swimmer balances itself in the current. The active beat is
+    /// deliberately quicker and wider, so starting to swim is legible.
+    private var swimBeat: Double {
+        fish.isSwimming ? sin(clock * 12.5) * 0.045 : sin(clock * 2.2) * 0.018
     }
-    private var finAngle: Double {
-        fish.isSwimming ? sin(clock * 12.5 + .pi) * 5 : sin(clock * 1.8 + 0.8) * 3
+    /// A slow, continuous list to either side. It never fully stops, which is
+    /// what keeps a resting character from reading as a pasted-on sticker.
+    private var roll: Double {
+        fish.isSwimming ? sin(clock * 6.2) * 0.026 : sin(clock * 1.35) * 0.038
     }
-    private var idleRoll: Double {
-        fish.isSwimming ? 0 : sin(clock * 1.35) * 0.020
-    }
-    private var idleLift: CGFloat {
-        fish.isSwimming ? 0 : CGFloat(sin(clock * 1.55)) * 1.6
+    private var lift: CGFloat {
+        fish.isSwimming
+            ? CGFloat(sin(clock * 6.2 + 1.1)) * 1.1
+            : CGFloat(sin(clock * 1.55)) * 2.6
     }
 
     var body: some View {
-        ZStack {
-            // Tail, behind the body.
-            TailShape()
-                .fill(character.deepColor)
-                .frame(width: length * 0.30, height: height * 0.82)
-                .rotationEffect(.degrees(tailAngle), anchor: .trailing)
-                .offset(x: -length * 0.40)
-
-            // Top fin.
-            Capsule()
-                .fill(character.deepColor.opacity(0.9))
-                .frame(width: length * 0.30, height: height * 0.22)
-                .rotationEffect(.degrees(-16))
-                .offset(x: -length * 0.04, y: -height * 0.40)
-
-            Ellipse()
-                .fill(
-                    LinearGradient(colors: [character.color, character.deepColor],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-                .frame(width: length * 0.80, height: height)
-                .overlay {
-                    Ellipse()
-                        .stroke(.white.opacity(0.55), lineWidth: isPad ? 2.4 : 1.8)
-                        .frame(width: length * 0.80, height: height)
-                }
-
-            // Side fin.
-            Ellipse()
-                .fill(.white.opacity(0.45))
-                .frame(width: length * 0.20, height: height * 0.28)
-                .rotationEffect(.degrees(18 + finAngle))
-                .offset(x: -length * 0.02, y: height * 0.20)
-
-            // Eye.
-            Circle()
-                .fill(.white)
-                .frame(width: height * 0.26, height: height * 0.26)
-                .overlay {
-                    Circle()
-                        .fill(character.deepColor)
-                        .frame(width: height * 0.13, height: height * 0.13)
-                        .offset(x: height * 0.03)
-                }
-                .offset(x: length * 0.22, y: -height * 0.12)
-        }
-        .frame(width: length, height: height)
-        .scaleEffect(x: 1, y: isFacingLeft ? -1 : 1)
-        .rotationEffect(.radians(fish.heading + idleRoll))
-        .offset(y: idleLift)
-        .shadow(color: character.deepColor.opacity(0.22), radius: 6, y: 4)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct TailShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.maxX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY),
-                          control: CGPoint(x: rect.midX * 0.9, y: rect.midY))
-        path.closeSubpath()
-        return path
+        character.sideArtwork
+            .resizable()
+            .scaledToFit()
+            // The stroke is what a tail beat reads as here: the body stretches
+            // along the swim axis and narrows across it, which suits ten very
+            // different shapes better than one hand-tuned fin animation.
+            .frame(width: artworkSize.width * (1 + swimBeat),
+                   height: artworkSize.height * (1 - swimBeat))
+            .frame(width: artworkSize.width, height: artworkSize.height)
+            .scaleEffect(x: 1, y: isFacingLeft ? -1 : 1)
+            .rotationEffect(.radians(fish.heading + roll))
+            .offset(y: lift)
+            .shadow(color: character.deepColor.opacity(0.22), radius: 6, y: 4)
+            .accessibilityHidden(true)
     }
 }
 
@@ -2277,6 +2308,7 @@ private struct MoteField: View {
 /// underwater flow rather than ripples spreading across a surface.
 private struct FishWakeField: View {
     let wakes: [ReefWake]
+    let character: AnimalCharacter
 
     var body: some View {
         ZStack {
@@ -2284,24 +2316,47 @@ private struct FishWakeField: View {
                 let progress = min(1, wake.age / wake.lifetime)
                 switch wake.kind {
                 case .bubble:
+                    // A rising air pocket: it swells a little as the pressure
+                    // drops, and keeps a white rim so it stays legible against
+                    // both the light surface water and the dark deep.
                     Circle()
-                        .fill(.white.opacity(0.14 * (1 - progress)))
+                        .fill(character.tintColor.opacity(0.30 * (1 - progress)))
                         .overlay {
-                            Circle().stroke(.white.opacity(0.60 * (1 - progress)),
-                                            lineWidth: 0.9)
+                            Circle().stroke(.white.opacity(0.72 * (1 - progress)),
+                                            lineWidth: 1.1)
+                        }
+                        .overlay(alignment: .topLeading) {
+                            Circle()
+                                .fill(.white.opacity(0.85 * (1 - progress)))
+                                .frame(width: wake.radius * 0.5,
+                                       height: wake.radius * 0.5)
+                                .offset(x: wake.radius * 0.45, y: wake.radius * 0.42)
                         }
                         .frame(width: wake.radius * 2, height: wake.radius * 2)
-                        .scaleEffect(0.72 + progress * 0.42)
+                        .scaleEffect(0.72 + progress * 0.46)
                         .position(wake.position)
                 case .wisp:
+                    // A streak of displaced water. It is born short and bright
+                    // right behind the tail, then draws out and thins as it is
+                    // left behind — the stretching is what reads as speed, and
+                    // it is gone within a second, so nothing looks painted on.
                     WakeWispShape(bend: wake.side)
-                        .stroke(.white.opacity(0.34 * (1 - progress)),
-                                style: StrokeStyle(lineWidth: 1.6,
-                                                   lineCap: .round))
-                        .frame(width: wake.radius * (3.1 + progress * 0.7),
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    character.deepColor.opacity(0),
+                                    character.color.opacity(0.78 * pow(1 - progress, 1.6)),
+                                    .white.opacity(0.55 * pow(1 - progress, 1.6))
+                                ],
+                                startPoint: .leading, endPoint: .trailing
+                            ),
+                            style: StrokeStyle(lineWidth: max(0.8, 2.6 * (1 - progress)),
+                                               lineCap: .round)
+                        )
+                        .frame(width: wake.radius * (3.4 + progress * 4.6),
                                height: wake.radius * 1.65)
                         .rotationEffect(.radians(wake.heading))
-                        .blur(radius: 0.35 + progress * 0.45)
+                        .blur(radius: 0.3 + progress * 0.9)
                         .position(wake.position)
                 }
             }

@@ -14,6 +14,20 @@
 import SwiftUI
 import UIKit
 
+/// Onboarding runs before the player has a character of their own, so the whole
+/// flow is themed by the starter. Reading the colours from the catalog rather
+/// than hardcoding them means the welcome screen follows the roster: change who
+/// greets a new player and the text, buttons and highlights move with them.
+private enum OnboardingTheme {
+    static var character: AnimalCharacter {
+        CharacterCatalog.character(id: CharacterCatalog.freeCharacterID)
+    }
+    /// Body and heading text.
+    static var ink: Color { character.deepColor }
+    /// Buttons, icons and the selected row.
+    static var accent: Color { character.color }
+}
+
 struct OnboardingView: View {
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
     @AppStorage(GameSettings.onboardingCompleteKey) private var isComplete = false
@@ -35,11 +49,13 @@ struct OnboardingView: View {
             GeometryReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
-                        Image("no_background")
+                        let portrait: CGFloat = isPad
+                            ? (step == 1 ? 160 : 210)
+                            : (step == 1 ? 112 : 150)
+                        welcomeCharacter.artwork
                             .resizable()
                             .scaledToFit()
-                            .frame(width: isPad ? (step == 1 ? 160 : 210) : (step == 1 ? 112 : 150),
-                                   height: isPad ? (step == 1 ? 160 : 210) : (step == 1 ? 112 : 150))
+                            .frame(width: portrait, height: portrait)
                             .padding(.bottom, isPad ? (step == 1 ? 20 : 30) : (step == 1 ? 14 : 22))
                             .animation(.spring(response: 0.42, dampingFraction: 0.82), value: step)
 
@@ -69,7 +85,7 @@ struct OnboardingView: View {
                 .scrollBounceBehavior(.basedOnSize)
             }
         }
-        .foregroundStyle(Color(red: 0.43, green: 0.20, blue: 0.03))
+        .foregroundStyle(OnboardingTheme.ink)
         .overlay(alignment: .topLeading) {
             // Steps 2 and 3 can step back to correct a wrong choice. Mirrors
             // the language flag: same glass style, same top inset, left corner.
@@ -81,7 +97,7 @@ struct OnboardingView: View {
             }
         }
         .overlay(alignment: .topTrailing) {
-            LanguagePicker(tint: Color(red: 0.43, green: 0.20, blue: 0.03).opacity(0.6),
+            LanguagePicker(tint: OnboardingTheme.ink.opacity(0.6),
                            scale: isPad ? 1.25 : 1)
                 .padding(.top, isPad ? 20 : 8)
                 .padding(.trailing, isPad ? 28 : 16)
@@ -94,7 +110,7 @@ struct OnboardingView: View {
         } label: {
             Image(systemName: "chevron.backward")
                 .font(.system(size: isPad ? 26 : 22, weight: .semibold))
-                .foregroundStyle(Color(red: 0.43, green: 0.20, blue: 0.03).opacity(0.6))
+                .foregroundStyle(OnboardingTheme.ink.opacity(0.6))
                 .padding(.horizontal, isPad ? 16 : 13)
                 .padding(.vertical, isPad ? 11 : 8)
                 .liquidGlassCapsule()
@@ -103,11 +119,14 @@ struct OnboardingView: View {
         .accessibilityLabel(Text("common.back"))
     }
 
+    /// The welcome screen is shown before anything has been earned, so it is
+    /// always the starter character that greets the player.
+    private var welcomeCharacter: AnimalCharacter {
+        CharacterCatalog.character(id: CharacterCatalog.freeCharacterID)
+    }
+
     private var onboardingBackground: some View {
-        AmbientReefBackground(
-            character: CharacterCatalog.character(id: CharacterCatalog.freeCharacterID),
-            showsSeaFloor: true
-        )
+        AmbientReefBackground(character: welcomeCharacter, showsSeaFloor: true)
     }
 
     private var nameStep: some View {
@@ -136,7 +155,7 @@ struct OnboardingView: View {
                 .background(.white.opacity(0.6), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(isNameFieldFocused ? Color.orange : .brown.opacity(0.18),
+                        .stroke(isNameFieldFocused ? OnboardingTheme.accent : OnboardingTheme.ink.opacity(0.18),
                                 lineWidth: isNameFieldFocused ? 2 : 1)
                 )
                 .frame(maxWidth: isPad ? 400 : 300)
@@ -191,7 +210,7 @@ struct OnboardingView: View {
                     }
                     .buttonStyle(OnboardingOptionStyle())
                     .accessibilityIdentifier("onboarding-topic-\(option.rawValue)")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(OnboardingTheme.accent)
                 }
             }
         }
@@ -407,7 +426,7 @@ private struct OnboardingButtonStyle: ButtonStyle {
             .font(isPad ? .title3.weight(.bold) : .headline)
             .frame(maxWidth: .infinity)
             .padding(.vertical, isPad ? 22 : 15)
-            .background(.orange, in: Capsule())
+            .background(OnboardingTheme.accent, in: Capsule())
             .foregroundStyle(.white)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
@@ -438,7 +457,7 @@ private struct OnboardingChoiceLabel: View {
             Image(systemName: icon)
             .font(isPad ? .title2 : .title3)
             .frame(width: isPad ? 44 : 30)
-                .foregroundStyle(.orange)
+                .foregroundStyle(OnboardingTheme.accent)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 20 * textScale, weight: .semibold))
@@ -455,19 +474,19 @@ private struct OnboardingChoiceLabel: View {
             // selected option is unmistakable.
             Image(systemName: isSelected ? "checkmark.circle.fill" : "chevron.forward")
                 .font(isSelected ? .title3.weight(.bold) : .footnote.weight(.bold))
-                .foregroundStyle(isSelected ? .orange : .secondary)
+                .foregroundStyle(isSelected ? AnyShapeStyle(OnboardingTheme.accent) : AnyShapeStyle(.secondary))
         }
         .padding(.horizontal, isPad ? 26 : 16)
         .frame(maxWidth: .infinity)
         .frame(height: rowHeight)
-        .background(isSelected ? AnyShapeStyle(Color.orange.opacity(0.16))
+        .background(isSelected ? AnyShapeStyle(OnboardingTheme.accent.opacity(0.16))
                                : AnyShapeStyle(.white.opacity(0.78)),
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.orange.opacity(isSelected ? 0.9 : 0), lineWidth: 2.5)
+                .stroke(OnboardingTheme.accent.opacity(isSelected ? 0.9 : 0), lineWidth: 2.5)
         )
-        .foregroundStyle(Color(red: 0.43, green: 0.20, blue: 0.03))
+        .foregroundStyle(OnboardingTheme.ink)
         .animation(.easeInOut(duration: 0.18), value: isSelected)
     }
 }

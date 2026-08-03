@@ -287,7 +287,7 @@ struct PremiumView: View {
     private func characterCell(for animal: AnimalCharacter) -> some View {
         let isSelected = previewCharacterID == animal.id
         let isAccessible = canUse(animal)
-        let artworkSlotSize = 44 * scale * 1.1
+        let artworkSlotSize = 44 * scale
         return Button {
             AppAudio.shared.playMenuTap()
             previewCharacterID = animal.id
@@ -298,9 +298,7 @@ struct PremiumView: View {
                     animal.artwork
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 44 * scale * animal.selectorArtworkScale,
-                               height: 44 * scale * animal.selectorArtworkScale)
-                        .frame(height: artworkSlotSize)
+                        .frame(width: artworkSlotSize, height: artworkSlotSize)
                         .frame(maxWidth: .infinity)
                 }
                 characterCellChip(for: animal)
