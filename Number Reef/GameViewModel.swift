@@ -47,6 +47,9 @@ final class GameViewModel: ObservableObject {
     /// A round-resolution callback that became due while the pause card was
     /// covering the reef. It runs once on continue instead of behind the card.
     private var pendingScheduledWork: (() -> Void)?
+    /// The rules award cards immediately, while the HUD waits until the
+    /// matching currency bubble physically reaches it.
+    private var pendingScoreRewards: [Int] = []
 
     var maximumRounds: Int { engine.maximumRounds }
     var acceptsInput: Bool { state == .answering && !isPaused }
@@ -99,6 +102,7 @@ final class GameViewModel: ObservableObject {
         AppAudio.shared.setGameplayRate(1)
         generation &+= 1
         pendingScheduledWork = nil
+        pendingScoreRewards.removeAll()
     }
 
     /// Temporarily stops an active run without ending it. The snapshot also
@@ -160,6 +164,7 @@ final class GameViewModel: ObservableObject {
         hasRecordedResult = false
         isPaused = false
         pendingScheduledWork = nil
+        pendingScoreRewards.removeAll()
         PausedSessionStore.shared.clear(request.board)
         engine = MemoryGame(level: request.level,
                             mixedVariant: request.mixedVariant,
@@ -189,12 +194,13 @@ final class GameViewModel: ObservableObject {
         // which its idle limit then discards — a whole session counting as no
         // time.
         PlaytimeTracker.shared.registerInteraction()
-        sync()
 
         let token = generation
         let delay: Double
         switch outcome {
-        case .correct(_, let usedBonusFish, let startedStreak):
+        case .correct(let cardsEarned, let usedBonusFish, let startedStreak):
+            pendingScoreRewards.append(cardsEarned)
+            sync()
             AppAudio.shared.playCorrect()
             if usedBonusFish {
                 hasBonusFishPower = false
@@ -207,6 +213,7 @@ final class GameViewModel: ObservableObject {
             haptic(.success)
             delay = GameConfig.nextRoundDelay.correct
         case .wrong(_, let lostHalfLife):
+            sync()
             AppAudio.shared.playWrong()
             if lostHalfLife {
                 AppAudio.shared.playHalfLife()
@@ -235,6 +242,15 @@ final class GameViewModel: ObservableObject {
             self.sync()
         }
         return true
+    }
+
+    /// Called by the reef at the exact frame a collected currency bubble lands
+    /// on the HUD icon.
+    func scoreBubbleArrived() {
+        guard !pendingScoreRewards.isEmpty else { return }
+        cards += pendingScoreRewards.removeFirst()
+        AppAudio.shared.playCardTotal()
+        haptic(.light)
     }
 
     /// Called by the reef when the player catches the passing 2x fish. Multiple
@@ -324,7 +340,7 @@ final class GameViewModel: ObservableObject {
         state = engine.state
         round = engine.round
         roundNumber = engine.roundNumber
-        cards = engine.cards
+        if pendingScoreRewards.isEmpty { cards = engine.cards }
         livesRemaining = engine.livesRemaining
         selectedOptionID = engine.selectedOptionID
         // Publish the completed result before the game-over flag. GameView

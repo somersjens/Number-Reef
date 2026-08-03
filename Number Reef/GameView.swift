@@ -58,6 +58,9 @@ struct GameView: View {
     @State private var playsFishEntrance = false
     @State private var showsStreakBanner = false
     @State private var streakBannerToken = 0
+    /// Measured from the real HUD layout so the flying currency glyph can land
+    /// pixel-for-pixel over its stationary twin on every device and score width.
+    @State private var scoreIconCenter: CGPoint?
     /// A completed board gets one last moment in the reef before its result
     /// card appears. Other endings (no lives, or leaving) remain immediate.
     @State private var playsLevelCompletion = false
@@ -187,7 +190,9 @@ struct GameView: View {
                           reduceMotion: reduceMotion,
                           topReserve: topInset + (isPad ? 54 : 42),
                           bottomReserve: screenInsets.bottom,
+                          scoreTarget: scoreIconCenter,
                           onHit: { model.select(optionID: $0) },
+                          onScoreBubbleArrived: model.scoreBubbleArrived,
                           onBonusFishCaught: model.catchBonusFish,
                           onHeartFishCaught: model.catchHeartFish,
                           onHeartFishMissed: model.missHeartFish,
@@ -213,6 +218,9 @@ struct GameView: View {
         .onChange(of: model.streakAnnouncementID) { _, id in
             guard id > 0 else { return }
             showStreakBanner(for: id)
+        }
+        .onPreferenceChange(ScoreIconCenterPreferenceKey.self) { center in
+            scoreIconCenter = center
         }
     }
 
@@ -304,6 +312,15 @@ struct GameView: View {
                 .lineLimit(1)
                 .contentTransition(.numericText(value: Double(model.cards)))
             CurrencyIcon(size: hudSymbolSize)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: ScoreIconCenterPreferenceKey.self,
+                            value: CGPoint(x: proxy.frame(in: .global).midX,
+                                           y: proxy.frame(in: .global).midY)
+                        )
+                    }
+                }
         }
         .frame(height: hudControlSize, alignment: .center)
         .foregroundStyle(character.deepColor)
@@ -317,6 +334,14 @@ struct GameView: View {
     /// the background.
     private var isReefRunning: Bool {
         !showsIntro && (!model.isGameOver || playsLevelCompletion) && scenePhase == .active
+    }
+}
+
+private struct ScoreIconCenterPreferenceKey: PreferenceKey {
+    static var defaultValue: CGPoint? = nil
+
+    static func reduce(value: inout CGPoint?, nextValue: () -> CGPoint?) {
+        value = nextValue() ?? value
     }
 }
 

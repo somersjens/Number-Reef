@@ -161,6 +161,9 @@ enum ReefConfig {
 
     /// How long a burst stays on screen after a bubble is touched or burned.
     static let popDuration = 0.26
+    /// A caught answer leaves the back of the character as a small score
+    /// bubble. It reaches the HUD just after the next sum begins to appear.
+    static let collectedBubbleDuration = 0.92
     /// A bubble starts as a speck in its crater and swells to full size as it
     /// leaves, the way a real one does.
     static let emergeDuration = 0.62
@@ -375,6 +378,20 @@ struct ReefBubble: Identifiable {
     }
 }
 
+/// The right answer after it has been collected. It is deliberately separate
+/// from the live answer bubbles: those burst, while this one slips out behind
+/// the swimmer and carries its value to the score at the top of the reef.
+struct ReefCollectedBubble: Identifiable {
+    let id = UUID()
+    let diameter: CGFloat
+    let start: CGPoint
+    let firstControl: CGPoint
+    let secondControl: CGPoint
+    let target: CGPoint
+    var position: CGPoint
+    var age: Double = 0
+}
+
 /// A speck of drifting plankton. Decoration only — it is never touched and
 /// never carries an answer.
 struct ReefMote: Identifiable {
@@ -480,6 +497,7 @@ final class ReefEngine: ObservableObject {
     // (especially while bubbles, wakes and motes were all moving). `clock` is
     // the single render signal for the completed simulation frame instead.
     private(set) var bubbles: [ReefBubble] = []
+    private(set) var collectedBubbles: [ReefCollectedBubble] = []
     private(set) var fish = ReefFish()
     private(set) var motes: [ReefMote] = []
     private(set) var wakes: [ReefWake] = []
@@ -496,6 +514,7 @@ final class ReefEngine: ObservableObject {
     /// session accepted it, so a touch the engine ignores leaves the water
     /// exactly as it was.
     var onHit: ((UUID) -> Bool)?
+    var onCollectedBubbleArrived: (() -> Void)?
     var onBonusFishCaught: (() -> Void)?
     var onHeartFishCaught: (() -> Bool)?
     var onHeartFishMissed: (() -> Void)?
@@ -508,6 +527,11 @@ final class ReefEngine: ObservableObject {
     private var isPad = false
     private var diameter: CGFloat = 88
     private var fishLength: CGFloat = 72
+    /// Width of this character's actual side artwork, rather than the nominal
+    /// collision size. It puts the collected bubble behind long and short
+    /// swimmers equally convincingly.
+    private var fishArtworkWidth: CGFloat = 72
+    private var scoreTarget: CGPoint?
 
     // Round state.
     private var round: GameRound?
@@ -597,7 +621,8 @@ final class ReefEngine: ObservableObject {
 
     /// Called from the view's geometry. Re-running it on a size change keeps
     /// the fish and the bubbles inside the new bounds.
-    func layout(size: CGSize, spawnLine: CGFloat, topReserve: CGFloat, isPad: Bool) {
+    func layout(size: CGSize, spawnLine: CGFloat, topReserve: CGFloat, isPad: Bool,
+                fishArtworkWidth: CGFloat) {
         guard size.width > 0, size.height > 0 else { return }
         let isFirst = self.size == .zero
         self.size = size
@@ -606,6 +631,7 @@ final class ReefEngine: ObservableObject {
         self.isPad = isPad
         self.diameter = ReefConfig.bubbleDiameter(isPad: isPad)
         self.fishLength = ReefConfig.fishLength(isPad: isPad)
+        self.fishArtworkWidth = fishArtworkWidth
         if isFirst {
             // Avoid storage growth while gameplay is already animating. These
             // are small upper bounds and reserve capacity only; they do not
@@ -660,6 +686,7 @@ final class ReefEngine: ObservableObject {
         // Playing again reuses this SwiftUI playfield and therefore this
         // engine. A fresh round one starts a genuinely fresh hidden plan.
         if round.number == 1, previousRoundNumber != nil {
+            collectedBubbles.removeAll()
             bonusFish = nil
             bonusFishTriggerRounds.removeAll()
             nextBonusFishTrigger = 0
@@ -731,6 +758,10 @@ final class ReefEngine: ObservableObject {
         speedMultiplier = max(1, multiplier)
     }
 
+    func setScoreTarget(_ target: CGPoint?) {
+        scoreTarget = target
+    }
+
     /// Starts and stops the simulation itself. Everything freezes when the game
     /// is paused, covered or left.
     func setRunning(_ running: Bool) {
@@ -770,6 +801,7 @@ final class ReefEngine: ObservableObject {
     func stop() {
         setRunning(false)
         bubbles.removeAll()
+        collectedBubbles.removeAll()
         queue.removeAll()
         round = nil
         entranceElapsed = nil
@@ -782,6 +814,7 @@ final class ReefEngine: ObservableObject {
         completionElapsed = nil
         completionCallback = nil
         onHit = nil
+        onCollectedBubbleArrived = nil
         onBonusFishCaught = nil
         onHeartFishCaught = nil
         onHeartFishMissed = nil
@@ -860,6 +893,7 @@ final class ReefEngine: ObservableObject {
         if completionElapsed != nil {
             moveMotes(dt)
             moveWakes(dt)
+            moveCollectedBubbles(dt)
             moveLevelCompletion(dt)
             clock += dt
             return
@@ -877,6 +911,7 @@ final class ReefEngine: ObservableObject {
         spawnAmbientBubbleIfDue(dt)
         popAmbientBubblesTouchedByFish()
         moveBubbles(dt * speedMultiplier)
+        moveCollectedBubbles(dt)
         retireMissedCorrectIfNeeded()
         moveBonusFish(dt)
         moveHeartFish(dt)
@@ -1475,6 +1510,39 @@ final class ReefEngine: ObservableObject {
         }
     }
 
+    private func moveCollectedBubbles(_ dt: Double) {
+        for index in collectedBubbles.indices {
+            collectedBubbles[index].age += dt
+            let raw = min(1, collectedBubbles[index].age / ReefConfig.collectedBubbleDuration)
+            // A smooth climb reads as buoyancy: it leaves the tail gently and
+            // settles without snapping when it reaches the score bubble.
+            let t = CGFloat(raw * raw * (3 - 2 * raw))
+            let bubble = collectedBubbles[index]
+            collectedBubbles[index].position = cubicPoint(from: bubble.start,
+                                                            control1: bubble.firstControl,
+                                                            control2: bubble.secondControl,
+                                                            to: bubble.target,
+                                                            t: t)
+        }
+        let arrivedCount = collectedBubbles.reduce(into: 0) { count, bubble in
+            if bubble.age >= ReefConfig.collectedBubbleDuration { count += 1 }
+        }
+        collectedBubbles.removeAll { $0.age >= ReefConfig.collectedBubbleDuration }
+        for _ in 0..<arrivedCount { onCollectedBubbleArrived?() }
+    }
+
+    private func cubicPoint(from start: CGPoint, control1: CGPoint,
+                            control2: CGPoint, to end: CGPoint,
+                            t: CGFloat) -> CGPoint {
+        let remaining = 1 - t
+        let a = remaining * remaining * remaining
+        let b = 3 * remaining * remaining * t
+        let c = 3 * remaining * t * t
+        let d = t * t * t
+        return CGPoint(x: a * start.x + b * control1.x + c * control2.x + d * end.x,
+                       y: a * start.y + b * control1.y + c * control2.y + d * end.y)
+    }
+
     /// Retires an unanswered correct bubble at the exact point where the fish
     /// can no longer reach it. Its replacement is put first in the queue, so a
     /// miss costs a brief beat but never a long wait for four unrelated answers
@@ -1667,9 +1735,13 @@ final class ReefEngine: ObservableObject {
             // feedback still playing, round already resolved — nothing happens.
             guard onHit?(bubble.optionID) == true else { return }
             collisionCooldown = ReefConfig.collisionCooldown
-            pop(bubbleID: bubble.id)
             // A right answer clears the water; the sum is about to change.
-            if bubble.isCorrect { popAll(except: bubble.id) }
+            if bubble.isCorrect {
+                collectCorrectBubble(bubble)
+                popAllAnswerBubbles()
+            } else {
+                pop(bubbleID: bubble.id)
+            }
             return
         }
     }
@@ -1762,9 +1834,36 @@ final class ReefEngine: ObservableObject {
         bubbles[index].popAge = 0
     }
 
-    private func popAll(except bubbleID: UUID) {
-        for index in bubbles.indices where bubbles[index].id != bubbleID
-            && !bubbles[index].isPopping {
+    private func collectCorrectBubble(_ bubble: ReefBubble) {
+        let heading = CGFloat(fish.heading)
+        let backward = CGVector(dx: -cos(heading), dy: -sin(heading))
+        let side = CGVector(dx: -sin(heading), dy: cos(heading))
+        // Exactly the HUD glyph's size at arrival; both use CurrencyIcon, so
+        // the moving and stationary silhouettes become one clean overlay.
+        let scoreDiameter: CGFloat = isPad ? 34 : 26
+        let tailDistance = fishArtworkWidth * 0.52 + scoreDiameter * 0.18
+        let start = CGPoint(x: fish.position.x + backward.dx * tailDistance,
+                            y: fish.position.y + backward.dy * tailDistance)
+        let target = scoreTarget ?? CGPoint(x: size.width / 2,
+                                            y: max(scoreDiameter / 2, topReserve - 20))
+        let firstControl = CGPoint(
+            x: start.x + backward.dx * fishArtworkWidth * 0.32 + side.dx * scoreDiameter * 0.18,
+            y: start.y + backward.dy * fishArtworkWidth * 0.32 + side.dy * scoreDiameter * 0.18
+        )
+        let secondControl = CGPoint(x: target.x + (start.x - target.x) * 0.24,
+                                    y: start.y + (target.y - start.y) * 0.72)
+
+        collectedBubbles.append(ReefCollectedBubble(diameter: scoreDiameter,
+                                                     start: start,
+                                                     firstControl: firstControl,
+                                                     secondControl: secondControl,
+                                                     target: target,
+                                                     position: start))
+        bubbles.removeAll { $0.id == bubble.id }
+    }
+
+    private func popAllAnswerBubbles() {
+        for index in bubbles.indices where !bubbles[index].isPopping {
             bubbles[index].popAge = 0
         }
     }
@@ -1835,9 +1934,12 @@ struct ReefPlayfield: View {
     /// indicator at the bottom.
     let topReserve: CGFloat
     let bottomReserve: CGFloat
+    /// Exact global centre of the currency icon in the overlaid HUD.
+    let scoreTarget: CGPoint?
     /// Hands a touched answer to the session; the return value says whether it
     /// counted.
     let onHit: (UUID) -> Bool
+    let onScoreBubbleArrived: () -> Void
     let onBonusFishCaught: () -> Void
     let onHeartFishCaught: () -> Bool
     let onHeartFishMissed: () -> Void
@@ -1895,6 +1997,16 @@ struct ReefPlayfield: View {
                     AnswerBubbleView(bubble: bubble, palette: palette, isPad: isPad)
                         .equatable()
                         .position(bubble.position)
+                }
+
+                // Drawn before the swimmer so its first beat genuinely comes
+                // from behind the body, then remains free to rise to the HUD.
+                ForEach(engine.collectedBubbles) { bubble in
+                    CollectedAnswerBubbleView(bubble: bubble,
+                                              palette: palette,
+                                              isPad: isPad)
+                        .position(bubble.position)
+                        .allowsHitTesting(false)
                 }
 
                 if let bonusFish = engine.bonusFish {
@@ -1956,11 +2068,14 @@ struct ReefPlayfield: View {
                 ReefArtworkCache.prewarm()
 #endif
                 engine.onHit = onHit
+                engine.onCollectedBubbleArrived = onScoreBubbleArrived
                 engine.onBonusFishCaught = onBonusFishCaught
                 engine.onHeartFishCaught = onHeartFishCaught
                 engine.onHeartFishMissed = onHeartFishMissed
                 engine.layout(size: size, spawnLine: spawnLine,
-                              topReserve: topReserve, isPad: isPad)
+                              topReserve: topReserve, isPad: isPad,
+                              fishArtworkWidth: fishArtworkSize(for: character,
+                                                               isPad: isPad).width)
                 engine.configureBonusFish(maximumRounds: maximumRounds)
                 engine.load(round: round)
                 engine.setLive(isLive)
@@ -1968,6 +2083,7 @@ struct ReefPlayfield: View {
                 engine.setHeartFishAvailable(isHeartFishAvailable)
                 engine.setSpeedMultiplier(isStreakBoostActive
                                           ? GameConfig.streakSpeedMultiplier : 1)
+                engine.setScoreTarget(scoreTarget)
                 engine.setRunning(isRunning)
                 if playsFishEntrance {
                     engine.beginFishEntrance(completion: onFishEntranceComplete)
@@ -1981,7 +2097,9 @@ struct ReefPlayfield: View {
                 engine.layout(size: newSize,
                               spawnLine: max(0, newSize.height - bandHeight),
                               topReserve: topReserve,
-                              isPad: isPad)
+                              isPad: isPad,
+                              fishArtworkWidth: fishArtworkSize(for: character,
+                                                               isPad: isPad).width)
             }
         }
         // A new sum clears the water and starts a fresh set of answers. A wrong
@@ -2003,6 +2121,9 @@ struct ReefPlayfield: View {
         }
         .onChange(of: isStreakBoostActive) { _, active in
             engine.setSpeedMultiplier(active ? GameConfig.streakSpeedMultiplier : 1)
+        }
+        .onChange(of: scoreTarget) { _, target in
+            engine.setScoreTarget(target)
         }
         .onChange(of: playsFishEntrance) { _, shouldPlay in
             if shouldPlay {
@@ -2248,6 +2369,33 @@ private struct BonusAuraView: View, Equatable {
 
 // MARK: - Bubble
 
+private struct CollectedAnswerBubbleView: View {
+    let bubble: ReefCollectedBubble
+    let palette: ReefPalette
+    let isPad: Bool
+
+    private var progress: Double {
+        min(1, bubble.age / ReefConfig.collectedBubbleDuration)
+    }
+
+    private var scale: Double {
+        0.52 + easeOut(min(1, progress / 0.28)) * 0.48
+    }
+
+    private func easeOut(_ value: Double) -> Double {
+        1 - pow(1 - value, 3)
+    }
+
+    var body: some View {
+        CurrencyIcon(size: bubble.diameter)
+            .foregroundStyle(palette.character.deepColor)
+        .frame(width: bubble.diameter, height: bubble.diameter)
+        .scaleEffect(scale)
+        .shadow(color: .white.opacity(0.82), radius: isPad ? 8 : 6)
+        .accessibilityHidden(true)
+    }
+}
+
 private struct AnswerBubbleView: View, Equatable {
     let bubble: ReefBubble
     let palette: ReefPalette
@@ -2262,59 +2410,119 @@ private struct AnswerBubbleView: View, Equatable {
             && lhs.isPad == rhs.isPad
     }
 
-    /// The burst: the shell swells and fades away in one short beat.
+    /// The shell vanishes immediately; the water it held keeps splashing for
+    /// the rest of the beat.
     private var popProgress: Double {
         guard let popAge = bubble.popAge else { return 0 }
         return min(1, popAge / ReefConfig.popDuration)
     }
 
-    private var scale: Double {
+    private var emergenceScale: Double {
         let start = ReefConfig.emergeStartScale
-        let emerge = start + (1 - start) * easeOut(bubble.emergence)
-        return emerge * (1 + 0.45 * popProgress)
+        return start + (1 - start) * easeOut(bubble.emergence)
     }
 
-    private var opacity: Double {
-        min(1, bubble.emergence * 3) * (1 - popProgress)
+    private var shellScale: Double {
+        emergenceScale * (bubble.isPopping ? max(0.08, 1 - popProgress * 3.8) : 1)
+    }
+
+    private var shellOpacity: Double {
+        min(1, bubble.emergence * 3)
+            * (bubble.isPopping ? max(0, 1 - popProgress * 4.2) : 1)
     }
 
     private func easeOut(_ t: Double) -> Double { 1 - pow(1 - t, 3) }
 
     var body: some View {
         ZStack {
-            // A pale, glassy shell: light enough for a dark answer to be read
-            // straight through it, and clearly a bubble against the water.
-            Circle()
-                .fill(
-                    RadialGradient(colors: [.white.opacity(0.97), .white.opacity(0.62)],
-                                   center: UnitPoint(x: 0.34, y: 0.30),
-                                   startRadius: 2,
-                                   endRadius: bubble.diameter * 0.74)
-                )
-            Circle()
-                .stroke(.white.opacity(0.9), lineWidth: isPad ? 3 : 2.2)
+            ZStack {
+                // A pale, glassy shell: light enough for a dark answer to be read
+                // straight through it, and clearly a bubble against the water.
+                Circle()
+                    .fill(
+                        RadialGradient(colors: [.white.opacity(0.97), .white.opacity(0.62)],
+                                       center: UnitPoint(x: 0.34, y: 0.30),
+                                       startRadius: 2,
+                                       endRadius: bubble.diameter * 0.74)
+                    )
+                Circle()
+                    .stroke(.white.opacity(0.9), lineWidth: isPad ? 3 : 2.2)
 
-            // A small highlight, which is what makes the disc read as a bubble.
-            Circle()
-                .fill(.white)
-                .frame(width: bubble.diameter * 0.17, height: bubble.diameter * 0.17)
-                .offset(x: -bubble.diameter * 0.22, y: -bubble.diameter * 0.24)
+                Circle()
+                    .fill(.white)
+                    .frame(width: bubble.diameter * 0.17, height: bubble.diameter * 0.17)
+                    .offset(x: -bubble.diameter * 0.22, y: -bubble.diameter * 0.24)
 
-            Text(verbatim: bubble.text)
-                .font(.system(size: isPad ? 34 : 26, weight: .black, design: .rounded))
-                .minimumScaleFactor(0.35)
-                .lineLimit(1)
-                .foregroundStyle(palette.coralDeep)
-                // Long answers still have to sit inside the round shell.
-                .frame(width: bubble.diameter * 0.74)
-                .opacity(1 - popProgress)
+                Text(verbatim: bubble.text)
+                    .font(.system(size: isPad ? 34 : 26, weight: .black, design: .rounded))
+                    .minimumScaleFactor(0.35)
+                    .lineLimit(1)
+                    .foregroundStyle(palette.coralDeep)
+                    .frame(width: bubble.diameter * 0.74)
+            }
+            .scaleEffect(shellScale)
+            .opacity(shellOpacity)
+            .shadow(color: palette.waterDeep.opacity(0.28), radius: 6, y: 3)
+
+            if bubble.isPopping {
+                BubbleSplashView(diameter: bubble.diameter,
+                                 progress: popProgress,
+                                 isPad: isPad)
+            }
         }
         .frame(width: bubble.diameter, height: bubble.diameter)
-        .shadow(color: palette.waterDeep.opacity(0.28), radius: 6, y: 3)
-        .scaleEffect(scale)
-        .opacity(opacity)
         .accessibilityLabel(Text(verbatim: bubble.text))
         .accessibilityValue(Text(verbatim: bubble.isCorrect ? "correct" : "wrong"))
+    }
+}
+
+/// A collapsing shell throws an uneven crown and loose droplets into the
+/// surrounding water. Gravity bends the drops down at the end, making this
+/// read as a wet splash rather than a radial sparkle.
+private struct BubbleSplashView: View {
+    let diameter: CGFloat
+    let progress: Double
+    let isPad: Bool
+
+    private let angles: [Double] = [
+        -2.92, -2.58, -2.22, -1.88, -1.58, -1.31,
+        -1.02, -0.69, -0.31, 0.18, 0.62, 2.78
+    ]
+
+    var body: some View {
+        ZStack {
+            // The short, wide crown at the impact point.
+            Capsule()
+                .fill(.white.opacity(max(0, 0.88 - progress * 1.25)))
+                .frame(width: diameter * (0.18 + CGFloat(progress) * 0.88),
+                       height: diameter * max(0.035, 0.18 - CGFloat(progress) * 0.13))
+                .offset(y: diameter * CGFloat(progress) * 0.12)
+
+            ForEach(Array(angles.enumerated()), id: \.offset) { index, angle in
+                splashDrop(index: index, angle: angle)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func splashDrop(index: Int, angle: Double) -> some View {
+        let p = CGFloat(progress)
+        let speed = CGFloat(0.58 + Double(index % 4) * 0.10)
+        let distance = diameter * (0.10 + p * speed)
+        let gravityFactor = CGFloat(0.22 + Double(index % 3) * 0.045)
+        let gravity = diameter * p * p * gravityFactor
+        let dropWidth = diameter * CGFloat(0.045 + Double(index % 3) * 0.012)
+        let dropHeight = diameter * CGFloat(0.10 + Double(index % 2) * 0.045)
+        let x = CGFloat(cos(angle)) * distance
+        let y = CGFloat(sin(angle)) * distance + gravity
+        let opacity = max(0, 1 - progress * 0.92)
+
+        return Ellipse()
+            .fill(.white.opacity(opacity))
+            .frame(width: dropWidth, height: dropHeight)
+            .rotationEffect(.radians(angle + .pi / 2))
+            .offset(x: x, y: y)
+            .shadow(color: .cyan.opacity(0.25), radius: isPad ? 2 : 1)
     }
 }
 
