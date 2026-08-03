@@ -165,8 +165,10 @@ struct ResultView: View {
                     .font(.system(size: 20 * scale, weight: .bold))
                     .foregroundStyle(character.color.opacity(0.68))
                     .offset(x: 53 * scale, y: -8 * scale)
-                Text(verbatim: "🏆")
-                    .font(.system(size: 70 * scale))
+                character.artwork
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 130 * scale, height: 92 * scale)
                     .scaleEffect(isPresented ? 1 : 0.4)
                     .rotationEffect(.degrees(isPresented ? 0 : -25))
                     .animation(.spring(response: 0.55, dampingFraction: 0.5),

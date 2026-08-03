@@ -56,10 +56,49 @@ struct ScreenSafeArea: Equatable {
 
 // MARK: - Tuning
 
+/// A conservative decoration budget for older hardware and Low Power Mode.
+/// Gameplay, steering and collision detection always retain their 60 Hz step;
+/// only effects that do not carry information become a little sparser.
+private enum ReefPerformanceBudget {
+    static let isConstrained: Bool = {
+        ProcessInfo.processInfo.physicalMemory < 4_000_000_000
+            || ProcessInfo.processInfo.isLowPowerModeEnabled
+    }()
+
+    static let moteCount = isConstrained ? 10 : 16
+    static let maximumAmbientBubbles = isConstrained ? 10 : 18
+    static let wakeInterval = isConstrained ? 0.105 : 0.075
+    static let completionStreamInterval = isConstrained ? 0.055 : 0.035
+    static let completionTrailInterval = isConstrained ? 0.070 : 0.045
+}
+
+#if canImport(UIKit)
+/// Decode the two occasional power-up sprites before gameplay starts. Their
+/// first appearance should never have to pay PNG decompression on the frame in
+/// which they enter the water.
+private enum ReefArtworkCache {
+    static let bonusFish: UIImage = preparedImage(named: "2x_coin_fish")
+    static let lifeFish: UIImage = preparedImage(named: "life_fish")
+
+    static func prewarm() {
+        _ = bonusFish
+        _ = lifeFish
+    }
+
+    private static func preparedImage(named name: String) -> UIImage {
+        let image = UIImage(named: name) ?? UIImage()
+        return image.preparingForDisplay() ?? image
+    }
+}
+#endif
+
 /// Every tunable number of the reef scene, kept together the way `GameConfig`
 /// keeps the session's.
 enum ReefConfig {
-    /// Simulation step. The scene is driven by one timer at this rate.
+    /// Simulation step. The scene is driven at display cadence at this rate.
+    ///
+    /// The interactive scene runs at display cadence so fish steering and
+    /// answer collisions stay smooth.
     static let tick = 1.0 / 60.0
 
     // MARK: Bubbles
@@ -180,7 +219,7 @@ enum ReefConfig {
     /// Tiny air pockets live a little longer so they can peel away and rise.
     static let wakeLifetime = 0.78
     static let miniBubbleLifetime = 1.05
-    static let wakeInterval = 0.075
+    static let wakeInterval = ReefPerformanceBudget.wakeInterval
     /// How long a resting character waits between two breath bubbles. Random
     /// within the range, so the rhythm never becomes a metronome.
     static let idleBreathGap: ClosedRange<Double> = 0.9...1.8
@@ -194,7 +233,7 @@ enum ReefConfig {
     static let ambientBubbleGap: ClosedRange<Double> = 0.32...0.72
     static let ambientBubbleSpeed: ClosedRange<CGFloat> = 28...54
     static let ambientBubbleRadius: ClosedRange<CGFloat> = 3.5...9
-    static let maximumAmbientBubbles = 18
+    static let maximumAmbientBubbles = ReefPerformanceBudget.maximumAmbientBubbles
     static let ambientBubblePopDuration = 0.24
 
     // MARK: 2x fish
@@ -264,7 +303,7 @@ enum ReefConfig {
 
     /// Specks of drifting plankton, purely decorative. They freeze with the
     /// rest of the scene when the game is paused.
-    static let moteCount = 16
+    static let moteCount = ReefPerformanceBudget.moteCount
     static let moteSpeed: ClosedRange<CGFloat> = 8...22
     static let moteRadius: ClosedRange<CGFloat> = 1.5...4.5
 }
@@ -436,15 +475,19 @@ struct ReefAmbientBubble: Identifiable {
 /// about scoring, and reports a touched answer through `onHit`.
 @MainActor
 final class ReefEngine: ObservableObject {
-    @Published private(set) var bubbles: [ReefBubble] = []
-    @Published private(set) var fish = ReefFish()
-    @Published private(set) var motes: [ReefMote] = []
-    @Published private(set) var wakes: [ReefWake] = []
-    @Published private(set) var bonusFish: ReefBonusFish?
-    @Published private(set) var heartFish: ReefHeartFish?
-    @Published private(set) var celebrationBubbles: [ReefCelebrationBubble] = []
-    @Published private(set) var ambientBubbles: [ReefAmbientBubble] = []
-    @Published private(set) var hasBonusAura = false
+    // These values all advance together in `tick()`. Publishing each array
+    // element mutation caused many redundant SwiftUI invalidations per frame
+    // (especially while bubbles, wakes and motes were all moving). `clock` is
+    // the single render signal for the completed simulation frame instead.
+    private(set) var bubbles: [ReefBubble] = []
+    private(set) var fish = ReefFish()
+    private(set) var motes: [ReefMote] = []
+    private(set) var wakes: [ReefWake] = []
+    private(set) var bonusFish: ReefBonusFish?
+    private(set) var heartFish: ReefHeartFish?
+    private(set) var celebrationBubbles: [ReefCelebrationBubble] = []
+    private(set) var ambientBubbles: [ReefAmbientBubble] = []
+    private(set) var hasBonusAura = false
     /// Seconds of running time, which the swaying coral reads. It stops when
     /// the game does, so nothing moves behind a pause.
     @Published private(set) var clock: Double = 0
@@ -517,9 +560,38 @@ final class ReefEngine: ObservableObject {
     private var reducesCompletionMotion = false
     private var ambientBubbleCountdown = Double.random(in: ReefConfig.ambientBubbleGap)
 
-    private var timer: Timer?
+#if canImport(UIKit)
+    /// A display-linked driver avoids timer firings landing halfway through a
+    /// screen refresh, which was visible as uneven motion on slower devices.
+    private final class DisplayLinkTarget: NSObject {
+        weak var owner: ReefEngine?
 
-    deinit { timer?.invalidate() }
+        init(owner: ReefEngine) {
+            self.owner = owner
+        }
+
+        @objc func advance(_ displayLink: CADisplayLink) {
+            guard let owner else {
+                displayLink.invalidate()
+                return
+            }
+            owner.tick()
+        }
+    }
+
+    private lazy var displayLinkTarget = DisplayLinkTarget(owner: self)
+    private var displayLink: CADisplayLink?
+#else
+    private var timer: Timer?
+#endif
+
+    deinit {
+#if canImport(UIKit)
+        displayLink?.invalidate()
+#else
+        timer?.invalidate()
+#endif
+    }
 
     // MARK: Layout
 
@@ -535,6 +607,14 @@ final class ReefEngine: ObservableObject {
         self.diameter = ReefConfig.bubbleDiameter(isPad: isPad)
         self.fishLength = ReefConfig.fishLength(isPad: isPad)
         if isFirst {
+            // Avoid storage growth while gameplay is already animating. These
+            // are small upper bounds and reserve capacity only; they do not
+            // create or draw additional objects.
+            bubbles.reserveCapacity(ReefConfig.maximumLiveBubbles + 4)
+            queue.reserveCapacity(GameConfig.answerBubbleCount)
+            wakes.reserveCapacity(ReefPerformanceBudget.isConstrained ? 24 : 48)
+            ambientBubbles.reserveCapacity(ReefConfig.maximumAmbientBubbles)
+            celebrationBubbles.reserveCapacity(ReefPerformanceBudget.isConstrained ? 72 : 120)
             fish.position = CGPoint(x: size.width / 2, y: spawnLine - fishLength)
         } else {
             fish.position = clampedFishPosition(fish.position)
@@ -631,7 +711,11 @@ final class ReefEngine: ObservableObject {
     }
 
     func setBonusAura(_ active: Bool) {
+        guard hasBonusAura != active else { return }
         hasBonusAura = active
+        // This can change while the simulation is paused, so it cannot wait
+        // for the next clock update to be drawn.
+        objectWillChange.send()
     }
 
     func setHeartFishAvailable(_ available: Bool) {
@@ -651,15 +735,31 @@ final class ReefEngine: ObservableObject {
     /// is paused, covered or left.
     func setRunning(_ running: Bool) {
         if running {
+#if canImport(UIKit)
+            guard displayLink == nil else { return }
+            let link = CADisplayLink(target: displayLinkTarget,
+                                     selector: #selector(DisplayLinkTarget.advance(_:)))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60,
+                                                            maximum: 60,
+                                                            preferred: 60)
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+#else
             guard timer == nil else { return }
             let timer = Timer(timeInterval: ReefConfig.tick, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tick() }
             }
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
+#endif
         } else {
+#if canImport(UIKit)
+            displayLink?.invalidate()
+            displayLink = nil
+#else
             timer?.invalidate()
             timer = nil
+#endif
             // A paused game is not being steered; the fish must not carry on
             // toward a target chosen before the pause.
             releaseTouch()
@@ -757,11 +857,11 @@ final class ReefEngine: ObservableObject {
 
     private func tick() {
         let dt = ReefConfig.tick
-        clock += dt
         if completionElapsed != nil {
             moveMotes(dt)
             moveWakes(dt)
             moveLevelCompletion(dt)
+            clock += dt
             return
         }
         moveWakes(dt)
@@ -790,6 +890,9 @@ final class ReefEngine: ObservableObject {
         // still consult `isLive` below, so they retain their existing timing.
         // Nothing can be collected during the scripted entrance.
         if entranceElapsed == nil { checkCollisions() }
+        // Publish only after every part of this frame has been simulated, so
+        // SwiftUI observes one coherent scene rather than intermediate state.
+        clock += dt
     }
 
     // MARK: Level completion
@@ -814,7 +917,7 @@ final class ReefEngine: ObservableObject {
                 fish.position = completionPathPoint(progress: p)
                 completionTrailCountdown -= dt
                 if completionTrailCountdown <= 0, p < 0.99 {
-                    completionTrailCountdown = 0.045
+                    completionTrailCountdown = ReefPerformanceBudget.completionTrailInterval
                     celebrationBubbles.append(ReefCelebrationBubble(
                         position: fish.position,
                         radius: CGFloat.random(in: isPad ? 4...8 : 3...6),
@@ -834,7 +937,7 @@ final class ReefEngine: ObservableObject {
         if !reducesCompletionMotion {
             completionBubbleCountdown -= dt
             if completionBubbleCountdown <= 0 {
-                completionBubbleCountdown = 0.035
+                completionBubbleCountdown = ReefPerformanceBudget.completionStreamInterval
                 spawnCompletionStreamBubble()
             }
         }
@@ -1099,7 +1202,7 @@ final class ReefEngine: ObservableObject {
         // Hard steering throws a second, shorter streak off the other side of
         // the tail. At a drift only the single one appears, so the density of
         // the trail is itself a readout of how fast the player is going.
-        if effort > 0.35 {
+        if effort > 0.35, !ReefPerformanceBudget.isConstrained {
             shedWisp(side: -side,
                      spread: CGFloat.random(in: 0.16...0.24),
                      scale: (0.62 + 0.3 * effort) * CGFloat.random(in: 0.85...1.15))
@@ -1123,7 +1226,9 @@ final class ReefEngine: ObservableObject {
                                   y: -sinHeading * 5 - 13)
             ))
         }
-        if effort > 0.55, wakeEmissionIndex.isMultiple(of: 2) {
+        if effort > 0.55,
+           wakeEmissionIndex.isMultiple(of: 2),
+           !ReefPerformanceBudget.isConstrained {
             let tail = tailPoint(side: -side, spread: 0.16)
             wakes.append(ReefWake(
                 position: tail,
@@ -1321,7 +1426,8 @@ final class ReefEngine: ObservableObject {
             guard bubble.age > 0.12 else { continue }
             let dx = bubble.position.x - fish.position.x
             let dy = bubble.position.y - fish.position.y
-            if (dx * dx + dy * dy).squareRoot() <= fishRadius + bubble.radius {
+            let hitRadius = fishRadius + bubble.radius
+            if dx * dx + dy * dy <= hitRadius * hitRadius {
                 ambientBubbles[index].popAge = 0
             }
         }
@@ -1516,7 +1622,8 @@ final class ReefEngine: ObservableObject {
         if let bonusFish, bonusFish.isCarryingReward, !hasBonusAura {
             let dx = bonusFish.position.x - fish.position.x
             let dy = bonusFish.position.y - fish.position.y
-            if (dx * dx + dy * dy).squareRoot() <= fishRadius + bonusFish.length * 0.48 {
+            let hitRadius = fishRadius + bonusFish.length * 0.48
+            if dx * dx + dy * dy <= hitRadius * hitRadius {
                 self.bonusFish?.isCarryingReward = false
                 hasBonusAura = true
                 collisionCooldown = ReefConfig.collisionCooldown
@@ -1528,7 +1635,8 @@ final class ReefEngine: ObservableObject {
         if let heartFish, heartFish.isCarryingReward {
             let dx = heartFish.position.x - fish.position.x
             let dy = heartFish.position.y - fish.position.y
-            if (dx * dx + dy * dy).squareRoot() <= fishRadius + heartFish.length * 0.48,
+            let hitRadius = fishRadius + heartFish.length * 0.48
+            if dx * dx + dy * dy <= hitRadius * hitRadius,
                onHeartFishCaught?() == true {
                 self.heartFish?.isCarryingReward = false
                 isHeartFishAvailable = false
@@ -1552,7 +1660,8 @@ final class ReefEngine: ObservableObject {
             let radius = bubble.diameter * ReefConfig.bubbleHitFactor
             let dx = bubble.position.x - fish.position.x
             let dy = bubble.position.y - fish.position.y
-            guard (dx * dx + dy * dy).squareRoot() <= radius + fishRadius else { continue }
+            let hitRadius = radius + fishRadius
+            guard dx * dx + dy * dy <= hitRadius * hitRadius else { continue }
 
             // The session has the final say. If it does not take the answer —
             // feedback still playing, round already resolved — nothing happens.
@@ -1702,34 +1811,6 @@ private struct CelebrationBubbleView: View {
     }
 }
 
-private struct AmbientBubbleView: View {
-    let bubble: ReefAmbientBubble
-
-    private var popProgress: CGFloat {
-        guard let age = bubble.popAge else { return 0 }
-        return min(1, CGFloat(age / ReefConfig.ambientBubblePopDuration))
-    }
-
-    var body: some View {
-        Circle()
-            .fill(.white.opacity(0.10))
-            .overlay {
-                Circle().stroke(.white.opacity(0.48),
-                                lineWidth: max(1, bubble.radius * 0.16))
-            }
-            .overlay(alignment: .topLeading) {
-                Circle()
-                    .fill(.white.opacity(0.68))
-                    .frame(width: bubble.radius * 0.38, height: bubble.radius * 0.38)
-                    .padding(bubble.radius * 0.28)
-            }
-            .frame(width: bubble.radius * 2, height: bubble.radius * 2)
-            .scaleEffect(bubble.popAge == nil ? 1 : 1 + popProgress * 1.15)
-            .opacity(bubble.popAge == nil ? 1 : 1 - popProgress)
-            .allowsHitTesting(false)
-    }
-}
-
 // MARK: - Playfield
 
 /// The reef itself. Everything below the HUD and above the helper button.
@@ -1793,18 +1874,17 @@ struct ReefPlayfield: View {
                 // The open water takes the touch; the fish only ever moves
                 // while a finger is down on it.
                 WaterColumn(palette: palette, clock: engine.clock)
+                    .equatable()
                     .contentShape(Rectangle())
 
-                MoteField(motes: engine.motes)
+                // These effects used to be dozens of individual SwiftUI view
+                // nodes. A single Canvas keeps the same layering while turning
+                // the whole decorative field into one inexpensive draw pass.
+                ReefEffectsCanvas(motes: engine.motes,
+                                  wakes: engine.wakes,
+                                  ambientBubbles: engine.ambientBubbles,
+                                  character: character)
                     .allowsHitTesting(false)
-
-                FishWakeField(wakes: engine.wakes, character: character)
-                    .allowsHitTesting(false)
-
-                ForEach(engine.ambientBubbles) { bubble in
-                    AmbientBubbleView(bubble: bubble)
-                        .position(bubble.position)
-                }
 
                 ForEach(engine.celebrationBubbles) { bubble in
                     CelebrationBubbleView(bubble: bubble, palette: palette)
@@ -1813,11 +1893,13 @@ struct ReefPlayfield: View {
 
                 ForEach(engine.bubbles) { bubble in
                     AnswerBubbleView(bubble: bubble, palette: palette, isPad: isPad)
+                        .equatable()
                         .position(bubble.position)
                 }
 
                 if let bonusFish = engine.bonusFish {
                     BonusFishView(fish: bonusFish, palette: palette, isPad: isPad)
+                        .equatable()
                         .position(bonusFish.position)
                         .allowsHitTesting(false)
                 }
@@ -1827,6 +1909,7 @@ struct ReefPlayfield: View {
                                   palette: palette,
                                   isPad: isPad,
                                   restoresWholeLife: heartFishRestoresWholeLife)
+                        .equatable()
                         .position(heartFish.position)
                         .allowsHitTesting(false)
                 }
@@ -1840,11 +1923,13 @@ struct ReefPlayfield: View {
                     }
                     if engine.hasBonusAura {
                         BonusAuraView(character: character, isPad: isPad)
+                            .equatable()
                     }
                     FishView(fish: engine.fish,
                              character: character,
                              isPad: isPad,
                              clock: engine.clock)
+                        .equatable()
                 }
                 .position(engine.fish.position)
                 .allowsHitTesting(false)
@@ -1852,6 +1937,7 @@ struct ReefPlayfield: View {
                 // Sea floor and coral last, so the sum is never covered by a
                 // bubble or by the fish.
                 coralBed
+                    .equatable()
                     .frame(width: size.width, height: bandHeight)
                     .offset(y: spawnLine)
                     .allowsHitTesting(false)
@@ -1866,6 +1952,9 @@ struct ReefPlayfield: View {
             )
             .allowsHitTesting(!playsLevelCompletion)
             .onAppear {
+#if canImport(UIKit)
+                ReefArtworkCache.prewarm()
+#endif
                 engine.onHit = onHit
                 engine.onBonusFishCaught = onBonusFishCaught
                 engine.onHeartFishCaught = onHeartFishCaught
@@ -1937,15 +2026,33 @@ struct ReefPlayfield: View {
 
 // MARK: - Heart fish
 
-private struct HeartFishView: View {
+private struct HeartFishView: View, Equatable {
     let fish: ReefHeartFish
     let palette: ReefPalette
     let isPad: Bool
     let restoresWholeLife: Bool
 
+    private var artwork: Image {
+#if canImport(UIKit)
+        Image(uiImage: ReefArtworkCache.lifeFish)
+#else
+        Image("life_fish")
+#endif
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.fish.id == rhs.fish.id
+            && lhs.fish.direction == rhs.fish.direction
+            && lhs.fish.length == rhs.fish.length
+            && lhs.fish.isCarryingReward == rhs.fish.isCarryingReward
+            && lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+            && lhs.restoresWholeLife == rhs.restoresWholeLife
+    }
+
     var body: some View {
         ZStack {
-            Image("life_fish")
+            artwork
                 .resizable()
                 .scaledToFit()
                 .frame(width: fish.length * 1.62, height: fish.length * 1.30)
@@ -1990,14 +2097,31 @@ private struct HeartFishView: View {
 
 // MARK: - 2x power-up fish
 
-private struct BonusFishView: View {
+private struct BonusFishView: View, Equatable {
     let fish: ReefBonusFish
     let palette: ReefPalette
     let isPad: Bool
 
+    private var artwork: Image {
+#if canImport(UIKit)
+        Image(uiImage: ReefArtworkCache.bonusFish)
+#else
+        Image("2x_coin_fish")
+#endif
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.fish.id == rhs.fish.id
+            && lhs.fish.direction == rhs.fish.direction
+            && lhs.fish.length == rhs.fish.length
+            && lhs.fish.isCarryingReward == rhs.fish.isCarryingReward
+            && lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+    }
+
     var body: some View {
         ZStack {
-            Image("2x_coin_fish")
+            artwork
                 .resizable()
                 .scaledToFit()
                 .frame(width: fish.length * 1.62, height: fish.length * 1.30)
@@ -2045,27 +2169,35 @@ private struct StreakAuraView: View {
         // Keep the effect attached to the playable character's silhouette.
         // The restrained pulse makes the streak feel alive without changing
         // the apparent hit area or turning the aura into a separate object.
-        let pulse = CGFloat(sin(clock * 4.4)) * 0.012
+        let pulse = CGFloat(sin(clock * 4.4)) * 0.010
 
-        ZStack {
-            // A broad, low-opacity underlay softens the edge against both the
-            // light surface water and the darker deep-water gradient.
-            FishAuraSilhouette(character: character, size: artworkSize, color: .orange)
-                .scaleEffect(1.25 + pulse)
-                .blur(radius: isPad ? 8 : 6)
-                .opacity(0.52)
-
-            // The smaller bright layer is mostly covered by FishView. What
-            // remains is a clean 5-8 pt rim that follows ears, tail and fins.
-            FishAuraSilhouette(character: character, size: artworkSize, color: .yellow)
-                .scaleEffect(1.15 + pulse)
-                .shadow(color: .white.opacity(0.95), radius: isPad ? 2.5 : 2)
-                .shadow(color: .yellow.opacity(0.72), radius: isPad ? 7 : 5)
-        }
+        StreakAuraArtwork(character: character, artworkSize: artworkSize, isPad: isPad)
+            .equatable()
+            .scaleEffect(1 + pulse)
         .frame(width: artworkSize.width, height: artworkSize.height)
         .scaleEffect(x: 1, y: isFacingLeft ? -1 : 1)
         .rotationEffect(.radians(fish.heading))
         .accessibilityHidden(true)
+    }
+}
+
+private struct StreakAuraArtwork: View, Equatable {
+    let character: AnimalCharacter
+    let artworkSize: CGSize
+    let isPad: Bool
+
+    var body: some View {
+        ZStack {
+            FishAuraSilhouette(character: character, size: artworkSize, color: .orange)
+                .scaleEffect(1.25)
+                .blur(radius: isPad ? 8 : 6)
+                .opacity(0.52)
+
+            FishAuraSilhouette(character: character, size: artworkSize, color: .yellow)
+                .scaleEffect(1.15)
+                .shadow(color: .white.opacity(0.95), radius: isPad ? 2.5 : 2)
+                .shadow(color: .yellow.opacity(0.72), radius: isPad ? 7 : 5)
+        }
     }
 }
 
@@ -2089,7 +2221,7 @@ private struct FishAuraSilhouette: View {
     }
 }
 
-private struct BonusAuraView: View {
+private struct BonusAuraView: View, Equatable {
     let character: AnimalCharacter
     let isPad: Bool
 
@@ -2116,10 +2248,19 @@ private struct BonusAuraView: View {
 
 // MARK: - Bubble
 
-private struct AnswerBubbleView: View {
+private struct AnswerBubbleView: View, Equatable {
     let bubble: ReefBubble
     let palette: ReefPalette
     let isPad: Bool
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.bubble.id == rhs.bubble.id
+            && lhs.bubble.emergence == rhs.bubble.emergence
+            && lhs.bubble.isPopping == rhs.bubble.isPopping
+            && lhs.popProgress == rhs.popProgress
+            && lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+    }
 
     /// The burst: the shell swells and fades away in one short beat.
     private var popProgress: Double {
@@ -2192,11 +2333,19 @@ private func fishArtworkSize(for character: AnimalCharacter, isPad: Bool) -> CGS
 }
 
 /// The playable character: its own artwork, swimming the way it is drawn.
-private struct FishView: View {
+private struct FishView: View, Equatable {
     let fish: ReefFish
     let character: AnimalCharacter
     let isPad: Bool
     let clock: Double
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.fish.heading == rhs.fish.heading
+            && lhs.fish.isSwimming == rhs.fish.isSwimming
+            && lhs.character == rhs.character
+            && lhs.isPad == rhs.isPad
+            && lhs.clock == rhs.clock
+    }
 
     private var artworkSize: CGSize { fishArtworkSize(for: character, isPad: isPad) }
 
@@ -2241,9 +2390,13 @@ private struct FishView: View {
 
 /// The water column: the whole screen, from the surface at the very top edge
 /// down to the sea floor.
-private struct WaterColumn: View {
+private struct WaterColumn: View, Equatable {
     let palette: ReefPalette
     let clock: Double
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.palette.character == rhs.palette.character && lhs.clock == rhs.clock
+    }
 
     var body: some View {
         LinearGradient(colors: [palette.waterTop, palette.waterDeep],
@@ -2286,102 +2439,131 @@ private struct SunShafts: View {
     }
 }
 
-/// The drifting plankton.
-private struct MoteField: View {
+/// Plankton, wake wisps and ambient bubbles share one immediate-mode render
+/// pass. None of them needs its own layout, accessibility or hit-testing node;
+/// keeping them in a Canvas dramatically reduces SwiftUI diffing during fast
+/// movement and when an extra boost aura is on screen.
+private struct ReefEffectsCanvas: View {
     let motes: [ReefMote]
-
-    var body: some View {
-        ZStack {
-            ForEach(motes) { mote in
-                Circle()
-                    .fill(.white.opacity(0.34))
-                    .frame(width: mote.radius * 2, height: mote.radius * 2)
-                    .position(mote.position)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-}
-
-/// Sideways eddies and tiny rising air pockets left behind by the fish's tail.
-/// The wisps stay narrow and dissolve in place, so they read as displaced
-/// underwater flow rather than ripples spreading across a surface.
-private struct FishWakeField: View {
     let wakes: [ReefWake]
+    let ambientBubbles: [ReefAmbientBubble]
     let character: AnimalCharacter
 
     var body: some View {
-        ZStack {
-            ForEach(wakes) { wake in
-                let progress = min(1, wake.age / wake.lifetime)
-                switch wake.kind {
-                case .bubble:
-                    // A rising air pocket: it swells a little as the pressure
-                    // drops, and keeps a white rim so it stays legible against
-                    // both the light surface water and the dark deep.
-                    Circle()
-                        .fill(character.tintColor.opacity(0.30 * (1 - progress)))
-                        .overlay {
-                            Circle().stroke(.white.opacity(0.72 * (1 - progress)),
-                                            lineWidth: 1.1)
-                        }
-                        .overlay(alignment: .topLeading) {
-                            Circle()
-                                .fill(.white.opacity(0.85 * (1 - progress)))
-                                .frame(width: wake.radius * 0.5,
-                                       height: wake.radius * 0.5)
-                                .offset(x: wake.radius * 0.45, y: wake.radius * 0.42)
-                        }
-                        .frame(width: wake.radius * 2, height: wake.radius * 2)
-                        .scaleEffect(0.72 + progress * 0.46)
-                        .position(wake.position)
-                case .wisp:
-                    // A streak of displaced water. It is born short and bright
-                    // right behind the tail, then draws out and thins as it is
-                    // left behind — the stretching is what reads as speed, and
-                    // it is gone within a second, so nothing looks painted on.
-                    WakeWispShape(bend: wake.side)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    character.deepColor.opacity(0),
-                                    character.color.opacity(0.78 * pow(1 - progress, 1.6)),
-                                    .white.opacity(0.55 * pow(1 - progress, 1.6))
-                                ],
-                                startPoint: .leading, endPoint: .trailing
-                            ),
-                            style: StrokeStyle(lineWidth: max(0.8, 2.6 * (1 - progress)),
-                                               lineCap: .round)
-                        )
-                        .frame(width: wake.radius * (3.4 + progress * 4.6),
-                               height: wake.radius * 1.65)
-                        .rotationEffect(.radians(wake.heading))
-                        .blur(radius: 0.3 + progress * 0.9)
-                        .position(wake.position)
-                }
+        // Draw synchronously with the current display frame. Asynchronous
+        // Canvas rendering can trail the fish by a frame on older hardware.
+        Canvas(opaque: false, rendersAsynchronously: false) { context, _ in
+            for mote in motes {
+                let rect = CGRect(x: mote.position.x - mote.radius,
+                                  y: mote.position.y - mote.radius,
+                                  width: mote.radius * 2,
+                                  height: mote.radius * 2)
+                context.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.34)))
+            }
+
+            for wake in wakes {
+                draw(wake: wake, in: &context)
+            }
+
+            for bubble in ambientBubbles {
+                draw(ambientBubble: bubble, in: &context)
             }
         }
         .accessibilityHidden(true)
     }
-}
 
-/// A single tapered-looking curl. Its shallow bend alternates with the tail
-/// beat; rotation happens in `FishWakeField`, where the original swim heading
-/// is still available.
-private struct WakeWispShape: Shape {
-    let bend: CGFloat
+    private func draw(wake: ReefWake, in context: inout GraphicsContext) {
+        let progress = min(1, wake.age / wake.lifetime)
+        switch wake.kind {
+        case .bubble:
+            let scale = 0.72 + CGFloat(progress) * 0.46
+            let radius = wake.radius * scale
+            let rect = CGRect(x: wake.position.x - radius,
+                              y: wake.position.y - radius,
+                              width: radius * 2,
+                              height: radius * 2)
+            let shell = Path(ellipseIn: rect)
+            context.fill(shell, with: .color(
+                character.tintColor.opacity(0.30 * (1 - progress))
+            ))
+            context.stroke(shell, with: .color(.white.opacity(0.72 * (1 - progress))),
+                           lineWidth: 1.1)
 
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.maxX, y: rect.midY))
-        path.addCurve(
-            to: CGPoint(x: rect.minX, y: rect.midY - bend * rect.height * 0.12),
-            control1: CGPoint(x: rect.width * 0.70,
-                              y: rect.midY + bend * rect.height * 0.44),
-            control2: CGPoint(x: rect.width * 0.30,
-                              y: rect.midY + bend * rect.height * 0.24)
-        )
-        return path
+            let highlightRadius = wake.radius * 0.25 * scale
+            let highlightCenter = CGPoint(x: wake.position.x - radius * 0.42,
+                                          y: wake.position.y - radius * 0.40)
+            let highlight = CGRect(x: highlightCenter.x - highlightRadius,
+                                   y: highlightCenter.y - highlightRadius,
+                                   width: highlightRadius * 2,
+                                   height: highlightRadius * 2)
+            context.fill(Path(ellipseIn: highlight), with: .color(
+                .white.opacity(0.85 * (1 - progress))
+            ))
+
+        case .wisp:
+            let width = wake.radius * (3.4 + CGFloat(progress) * 4.6)
+            let height = wake.radius * 1.65
+            let start = rotatedPoint(x: width / 2, y: 0, around: wake.position,
+                                     angle: wake.heading)
+            let end = rotatedPoint(x: -width / 2, y: -wake.side * height * 0.12,
+                                   around: wake.position, angle: wake.heading)
+            let control1 = rotatedPoint(x: width * 0.20,
+                                        y: wake.side * height * 0.44,
+                                        around: wake.position, angle: wake.heading)
+            let control2 = rotatedPoint(x: -width * 0.20,
+                                        y: wake.side * height * 0.24,
+                                        around: wake.position, angle: wake.heading)
+            var path = Path()
+            path.move(to: start)
+            path.addCurve(to: end, control1: control1, control2: control2)
+            let fade = pow(1 - progress, 1.6)
+            let shading = GraphicsContext.Shading.linearGradient(
+                Gradient(colors: [character.deepColor.opacity(0),
+                                  character.color.opacity(0.78 * fade),
+                                  .white.opacity(0.55 * fade)]),
+                startPoint: end,
+                endPoint: start
+            )
+            context.stroke(path, with: shading,
+                           style: StrokeStyle(lineWidth: max(0.8, 2.6 * (1 - progress)),
+                                              lineCap: .round))
+        }
+    }
+
+    private func draw(ambientBubble bubble: ReefAmbientBubble,
+                      in context: inout GraphicsContext) {
+        let progress = bubble.popAge.map {
+            min(1, CGFloat($0 / ReefConfig.ambientBubblePopDuration))
+        } ?? 0
+        let opacity = 1 - Double(progress)
+        let scale = bubble.popAge == nil ? CGFloat(1) : 1 + progress * 1.15
+        let radius = bubble.radius * scale
+        let rect = CGRect(x: bubble.position.x - radius,
+                          y: bubble.position.y - radius,
+                          width: radius * 2,
+                          height: radius * 2)
+        let shell = Path(ellipseIn: rect)
+        context.fill(shell, with: .color(.white.opacity(0.10 * opacity)))
+        context.stroke(shell, with: .color(.white.opacity(0.48 * opacity)),
+                       lineWidth: max(1, bubble.radius * 0.16))
+
+        let highlightRadius = bubble.radius * 0.19 * scale
+        let highlightCenter = CGPoint(x: bubble.position.x - radius * 0.43,
+                                      y: bubble.position.y - radius * 0.43)
+        let highlight = CGRect(x: highlightCenter.x - highlightRadius,
+                               y: highlightCenter.y - highlightRadius,
+                               width: highlightRadius * 2,
+                               height: highlightRadius * 2)
+        context.fill(Path(ellipseIn: highlight),
+                     with: .color(.white.opacity(0.68 * opacity)))
+    }
+
+    private func rotatedPoint(x: CGFloat, y: CGFloat, around centre: CGPoint,
+                              angle: Double) -> CGPoint {
+        let cosine = CGFloat(cos(angle))
+        let sine = CGFloat(sin(angle))
+        return CGPoint(x: centre.x + x * cosine - y * sine,
+                       y: centre.y + x * sine + y * cosine)
     }
 }
 
@@ -2389,7 +2571,7 @@ private struct WakeWispShape: Shape {
 /// The sea bed: a sand mound, coral swaying in the current, the craters the
 /// bubbles come out of, and the sum set into a doorway in the reef. The sum is
 /// drawn in front of everything, so neither a bubble nor the fish can cover it.
-private struct CoralBed: View {
+private struct CoralBed: View, Equatable {
     let palette: ReefPalette
     let isPad: Bool
     let bandHeight: CGFloat
@@ -2404,6 +2586,17 @@ private struct CoralBed: View {
     private var rimHeight: CGFloat { ReefConfig.craterRimHeight(isPad: isPad) }
     private var floorInset: CGFloat { ReefConfig.floorInset(isPad: isPad) + bottomReserve }
     private var questionInset: CGFloat { isPad ? 126 : 48 }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+            && lhs.bandHeight == rhs.bandHeight
+            && lhs.sandHeight == rhs.sandHeight
+            && lhs.clock == rhs.clock
+            && lhs.prompt == rhs.prompt
+            && lhs.roundID == rhs.roundID
+            && lhs.bottomReserve == rhs.bottomReserve
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
