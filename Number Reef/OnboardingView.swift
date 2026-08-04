@@ -243,7 +243,7 @@ struct OnboardingView: View {
                 fontSize: isPad ? 42 : 32
             )
 
-            Text(verbatim: String(format: L("onboarding.level.subtitle %@"), topicName))
+            Text(verbatim: L("onboarding.level.subtitle \(topicName)"))
                 .font(isPad ? .title3 : .body)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

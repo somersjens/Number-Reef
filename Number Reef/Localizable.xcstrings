@@ -205,23 +205,6 @@
         }
       }
     },
-    "common.close" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sluiten"
-          }
-        }
-      }
-    },
     "common.continue" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -256,6 +239,23 @@
         }
       }
     },
+    "common.locked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Locked"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vergrendeld"
+          }
+        }
+      }
+    },
     "common.minutesShort %lld %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -273,6 +273,40 @@
         }
       }
     },
+    "common.off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uit"
+          }
+        }
+      }
+    },
+    "common.on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aan"
+          }
+        }
+      }
+    },
     "common.save" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -286,6 +320,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Opslaan"
+          }
+        }
+      }
+    },
+    "common.unlocked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlocked"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vrijgespeeld"
           }
         }
       }
@@ -311,49 +362,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbles collected"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubble collected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbles collected"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbels verzameld"
-          }
-        }
-      }
-    },
-    "game.streakBoost.subtitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2× bubbles • 1.5× speed"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2× bubbels • 1,5× snelheid"
-          }
-        }
-      }
-    },
-    "game.streakBoost.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Streak boost!"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Streakboost!"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbel verzameld"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbels verzameld"
+                }
+              }
+            }
           }
         }
       }
@@ -545,23 +586,6 @@
         }
       }
     },
-    "game.end.gameOverTitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Game over"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Game over"
-          }
-        }
-      }
-    },
     "game.end.completionSubtitle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -592,6 +616,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "afgerond!"
+          }
+        }
+      }
+    },
+    "game.end.gameOverTitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game over"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Game over"
           }
         }
       }
@@ -681,23 +722,6 @@
         }
       }
     },
-    "game.intro.continueFrom %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Paused with %lld bubbles."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gepauzeerd met %lld bubbels."
-          }
-        }
-      }
-    },
     "game.intro.progressPaused" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -738,13 +762,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ lives left"
+            "value" : "Lives left: %@"
           }
         },
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ levens over"
+            "value" : "Levens over: %@"
           }
         }
       }
@@ -779,6 +803,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vraag: %@"
+          }
+        }
+      }
+    },
+    "game.streakBoost.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2× bubbles • 1.5× speed"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2× bubbels • 1,5× snelheid"
+          }
+        }
+      }
+    },
+    "game.streakBoost.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Streak boost!"
+          }
+        },
+        "nl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Streakboost!"
           }
         }
       }
@@ -885,40 +943,6 @@
         }
       }
     },
-    "home.cardCount" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Answer cards"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antwoordkaarten"
-          }
-        }
-      }
-    },
-    "home.cards" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bubbles"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bubbels"
-          }
-        }
-      }
-    },
     "home.cardsRemaining %lld" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -940,49 +964,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbles collected"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubble collected"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbles collected"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbels verzameld"
-          }
-        }
-      }
-    },
-    "home.defaultName" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Octopus"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inktvis"
-          }
-        }
-      }
-    },
-    "home.level" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Level"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Level"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbel verzameld"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbels verzameld"
+                }
+              }
+            }
           }
         }
       }
@@ -1008,15 +1022,59 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
+          "substitutions" : {
+            "bubbles" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg more bubble"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg more bubbles"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$lld more bubbles to unlock %2$@"
+            "value" : "%#@bubbles@ to unlock %2$@"
           }
         },
         "nl" : {
+          "substitutions" : {
+            "bubbles" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg bubbel"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg bubbels"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nog %1$lld bubbels tot %2$@"
+            "value" : "Nog %#@bubbles@ tot %2$@"
           }
         }
       }
@@ -1025,83 +1083,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbles paused"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubble paused"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbles paused"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbels gepauzeerd"
-          }
-        }
-      }
-    },
-    "home.premiumLevels" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Unlock levels 13–99"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Level 13–99 ontgrendelen"
-          }
-        }
-      }
-    },
-    "home.streakDays %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld-day streak"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld dagen op rij"
-          }
-        }
-      }
-    },
-    "home.todayGoal %lld %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld of %2$lld minutes today"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$lld van %2$lld minuten vandaag"
-          }
-        }
-      }
-    },
-    "home.topic" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Topic"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Onderwerp"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbel gepauzeerd"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbels gepauzeerd"
+                }
+              }
+            }
           }
         }
       }
@@ -1416,15 +1430,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You can collect up to |%lld bubbles| in this level."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can collect up to |%lld bubble| in this level."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You can collect up to |%lld bubbles| in this level."
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je kunt in dit level maximaal |%lld bubbels| verzamelen."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je kunt in dit level maximaal |%lld bubbel| verzamelen."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je kunt in dit level maximaal |%lld bubbels| verzamelen."
+                }
+              }
+            }
           }
         }
       }
@@ -1476,23 +1514,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Vragen t/m |level %lld|."
-          }
-        }
-      }
-    },
-    "levelIntro.levelRange %lld %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Questions up to |level %1$lld|, from |%2$lld bubbles|."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vragen t/m |level %1$lld|, uit |%2$lld bubbels|."
           }
         }
       }
@@ -1752,7 +1773,6 @@
         }
       }
     },
-    "locked" : {},
     "menu.maximumCount" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1774,9 +1794,21 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Maximum reached %lld times"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Maximum reached %lld time"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Maximum reached %lld times"
+                }
+              }
+            }
           }
         },
         "nl" : {
@@ -2020,7 +2052,7 @@
         "nl" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@: Verdien nog een paar trofeeën om dit dier vrij te spelen! 🐼"
+            "value" : "Verdien nog een paar trofeeën om %@ vrij te spelen! 🐼"
           }
         }
       }
@@ -2029,15 +2061,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only %lld trophies to go! 🏆"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Only %lld trophy to go! 🏆"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Only %lld trophies to go! 🏆"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nog maar %lld trofeeën te gaan! 🏆"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nog maar %lld trofee te gaan! 🏆"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Nog maar %lld trofeeën te gaan! 🏆"
+                }
+              }
+            }
           }
         }
       }
@@ -2046,15 +2102,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Play %lld minutes today and add a few more."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Play %lld minute today and add a few more."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Play %lld minutes today and add a few more."
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Speel vandaag %lld minuten en verzamel er nog een paar."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel vandaag %lld minuut en verzamel er nog een paar."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel vandaag %lld minuten en verzamel er nog een paar."
+                }
+              }
+            }
           }
         }
       }
@@ -2063,15 +2143,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbles collected! 🫧"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubble collected! 🫧"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbles collected! 🫧"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbels verzameld! 🫧"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbel verzameld! 🫧"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbels verzameld! 🫧"
+                }
+              }
+            }
           }
         }
       }
@@ -2120,9 +2224,21 @@
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Speel %lld minuten en bouw verder aan je reeks."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel %lld minuut en bouw verder aan je reeks."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel %lld minuten en bouw verder aan je reeks."
+                }
+              }
+            }
           }
         }
       }
@@ -2148,15 +2264,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Premium opens %lld levels in every topic and all ten animals."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Premium opens %lld level in every topic and all ten animals."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Premium opens %lld levels in every topic and all ten animals."
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Met Premium open je %lld levels per onderwerp en alle tien de dieren."
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Met Premium open je %lld level per onderwerp en alle tien de dieren."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Met Premium open je %lld levels per onderwerp en alle tien de dieren."
+                }
+              }
+            }
           }
         }
       }
@@ -2182,15 +2322,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "It’s been %lld days. Let’s solve some sums and earn more trophies!"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "It’s been %lld day. Let’s solve some sums and earn more trophies!"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "It’s been %lld days. Let’s solve some sums and earn more trophies!"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Het is %lld dagen geleden. Tijd voor wat sommen en nieuwe trofeeën!"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Het is %lld dag geleden. Tijd voor wat sommen en nieuwe trofeeën!"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Het is %lld dagen geleden. Tijd voor wat sommen en nieuwe trofeeën!"
+                }
+              }
+            }
           }
         }
       }
@@ -2216,15 +2380,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Play for %lld minutes and keep it going!"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Play for %lld minute and keep it going!"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Play for %lld minutes and keep it going!"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Speel %lld minuten en houd je reeks vast!"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel %lld minuut en houd je reeks vast!"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Speel %lld minuten en houd je reeks vast!"
+                }
+              }
+            }
           }
         }
       }
@@ -2239,9 +2427,21 @@
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je reeks van %lld dagen staat in vuur en vlam! 🔥"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je reeks van %lld dag staat in vuur en vlam! 🔥"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je reeks van %lld dagen staat in vuur en vlam! 🔥"
+                }
+              }
+            }
           }
         }
       }
@@ -2250,15 +2450,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have %lld bubbles in total. Ready for a few more?"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You have %lld bubble in total. Ready for a few more?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You have %lld bubbles in total. Ready for a few more?"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je hebt in totaal %lld bubbels. Klaar voor nog een paar?"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je hebt in totaal %lld bubbel. Klaar voor nog een paar?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je hebt in totaal %lld bubbels. Klaar voor nog een paar?"
+                }
+              }
+            }
           }
         }
       }
@@ -2267,21 +2491,43 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbles this week! 🎉"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubble this week! 🎉"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbles this week! 🎉"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld bubbels deze week! 🎉"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbel deze week! 🎉"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld bubbels deze week! 🎉"
+                }
+              }
+            }
           }
         }
       }
     },
-    "off" : {},
-    "on" : {},
     "onboarding.level.advanced.subtitle" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2524,15 +2770,59 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
+          "substitutions" : {
+            "seconds" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg second"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg seconds"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hold the %@ for %lld seconds."
+            "value" : "Hold the %1$@ for %#@seconds@."
           }
         },
         "nl" : {
+          "substitutions" : {
+            "seconds" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg seconde"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg seconden"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Houd de %@ %lld seconden ingedrukt."
+            "value" : "Houd de %1$@ %#@seconds@ ingedrukt."
           }
         }
       }
@@ -2711,9 +3001,31 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
+          "substitutions" : {
+            "times" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg time"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg times"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Now tap the %2$@ %1$lld times."
+            "value" : "Now tap the %2$@ %#@times@."
           }
         },
         "nl" : {
@@ -2762,15 +3074,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Available from %lld bubbles"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Available from %lld bubble"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Available from %lld bubbles"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beschikbaar vanaf %lld bubbels"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Beschikbaar vanaf %lld bubbel"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Beschikbaar vanaf %lld bubbels"
+                }
+              }
+            }
           }
         }
       }
@@ -2830,32 +3166,39 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You’ve earned %lld bubbles"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You’ve earned %lld bubble"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "You’ve earned %lld bubbles"
+                }
+              }
+            }
           }
         },
         "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je hebt %lld bubbels verdiend"
-          }
-        }
-      }
-    },
-    "premium.exclusiveBadge" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exclusive with Premium"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Exclusief met Premium"
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je hebt %lld bubbel verdiend"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Je hebt %lld bubbels verdiend"
+                }
+              }
+            }
           }
         }
       }
@@ -2907,40 +3250,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Toegang tot alle dieren"
-          }
-        }
-      }
-    },
-    "premium.feature.cards.subtitle" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No waiting for bubbles — every character is yours from the start."
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Niet wachten op bubbels — elk karakter is meteen van jou."
-          }
-        }
-      }
-    },
-    "premium.feature.cards.title" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "All ten animals right away"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Alle tien de dieren meteen"
           }
         }
       }
@@ -3149,91 +3458,6 @@
         }
       }
     },
-    "premium.youHavePremium" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You have Premium!"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Je hebt Premium!"
-          }
-        }
-      }
-    },
-    "profile.editName" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Your name"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jouw naam"
-          }
-        }
-      }
-    },
-    "result.backToMenu" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Back to menu"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Terug naar het menu"
-          }
-        }
-      }
-    },
-    "result.bonusCards" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bonus bubbles"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bonusbubbels"
-          }
-        }
-      }
-    },
-    "result.cardsEarned" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bubbles"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "bubbels"
-          }
-        }
-      }
-    },
     "result.complete" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3247,108 +3471,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Level afgerond!"
-          }
-        }
-      }
-    },
-    "result.correct" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Correct answers"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Goede antwoorden"
-          }
-        }
-      }
-    },
-    "result.doubleCards" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2× fish bonuses"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "2×-visbonussen"
-          }
-        }
-      }
-    },
-    "result.newRecord" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "New personal best!"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nieuw persoonlijk record!"
-          }
-        }
-      }
-    },
-    "result.outOfLives" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Out of lives"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Geen levens meer"
-          }
-        }
-      }
-    },
-    "result.personalBest" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Personal best"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Persoonlijk record"
-          }
-        }
-      }
-    },
-    "result.playAgain" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Play again"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Opnieuw spelen"
           }
         }
       }
@@ -3383,23 +3505,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nieuw karakter ontgrendeld!"
-          }
-        }
-      }
-    },
-    "result.wrong" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wrong answers"
-          }
-        },
-        "nl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Foute antwoorden"
           }
         }
       }
@@ -3646,15 +3751,99 @@
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
+          "substitutions" : {
+            "days" : {
+              "argNum" : 4,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg day"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg days"
+                    }
+                  }
+                }
+              }
+            },
+            "minutes" : {
+              "argNum" : 3,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minute"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minutes"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ goal: %2$lld of %3$lld minutes. Streak: %4$lld days."
+            "value" : "%1$@ goal: %2$lld of %#@minutes@. Streak: %#@days@."
           }
         },
         "nl" : {
+          "substitutions" : {
+            "days" : {
+              "argNum" : 4,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg dag"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg dagen"
+                    }
+                  }
+                }
+              }
+            },
+            "minutes" : {
+              "argNum" : 3,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minuut"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg minuten"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ doel: %2$lld van %3$lld minuten. Reeks: %4$lld dagen."
+            "value" : "%1$@ doel: %2$lld van %#@minutes@. Reeks: %#@days@."
           }
         }
       }
@@ -3879,8 +4068,7 @@
           }
         }
       }
-    },
-    "unlocked" : {}
+    }
   },
   "version" : "1.0"
 }

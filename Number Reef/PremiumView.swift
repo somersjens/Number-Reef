@@ -172,17 +172,17 @@ struct PremiumView: View {
             badge(text: L(key: "premium.availableFromStart"), icon: nil)
         } else if let cards = CharacterUnlockStore.requirement(for: animal.id) {
             if totalCards >= cards {
-                badge(text: localizedInteger("premium.earnedCards %lld", cards),
+                badge(text: L("premium.earnedCards \(cards)"),
                       icon: "checkmark.circle.fill")
             } else if premium.isPremium {
                 badge(text: L(key: "premium.unlockedWithPremium"), icon: "crown.fill")
             } else {
-                badge(text: localizedInteger("premium.availableAt %lld", cards),
+                badge(text: L("premium.availableAt \(cards)"),
                       icon: Currency.icon)
             }
         } else {
             badge(
-                text: L(key: premium.isPremium ? "premium.unlockedWithPremium" : "premium.exclusiveBadge"),
+                text: L(key: premium.isPremium ? "premium.unlockedWithPremium" : "premium.exclusiveWithPremium"),
                 icon: "crown.fill"
             )
         }
@@ -316,7 +316,7 @@ struct PremiumView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("character-cell")
         .accessibilityLabel(animal.localizedName)
-        .accessibilityValue(isAccessible ? "unlocked" : "locked")
+        .accessibilityValue(Text(isAccessible ? "common.unlocked" : "common.locked"))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
@@ -546,7 +546,7 @@ struct PremiumView: View {
         }
         .ignoresSafeArea()
         .accessibilityAddTraits(.isModal)
-        .accessibilityLabel(localizedString("premium.characterUnlocked %@", animal.localizedName))
+        .accessibilityLabel(L("premium.characterUnlocked \(animal.localizedName)"))
     }
 
     private func playUnlockCelebration(characterID unlockedCharacterID: String) {
@@ -632,16 +632,6 @@ struct PremiumView: View {
         }
     }
 
-    /// Formats a count into a localized template. Dynamic lookup keeps these
-    /// strings out of the compile-time catalog checks while still routing
-    /// through the app's language switch.
-    private func localizedInteger(_ key: String, _ value: Int) -> String {
-        String(format: L(key: key), locale: language.locale, Int64(value))
-    }
-
-    private func localizedString(_ key: String, _ value: String) -> String {
-        String(format: L(key: key), locale: language.locale, value)
-    }
 }
 
 private extension View {

@@ -112,19 +112,24 @@ struct HomeView: View {
         // Reading the revision redraws the personal bests when iCloud updates.
         let _ = progressSync.revision
 
+        // Summing a topic walks all 99 of its levels across every board. Both
+        // the header and the level grid need it, so it is read once per redraw
+        // and handed to them rather than swept twice.
+        let topicTotal = topicCards
+
         ZStack {
             AmbientReefBackground(character: character)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
-                    menuCard
+                    menuCard(topicTotal: topicTotal)
                         // The card always spans exactly as wide as the level
                         // grid below it. In wide landscape that grid opens up
                         // to four cards, and a menu card left at its portrait
                         // width would sit visibly narrower than the row under it.
                         .frame(maxWidth: isWidePad ? .infinity : 760)
                         .frame(maxWidth: .infinity)
-                    levelGrid
+                    levelGrid(topicTotal: topicTotal)
                 }
                 .padding(isPad ? 26 : 16)
                 .frame(maxWidth: isWidePad ? 1080 : (isPad ? 760 : 640))
@@ -203,7 +208,7 @@ struct HomeView: View {
 
     /// Everything above the level grid lives in one card, so the boundary
     /// between "settings for the next run" and "pick a level" stays obvious.
-    private var menuCard: some View {
+    private func menuCard(topicTotal: Int) -> some View {
         VStack(spacing: menuCardSectionSpacing) {
             HStack(alignment: .center, spacing: isPad ? 20 : 12) {
                 characterButton
@@ -254,7 +259,7 @@ struct HomeView: View {
             // star, which has no order to choose — the 2×2 grid that replaces
             // them.
             VStack(spacing: menuControlSpacing) {
-                topicHeader
+                topicHeader(topicTotal: topicTotal)
                 topicPicker
                 if topic.usesSupermixGrid {
                     supermixPicker
@@ -376,10 +381,10 @@ struct HomeView: View {
 
     // MARK: Topic
 
-    private var topicHeader: some View {
+    private func topicHeader(topicTotal: Int) -> some View {
         let count = headerCount(start: celebration?.topicStart,
                                 heldStart: lastPlayedTopic,
-                                current: topicCards)
+                                current: topicTotal)
         return HStack(alignment: .center, spacing: 8) {
             Text(verbatim: L(key: topic.titleKey))
                 .font(.system(size: isPad ? 32 : 20, weight: .heavy, design: .rounded))
@@ -424,9 +429,9 @@ struct HomeView: View {
 
     /// The score a level card shows. The level just played keeps its old score
     /// until the celebration is ready to count it up.
-    private func heldBest(for level: MathLevel, board: LevelBoard) -> Int {
+    private func heldBest(for level: MathLevel, storedBest: Int) -> Int {
         if holdsPreSessionValues, level.id == lastPlayedLevelID { return lastPlayedLevelBest }
-        return Progress.store.bestScore(board)
+        return storedBest
     }
 
     /// The six topics share the full width, matching the level cards below.
@@ -665,14 +670,15 @@ struct HomeView: View {
 
     // MARK: - Level grid
 
-    private var levelGrid: some View {
+    private func levelGrid(topicTotal: Int) -> some View {
         let levels = LevelCatalog.levels(for: topic)
         let regular = levels.filter { !$0.requiresPremium }
         let premiumLevels = levels.filter { $0.requiresPremium }
-        let hasProgress = levels.contains {
-            Progress.store.bestScoreAcrossBoards(level: $0) > 0
-        }
-        let recommendedID = hasProgress ? nil : regular.first?.id
+        // The topic total already sums every board of every level, and no board
+        // can score below zero — so a positive total *is* "has progress", and
+        // the grid needs no sweep of its own to decide where to point a new
+        // player.
+        let recommendedID = topicTotal > 0 ? nil : regular.first?.id
 
         return VStack(alignment: .leading, spacing: 14) {
             AdaptiveLevelGrid(spacing: levelGridSpacing,
@@ -692,10 +698,14 @@ struct HomeView: View {
 
     private func levelCard(_ level: MathLevel, recommendedID: String?) -> some View {
         let board = board(for: level)
+        // Read once and share: the card's score and its status are two views of
+        // the same stored best, and the grid asks for both on every level.
+        let storedBest = Progress.store.bestScore(board)
         return LevelCardView(
             level: level,
-            status: status(for: level, recommendedID: recommendedID),
-            best: heldBest(for: level, board: board),
+            status: status(for: level, board: board,
+                           storedBest: storedBest, recommendedID: recommendedID),
+            best: heldBest(for: level, storedBest: storedBest),
             maximum: board.maximum,
             maxCompletions: Progress.store.maxCompletionCount(board),
             pausedCards: PausedSessionStore.shared.session(board)?.cards,
@@ -716,12 +726,14 @@ struct HomeView: View {
         }
     }
 
-    private func status(for level: MathLevel, recommendedID: String?) -> LevelCardStatus {
+    private func status(for level: MathLevel,
+                        board: LevelBoard,
+                        storedBest: Int,
+                        recommendedID: String?) -> LevelCardStatus {
         if level.requiresPremium && !premium.isPremium { return .locked }
         // Completion is per board: the crown belongs to the scoreboard the
         // player is looking at, not to the level as a whole.
-        let board = board(for: level)
-        if Progress.store.bestScore(board) >= board.maximum { return .completed }
+        if storedBest >= board.maximum { return .completed }
         if level.id == recommendedID { return .recommended }
         return .available
     }

@@ -280,7 +280,7 @@ struct LevelIntroCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
-        .accessibilityValue(Text(isOn ? "on" : "off"))
+        .accessibilityValue(Text(isOn ? "common.on" : "common.off"))
     }
 
     private func featureCard(_ feature: IntroFeature) -> some View {

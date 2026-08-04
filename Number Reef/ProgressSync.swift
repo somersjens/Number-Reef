@@ -23,6 +23,26 @@ final class ProgressSync: ObservableObject {
     private var notificationToken: NSObjectProtocol?
     private var defaultsToken: NSObjectProtocol?
 
+    /// A local mirror of the iCloud store. Every personal best is merged on the
+    /// way out of `ProgressStore`, so drawing the menu asks for hundreds of
+    /// cloud values in a single redraw; going through `NSUbiquitousKeyValueStore`
+    /// each time is what made scrolling and switching topics feel heavy. The
+    /// mirror is refreshed whenever iCloud reports a change and updated in place
+    /// on every write, so it can never serve a value the store has moved past.
+    private var cloudSnapshot: [String: Any]?
+
+    private func cloudValue(forKey key: String) -> Any? {
+        if cloudSnapshot == nil {
+            cloudSnapshot = cloudStore.dictionaryRepresentation
+        }
+        return cloudSnapshot?[key]
+    }
+
+    private func setCloudValue(_ value: Any, forKey key: String) {
+        cloudStore.set(value, forKey: key)
+        cloudSnapshot?[key] = value
+    }
+
     /// iCloud key for the player's name. Kept distinct from the local
     /// UserDefaults key so the mirroring below is always explicit.
     private let playerNameCloudKey = "profile.playerName.cloud"
@@ -36,6 +56,8 @@ final class ProgressSync: ObservableObject {
             object: cloudStore,
             queue: .main
         ) { [weak self] _ in
+            // Values arrived from another device: the mirror is stale.
+            self?.cloudSnapshot = nil
             self?.reconcileAllProgress()
             self?.restorePlayerNameFromCloudIfNeeded()
         }
@@ -77,11 +99,11 @@ final class ProgressSync: ObservableObject {
     /// forcing `synchronize()` here can block the gameplay/main thread for
     /// several seconds on a slow iCloud connection.
     func mergedScore(for key: String, localScore: Int) -> Int {
-        let cloudScore = (cloudStore.object(forKey: key) as? NSNumber)?.intValue ?? 0
+        let cloudScore = (cloudValue(forKey: key) as? NSNumber)?.intValue ?? 0
         let winner = max(localScore, cloudScore)
 
         if cloudScore < winner {
-            cloudStore.set(NSNumber(value: winner), forKey: key)
+            setCloudValue(NSNumber(value: winner), forKey: key)
         }
         return winner
     }
@@ -111,11 +133,11 @@ final class ProgressSync: ObservableObject {
 
     private func mergeMonotonicInteger(forKey key: String) {
         let local = max(0, UserDefaults.standard.integer(forKey: key))
-        let cloud = max(0, (cloudStore.object(forKey: key) as? NSNumber)?.intValue ?? 0)
+        let cloud = max(0, (cloudValue(forKey: key) as? NSNumber)?.intValue ?? 0)
         let winner = max(local, cloud)
 
         if cloud < winner {
-            cloudStore.set(NSNumber(value: winner), forKey: key)
+            setCloudValue(NSNumber(value: winner), forKey: key)
         }
         if local < winner {
             UserDefaults.standard.set(winner, forKey: key)
@@ -124,21 +146,21 @@ final class ProgressSync: ObservableObject {
 
     private func mergeTrueFlag(forKey key: String) {
         let local = UserDefaults.standard.bool(forKey: key)
-        let cloud = cloudStore.bool(forKey: key)
+        let cloud = (cloudValue(forKey: key) as? NSNumber)?.boolValue ?? false
         guard local || cloud else { return }
 
-        if !cloud { cloudStore.set(true, forKey: key) }
+        if !cloud { setCloudValue(true, forKey: key) }
         if !local { UserDefaults.standard.set(true, forKey: key) }
     }
 
     private func mergeStringSet(forKey key: String) {
         let local = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
-        let cloud = Set(cloudStore.object(forKey: key) as? [String] ?? [])
+        let cloud = Set(cloudValue(forKey: key) as? [String] ?? [])
         let merged = local.union(cloud)
         guard !merged.isEmpty else { return }
         let value = Array(merged).sorted()
 
-        if cloud != merged { cloudStore.set(value, forKey: key) }
+        if cloud != merged { setCloudValue(value, forKey: key) }
         if local != merged { UserDefaults.standard.set(value, forKey: key) }
     }
 
@@ -149,21 +171,25 @@ final class ProgressSync: ObservableObject {
     /// existing local name seeds the cloud for the first time.
     private func syncPlayerNameAtLaunch() {
         let localName = UserDefaults.standard.string(forKey: GameSettings.playerNameKey) ?? ""
-        let cloudName = cloudStore.string(forKey: playerNameCloudKey) ?? ""
+        let cloudName = cloudPlayerName
 
         if !cloudName.isEmpty, cloudName != localName {
             UserDefaults.standard.set(cloudName, forKey: GameSettings.playerNameKey)
             lastKnownPlayerName = cloudName
         } else if !localName.isEmpty, cloudName != localName {
-            cloudStore.set(localName, forKey: playerNameCloudKey)
+            setCloudValue(localName, forKey: playerNameCloudKey)
             lastKnownPlayerName = localName
         }
+    }
+
+    private var cloudPlayerName: String {
+        cloudValue(forKey: playerNameCloudKey) as? String ?? ""
     }
 
     /// Applies a name that arrived from another device — or synced down after a
     /// reinstall — but never overwrites a local name with an empty one.
     private func restorePlayerNameFromCloudIfNeeded() {
-        let cloudName = cloudStore.string(forKey: playerNameCloudKey) ?? ""
+        let cloudName = cloudPlayerName
         guard !cloudName.isEmpty else { return }
         let localName = UserDefaults.standard.string(forKey: GameSettings.playerNameKey) ?? ""
         guard cloudName != localName else { return }
@@ -179,6 +205,6 @@ final class ProgressSync: ObservableObject {
         guard localName != lastKnownPlayerName else { return }
         lastKnownPlayerName = localName
         guard !localName.isEmpty else { return }
-        cloudStore.set(localName, forKey: playerNameCloudKey)
+        setCloudValue(localName, forKey: playerNameCloudKey)
     }
 }

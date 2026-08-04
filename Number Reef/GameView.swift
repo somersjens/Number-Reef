@@ -489,8 +489,11 @@ struct LivesView: View {
     }
 
     private var livesText: String {
-        // Halves read as "2.5"; whole lives never show a decimal tail.
-        lives == lives.rounded() ? "\(Int(lives))" : String(format: "%.1f", lives)
+        // Halves read as "2.5" — or "2,5" in Dutch; whole lives never show a
+        // decimal tail.
+        lives == lives.rounded()
+            ? "\(Int(lives))"
+            : String(format: "%.1f", locale: LanguageManager.shared.locale, lives)
     }
 
     /// A full, half or empty heart. The half heart is the full glyph masked to

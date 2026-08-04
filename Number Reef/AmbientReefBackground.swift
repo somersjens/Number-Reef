@@ -18,36 +18,38 @@ struct AmbientReefBackground: View {
     private var palette: ReefPalette { ReefPalette(character: character) }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
-            GeometryReader { proxy in
-                let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+        // The geometry sits outside the timeline: only the bubbles move from
+        // frame to frame, and re-proposing the whole backdrop's layout 24 times
+        // a second to learn a size that never changes is pure overhead.
+        GeometryReader { proxy in
+            ZStack {
+                character.tintColor
 
-                ZStack {
-                    character.tintColor
+                LinearGradient(
+                    colors: [palette.waterTop.opacity(0.88), character.skyColor, character.tintColor],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
-                    LinearGradient(
-                        colors: [palette.waterTop.opacity(0.88), character.skyColor, character.tintColor],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
+                AmbientLightShafts(paused: reduceMotion)
+                    .opacity(0.16)
 
-                    AmbientLightShafts(phase: phase)
-                        .opacity(0.16)
-
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
+                    let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
                     AmbientBubbleField(phase: phase, size: proxy.size)
-
-                    if showsSeaFloor {
-                        AmbientSeaFloor(palette: palette)
-                            .frame(height: min(150, proxy.size.height * 0.17))
-                            .frame(maxHeight: .infinity, alignment: .bottom)
-                    }
-
-                    // A soft veil keeps dark theme colours and decoration from
-                    // reducing the contrast of text placed over the backdrop.
-                    Color.white.opacity(0.12)
                 }
-                .frame(width: proxy.size.width, height: proxy.size.height)
+
+                if showsSeaFloor {
+                    AmbientSeaFloor(palette: palette)
+                        .frame(height: min(150, proxy.size.height * 0.17))
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                }
+
+                // A soft veil keeps dark theme colours and decoration from
+                // reducing the contrast of text placed over the backdrop.
+                Color.white.opacity(0.12)
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -55,8 +57,21 @@ struct AmbientReefBackground: View {
     }
 }
 
+/// Two blurred shafts of light, drifting almost imperceptibly.
+///
+/// Their sway is deliberately *not* driven by the backdrop's timeline. A blur
+/// this wide is an offscreen render pass, and recomputing two full-height ones
+/// every frame was the single most expensive thing on an idle menu. A repeating
+/// animation hands the same slow drift to Core Animation instead, which moves
+/// them without waking SwiftUI at all.
 private struct AmbientLightShafts: View {
-    let phase: Double
+    let paused: Bool
+
+    @State private var drifted = false
+
+    /// Half-periods of the sine waves this replaces, so the pace is unchanged.
+    private static let leftSway = 31.4
+    private static let rightSway = 39.3
 
     var body: some View {
         GeometryReader { proxy in
@@ -65,13 +80,23 @@ private struct AmbientLightShafts: View {
             ZStack(alignment: .topLeading) {
                 shaft(width: width * 0.34)
                     .rotationEffect(.degrees(-12), anchor: .top)
-                    .offset(x: width * (0.15 + 0.025 * sin(phase * 0.10)))
+                    .offset(x: width * (drifted ? 0.175 : 0.125))
+                    .animation(sway(Self.leftSway), value: drifted)
 
                 shaft(width: width * 0.22)
                     .rotationEffect(.degrees(-8), anchor: .top)
-                    .offset(x: width * (0.68 + 0.03 * sin(phase * 0.08 + 1.8)))
+                    .offset(x: width * (drifted ? 0.71 : 0.65))
+                    .animation(sway(Self.rightSway), value: drifted)
             }
         }
+        .onAppear {
+            guard !paused else { return }
+            drifted = true
+        }
+    }
+
+    private func sway(_ halfPeriod: Double) -> Animation {
+        .easeInOut(duration: halfPeriod).repeatForever(autoreverses: true)
     }
 
     private func shaft(width: CGFloat) -> some View {

@@ -88,6 +88,16 @@ public final class PausedSessionStore {
     static let key = "paused.sessions.v3"
 
     private let defaults: KeyValueStore
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
+    /// The last blob that was decoded, with its result. Every level card on the
+    /// menu asks for its own paused session, so without this the same record set
+    /// is decoded from scratch a hundred times over during a single redraw. The
+    /// raw data is the cache key, so a write from anywhere — including a direct
+    /// `removeObject` during migration — is picked up on the next read.
+    private var cachedData: Data?
+    private var cachedSessions: [String: PausedSession] = [:]
 
     public init(defaults: KeyValueStore) {
         self.defaults = defaults
@@ -138,13 +148,23 @@ public final class PausedSessionStore {
     // MARK: - Storage
 
     private func all() -> [String: PausedSession] {
-        guard let data = defaults.object(forKey: Self.key) as? Data else { return [:] }
+        guard let data = defaults.object(forKey: Self.key) as? Data else {
+            cachedData = nil
+            cachedSessions = [:]
+            return [:]
+        }
+        if data == cachedData { return cachedSessions }
         // Unreadable data is dropped rather than allowed to fail a launch.
-        return (try? JSONDecoder().decode([String: PausedSession].self, from: data)) ?? [:]
+        let sessions = (try? Self.decoder.decode([String: PausedSession].self, from: data)) ?? [:]
+        cachedData = data
+        cachedSessions = sessions
+        return sessions
     }
 
     private func write(_ sessions: [String: PausedSession]) {
-        guard let data = try? JSONEncoder().encode(sessions) else { return }
+        guard let data = try? Self.encoder.encode(sessions) else { return }
         defaults.set(data, forKey: Self.key)
+        cachedData = data
+        cachedSessions = sessions
     }
 }

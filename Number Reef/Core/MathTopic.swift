@@ -320,9 +320,17 @@ public struct MathLevel: Identifiable, Hashable, Codable, Sendable {
 }
 
 public enum LevelCatalog {
+    /// The catalog is fixed at build time, so each topic's 99 levels are built
+    /// once instead of on every menu redraw.
+    private static let byTopic: [MathTopic: [MathLevel]] = Dictionary(
+        uniqueKeysWithValues: MathTopic.allCases.map { topic in
+            (topic, (1...GameConfig.maximumLevel).map { MathLevel(topic: topic, index: $0) })
+        }
+    )
+
     /// Every level of a topic, free tier first.
     public static func levels(for topic: MathTopic) -> [MathLevel] {
-        (1...GameConfig.maximumLevel).map { MathLevel(topic: topic, index: $0) }
+        byTopic[topic] ?? []
     }
 
     public static func level(id: String) -> MathLevel? {

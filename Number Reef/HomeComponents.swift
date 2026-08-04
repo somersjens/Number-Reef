@@ -909,54 +909,65 @@ private struct CompletionFern: View {
     ]
 
     var body: some View {
-        TimelineView(.animation) { context in
-            let elapsed = revealStartedAt.map {
-                max(0, context.date.timeIntervalSince($0))
-            } ?? .greatestFiniteMagnitude
-            GeometryReader { proxy in
-                ZStack {
-                    FernStemShape()
-                        .trim(from: 0, to: stemProgress(at: elapsed))
-                        .stroke(color.opacity(0.62),
-                                style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.05),
-                                                   lineCap: .round))
-
-                    ForEach(leaves) { leaf in
-                        let progress = leafProgress(leaf, at: elapsed)
-                        let leafX = proxy.size.width * leaf.x
-                        let leafY = proxy.size.height * leaf.y
-
-                        // A short petiole connects every leaf to the bowed
-                        // stem, so the ornament reads as a growing fern rather
-                        // than a loose row of capsules.
-                        Path { path in
-                            path.move(to: CGPoint(x: proxy.size.width * stemX(at: leaf.y),
-                                                  y: leafY))
-                            path.addLine(to: CGPoint(x: leafX, y: leafY))
-                        }
-                        .trim(from: 0, to: min(1, progress))
-                        .stroke(color.opacity(0.48),
-                                style: StrokeStyle(lineWidth: max(0.7, proxy.size.width * 0.025),
-                                                   lineCap: .round))
-
-                        FernLeafShape()
-                            .fill(
-                                LinearGradient(colors: [color.opacity(0.95), color.opacity(0.62)],
-                                               startPoint: .topLeading,
-                                               endPoint: .bottomTrailing)
-                            )
-                            .frame(width: proxy.size.width * leaf.width,
-                                   height: proxy.size.height * leaf.height)
-                            .scaleEffect(x: progress, y: progress, anchor: .leading)
-                            .rotationEffect(.degrees(leaf.rotation
-                                + (leaf.x < stemX(at: leaf.y) ? -14 : 14) * (1 - progress)))
-                            .opacity(min(1, progress))
-                            .position(x: leafX, y: leafY)
-                    }
+        Group {
+            // Only a fern that is actually growing needs a frame-by-frame
+            // redraw. An already-completed card renders its finished fern once
+            // and then costs nothing — which matters because the menu can show
+            // dozens of completed levels, each carrying two of these.
+            if let revealStartedAt {
+                TimelineView(.animation) { context in
+                    fern(at: max(0, context.date.timeIntervalSince(revealStartedAt)))
                 }
+            } else {
+                fern(at: .greatestFiniteMagnitude)
             }
         }
         .shadow(color: color.opacity(0.16), radius: 1, y: 0.5)
+    }
+
+    private func fern(at elapsed: TimeInterval) -> some View {
+        GeometryReader { proxy in
+            ZStack {
+                FernStemShape()
+                    .trim(from: 0, to: stemProgress(at: elapsed))
+                    .stroke(color.opacity(0.62),
+                            style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.05),
+                                               lineCap: .round))
+
+                ForEach(leaves) { leaf in
+                    let progress = leafProgress(leaf, at: elapsed)
+                    let leafX = proxy.size.width * leaf.x
+                    let leafY = proxy.size.height * leaf.y
+
+                    // A short petiole connects every leaf to the bowed
+                    // stem, so the ornament reads as a growing fern rather
+                    // than a loose row of capsules.
+                    Path { path in
+                        path.move(to: CGPoint(x: proxy.size.width * stemX(at: leaf.y),
+                                              y: leafY))
+                        path.addLine(to: CGPoint(x: leafX, y: leafY))
+                    }
+                    .trim(from: 0, to: min(1, progress))
+                    .stroke(color.opacity(0.48),
+                            style: StrokeStyle(lineWidth: max(0.7, proxy.size.width * 0.025),
+                                               lineCap: .round))
+
+                    FernLeafShape()
+                        .fill(
+                            LinearGradient(colors: [color.opacity(0.95), color.opacity(0.62)],
+                                           startPoint: .topLeading,
+                                           endPoint: .bottomTrailing)
+                        )
+                        .frame(width: proxy.size.width * leaf.width,
+                               height: proxy.size.height * leaf.height)
+                        .scaleEffect(x: progress, y: progress, anchor: .leading)
+                        .rotationEffect(.degrees(leaf.rotation
+                            + (leaf.x < stemX(at: leaf.y) ? -14 : 14) * (1 - progress)))
+                        .opacity(min(1, progress))
+                        .position(x: leafX, y: leafY)
+                }
+            }
+        }
     }
 
     private func stemProgress(at elapsed: TimeInterval) -> CGFloat {
@@ -1135,21 +1146,32 @@ struct CountingNumber: View {
     var duration = 0.78
 
     var body: some View {
-        TimelineView(.animation) { context in
-            let elapsed = startedAt.map { context.date.timeIntervalSince($0) }
-                ?? .greatestFiniteMagnitude
-            let progress = startedAt == nil
-                ? 1
-                : min(1, max(0, (elapsed - delay) / duration))
-            let eased = 1 - pow(1 - progress, 3)
-            let value = Int((Double(from) + Double(to - from) * eased).rounded())
-            Text(verbatim: "\(value)")
-                .contentTransition(.numericText())
-                .monospacedDigit()
-                // A gentle swell that peaks mid-count and settles again.
-                .scaleEffect(1 + sin(progress * .pi) * 0.13)
+        Group {
+            // A `TimelineView(.animation)` subscribes to the display link for as
+            // long as it exists, and the menu holds one of these per level card.
+            // Without a count-up to run there is nothing for those frames to
+            // change, so the settled value is rendered as a plain, static view
+            // and the whole screen stops redrawing at 120 Hz while idle.
+            if let startedAt {
+                TimelineView(.animation) { context in
+                    numeral(at: context.date.timeIntervalSince(startedAt))
+                }
+            } else {
+                numeral(at: .greatestFiniteMagnitude)
+            }
         }
         .accessibilityLabel(Text(verbatim: "\(to)"))
+    }
+
+    private func numeral(at elapsed: TimeInterval) -> some View {
+        let progress = min(1, max(0, (elapsed - delay) / duration))
+        let eased = 1 - pow(1 - progress, 3)
+        let value = Int((Double(from) + Double(to - from) * eased).rounded())
+        return Text(verbatim: "\(value)")
+            .contentTransition(.numericText())
+            .monospacedDigit()
+            // A gentle swell that peaks mid-count and settles again.
+            .scaleEffect(1 + sin(progress * .pi) * 0.13)
     }
 }
 
