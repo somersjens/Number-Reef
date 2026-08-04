@@ -58,6 +58,10 @@ final class AppAudio: NSObject, ObservableObject {
                 stopMusic()
                 deactivateSessionIfUnused()
             }
+            // `activateSession()` only touches the category on first activation,
+            // so an already-active session (e.g. sound effects still on) needs
+            // this nudge to pick up the new mix-with-others behaviour.
+            if sessionActive { configureSessionIfNeeded() }
         }
     }
 
@@ -176,6 +180,10 @@ final class AppAudio: NSObject, ObservableObject {
     private(set) var isGameplayActive = false
 
     private var sessionConfigured = false
+    /// Whether the session was last configured to duck under other apps'
+    /// audio. Kept so a change to `musicEnabled` can re-set the category even
+    /// once `sessionConfigured` is already true.
+    private var sessionMixesWithOthers = false
     private var sessionActive = false
     /// The music loops continuously: softly in the background on the menus and
     /// cards, a little louder during play, and briefly ducked while a sum is
@@ -371,13 +379,21 @@ final class AppAudio: NSObject, ObservableObject {
     // MARK: - Audio session
 
     private func configureSessionIfNeeded() {
-        guard !sessionConfigured else { return }
+        // With the in-game music off, effects and spoken sums should be able
+        // to play without silencing whatever the player is listening to in
+        // another app (Music, Spotify, a podcast, ...). Only claim exclusive
+        // playback — and so interrupt that other audio — while our own
+        // background music is actually the thing that needs to be heard.
+        let shouldMix = !musicEnabled
+        guard !sessionConfigured || shouldMix != sessionMixesWithOthers else { return }
         let session = AVAudioSession.sharedInstance()
         // `.playback` keeps the game audible even with the ring/silent switch
         // set to silent — expected for a game the child is actively playing,
         // and the single in-app switch is the real mute control.
-        try? session.setCategory(.playback, mode: .default, options: [])
+        try? session.setCategory(.playback, mode: .default,
+                                 options: shouldMix ? [.mixWithOthers] : [])
         sessionConfigured = true
+        sessionMixesWithOthers = shouldMix
     }
 
     private func activateSession() {
