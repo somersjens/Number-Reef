@@ -58,9 +58,9 @@ final class AppAudio: NSObject, ObservableObject {
                 stopMusic()
                 deactivateSessionIfUnused()
             }
-            // `activateSession()` only touches the category on first activation,
-            // so an already-active session (e.g. sound effects still on) needs
-            // this nudge to pick up the new mix-with-others behaviour.
+            // `activateSession()` only configures the category on its way to
+            // activating, so an already-active session (e.g. sound effects still
+            // on) needs this nudge to pick up the new mix-with-others behaviour.
             if sessionActive { configureSessionIfNeeded() }
         }
     }
@@ -179,12 +179,25 @@ final class AppAudio: NSObject, ObservableObject {
     /// louder here; the sums are only spoken while this is true.
     private(set) var isGameplayActive = false
 
-    private var sessionConfigured = false
-    /// Whether the session was last configured to duck under other apps'
-    /// audio. Kept so a change to `musicEnabled` can re-set the category even
-    /// once `sessionConfigured` is already true.
-    private var sessionMixesWithOthers = false
+    /// How the app currently presents itself to the shared audio session. Kept
+    /// so a change to the sound settings can re-apply the category, and so the
+    /// polite launch category is applied before anything else is built.
+    private enum SessionCategoryPlan {
+        /// Every sound is switched off: stay a passive, always-mixable app so
+        /// nothing we touch can stop another app's music.
+        case silent
+        /// Our sounds may play, but must never silence what the player is
+        /// already listening to elsewhere.
+        case mixed
+        /// Our own background music is the point; claim exclusive playback.
+        case exclusive
+    }
+    private var appliedCategoryPlan: SessionCategoryPlan?
     private var sessionActive = false
+    /// `AVAudioPlayer.prepareToPlay()` acquires the audio hardware, so it is
+    /// skipped while the app is silent (see `makePlayer`). This tracks whether
+    /// the music player still owes that preparation.
+    private var musicPlayerPrepared = false
     /// The music loops continuously: softly in the background on the menus and
     /// cards, a little louder during play, and briefly ducked while a sum is
     /// read so the words stay clearly audible over it.
@@ -260,9 +273,17 @@ final class AppAudio: NSObject, ObservableObject {
     func prepare() {
         guard !preparationStarted else { return }
         preparationStarted = true
+        // Claim a category before a single audio object is built. Both
+        // `prepareToPlay()` and the engine's mixer node acquire the audio
+        // hardware, which activates the shared session implicitly — and under
+        // the default category that alone stops another app's music, even
+        // though this app never plays a note.
+        configureSessionIfNeeded()
+        let wantsAudio = hasAnyAudioEnabled
         prepareQueue.async { [weak self] in
             guard let self else { return }
-            let music = Self.makePlayer(named: "music_background", loops: -1, volume: 0)
+            let music = Self.makePlayer(named: "music_background", loops: -1, volume: 0,
+                                        acquiringHardware: wantsAudio)
             // Decode + lead-trim every effect into a ready-to-schedule PCM buffer
             // here, off the main thread, so play time does no file work at all.
             var buffers: [String: AVAudioPCMBuffer] = [:]
@@ -279,6 +300,7 @@ final class AppAudio: NSObject, ObservableObject {
                 self.voicesByLanguage = voices
                 self.speechVoicesResolved = true
                 self.audioResourcesReady = true
+                self.musicPlayerPrepared = wantsAudio && music != nil
                 // Spin the speech synthesizer up now, at this calm menu moment,
                 // rather than on the first level start where its first-use cost
                 // otherwise lands mid-play (see the method).
@@ -297,34 +319,48 @@ final class AppAudio: NSObject, ObservableObject {
         }
     }
 
-    /// Attaches one player node per effect and wires it to the engine's mixer at
-    /// the buffer's own format (the mixer resamples as needed, so effects keep
-    /// their native rates). Runs once, on the main thread, after the background
-    /// decode; the engine itself is only started when sound is on.
+    /// Keeps the decoded buffers, on the main thread, after the background
+    /// decode. The engine graph itself is only built when sound is actually on
+    /// (see `attachEffectNodesIfNeeded`).
     private func installEffectBuffers(_ buffers: [String: AVAudioPCMBuffer]) {
         for effect in Self.effects where effectBuffers[effect.key] == nil {
             guard let buffer = buffers[effect.key] else { continue }
             effectBuffers[effect.key] = buffer
+        }
+        // The session can go active before this background decode finishes — the
+        // tutorial starts gameplay immediately, with no start card, so
+        // `activateSession()` runs while `effectBuffers` is still empty and
+        // `startEngineIfNeeded()` skips (nothing to play). Once activated,
+        // `activateSession()` short-circuits and never retries, so the engine
+        // would stay down and every effect would be silent. Now that the buffers
+        // exist, bring the engine up here.
+        if sessionOutputReady { startEngineIfNeeded() }
+    }
+
+    /// Attaches one player node per decoded effect and wires it to the engine's
+    /// mixer at the buffer's own format (the mixer resamples as needed, so
+    /// effects keep their native rates). Runs once, on the main thread, and
+    /// deliberately not at decode time: touching `engine.mainMixerNode`
+    /// instantiates the output audio unit, which claims the audio hardware and
+    /// activates the shared session. With every sound switched off the app must
+    /// stay entirely out of the audio system, so this waits until the engine is
+    /// genuinely about to play something.
+    private func attachEffectNodesIfNeeded() {
+        for effect in Self.effects where effectNodes[effect.key] == nil {
+            guard let buffer = effectBuffers[effect.key] else { continue }
             let node = AVAudioPlayerNode()
             node.volume = effect.volume
             engine.attach(node)
             engine.connect(node, to: engine.mainMixerNode, format: buffer.format)
             effectNodes[effect.key] = node
         }
-        // The session can go active before this background decode finishes — the
-        // tutorial starts gameplay immediately, with no start card, so
-        // `activateSession()` runs while `effectNodes` is still empty and
-        // `startEngineIfNeeded()` skips (nothing to play). Once activated,
-        // `activateSession()` short-circuits and never retries, so the engine
-        // would stay down and every effect would be silent. Now that the nodes
-        // exist, bring the engine up here.
-        if sessionOutputReady { startEngineIfNeeded() }
     }
 
-    /// Builds a fully prepared player. Runs the decode/`prepareToPlay` cost on
-    /// whatever (background) queue calls it.
+    /// Builds a player. Runs the decode (and, when asked, the `prepareToPlay`)
+    /// cost on whatever (background) queue calls it.
     private static func makePlayer(named name: String, ext: String = "m4a",
-                                   loops: Int, volume: Float) -> AVAudioPlayer? {
+                                   loops: Int, volume: Float,
+                                   acquiringHardware: Bool = true) -> AVAudioPlayer? {
         guard let url = Bundle.main.url(forResource: name, withExtension: ext),
               let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
         player.numberOfLoops = loops
@@ -333,7 +369,10 @@ final class AppAudio: NSObject, ObservableObject {
         // is enabled before `prepareToPlay()` / `play()`. Enabling it when a
         // streak begins makes the new rate take effect only on the next loop.
         player.enableRate = true
-        player.prepareToPlay()
+        // `prepareToPlay()` preloads buffers *and* acquires the audio hardware,
+        // activating the shared session as a side effect. Skip it while the app
+        // is silent; it is done later, once sound is switched on.
+        if acquiringHardware { player.prepareToPlay() }
         return player
     }
 
@@ -359,10 +398,12 @@ final class AppAudio: NSObject, ObservableObject {
     /// Starts the effects engine (once) and puts every effect node into its
     /// always-on "playing" state, so a later trigger is a single scheduleBuffer
     /// with nothing to spin up. Requires the session active; a no-op when sound
-    /// is off, the engine is already running, or the nodes aren't attached yet.
+    /// is off, the engine is already running, or the effects aren't decoded yet.
     private func startEngineIfNeeded() {
         guard gameSoundsEnabled, sessionOutputReady,
-              !engine.isRunning, !effectNodes.isEmpty else { return }
+              !engine.isRunning, !effectBuffers.isEmpty else { return }
+        attachEffectNodesIfNeeded()
+        guard !effectNodes.isEmpty else { return }
         engine.prepare()
         guard (try? engine.start()) != nil else { return }
         for node in effectNodes.values { node.play() }
@@ -378,22 +419,43 @@ final class AppAudio: NSObject, ObservableObject {
 
     // MARK: - Audio session
 
+    /// What the session should look like right now. With the in-game music off,
+    /// effects and spoken sums should be able to play without silencing whatever
+    /// the player is listening to in another app (Music, Spotify, a podcast,
+    /// ...). Only claim exclusive playback — and so interrupt that other audio —
+    /// while our own background music is actually the thing that needs to be
+    /// heard. With everything off the app claims nothing at all.
+    private var sessionCategoryPlan: SessionCategoryPlan {
+        guard hasAnyAudioEnabled else { return .silent }
+        return musicEnabled ? .exclusive : .mixed
+    }
+
+    /// Applies that category. Deliberately safe to call before any audio object
+    /// exists: setting a category never disturbs another app — only *activating*
+    /// a non-mixing one does. Claiming a mixable category up front is therefore
+    /// what makes an implicit activation (any `prepareToPlay()`, any audio unit
+    /// being instantiated) harmless to the music the player already had running.
     private func configureSessionIfNeeded() {
-        // With the in-game music off, effects and spoken sums should be able
-        // to play without silencing whatever the player is listening to in
-        // another app (Music, Spotify, a podcast, ...). Only claim exclusive
-        // playback — and so interrupt that other audio — while our own
-        // background music is actually the thing that needs to be heard.
-        let shouldMix = !musicEnabled
-        guard !sessionConfigured || shouldMix != sessionMixesWithOthers else { return }
+        let plan = sessionCategoryPlan
+        guard plan != appliedCategoryPlan else { return }
         let session = AVAudioSession.sharedInstance()
-        // `.playback` keeps the game audible even with the ring/silent switch
-        // set to silent — expected for a game the child is actively playing,
-        // and the single in-app switch is the real mute control.
-        try? session.setCategory(.playback, mode: .default,
-                                 options: shouldMix ? [.mixWithOthers] : [])
-        sessionConfigured = true
-        sessionMixesWithOthers = shouldMix
+        switch plan {
+        case .silent:
+            // `.ambient` is the passive category: it always mixes with other
+            // audio and is silenced by the ring/silent switch. A fully muted app
+            // has nothing to play, so this is the only honest thing to claim —
+            // and it is what keeps a launch with all sound off from cutting off
+            // another app's music.
+            try? session.setCategory(.ambient, mode: .default)
+        case .mixed:
+            try? session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        case .exclusive:
+            // `.playback` keeps the game audible even with the ring/silent switch
+            // set to silent — expected for a game the child is actively playing,
+            // and the in-app switches are the real mute control.
+            try? session.setCategory(.playback, mode: .default, options: [])
+        }
+        appliedCategoryPlan = plan
     }
 
     private func activateSession() {
@@ -427,11 +489,21 @@ final class AppAudio: NSObject, ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + self.engineToMusicDelay) {
                 guard token == self.sessionStartupToken,
                       self.sessionActive, self.hasAnyAudioEnabled else { return }
+                self.prepareMusicPlayerIfNeeded()
                 self.musicOutputReady = true
                 self.startMusicIfReady()
                 self.playPreparedSpeechIfPossible()
             }
         }
+    }
+
+    /// Pays the skipped `prepareToPlay()` once sound is switched back on. Only
+    /// the "launched silent, player enabled audio" path reaches this, and it runs
+    /// inside the session-settle window, well before the first note is played.
+    private func prepareMusicPlayerIfNeeded() {
+        guard !musicPlayerPrepared, let player = musicPlayer else { return }
+        musicPlayerPrepared = true
+        player.prepareToPlay()
     }
 
     private func deactivateSession() {
@@ -443,6 +515,10 @@ final class AppAudio: NSObject, ObservableObject {
         // Let any paused apps (music, podcasts) resume once we go quiet.
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         sessionActive = false
+        // Switching everything off puts the app back in its passive state, so
+        // give up the playback category too: a later implicit activation then
+        // can't take the other app's audio away again.
+        configureSessionIfNeeded()
     }
 
     private func deactivateSessionIfUnused() {
