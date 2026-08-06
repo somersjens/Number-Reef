@@ -67,6 +67,7 @@ final class GameViewModel: ObservableObject {
     func begin() {
         guard engine.state == .intro else { return }
         isPaused = false
+        prepareHaptics()
         PlaytimeTracker.shared.challengeStarted()
         AppAudio.shared.setGameplayActive(true, questionText: nil)
         AppAudio.shared.playSessionStart()
@@ -122,6 +123,7 @@ final class GameViewModel: ObservableObject {
     func resume() {
         guard engine.state != .intro, engine.state != .gameOver else { return }
         isPaused = false
+        prepareHaptics()
         PlaytimeTracker.shared.challengeStarted()
         AppAudio.shared.setGameplayActive(true, questionText: nil)
         AppAudio.shared.setGameplayRate(isStreakBoostActive
@@ -368,14 +370,36 @@ final class GameViewModel: ObservableObject {
 
     private enum Haptic { case light, rigid, success, error }
 
+#if canImport(UIKit)
+    // Built once and kept warm. A generator created on the spot has to wake the
+    // Taptic Engine from idle on the calling thread, and that landed on the
+    // exact main-thread frame in which an answer was taken.
+    private let lightHaptic = UIImpactFeedbackGenerator(style: .light)
+    private let rigidHaptic = UIImpactFeedbackGenerator(style: .rigid)
+    private let notificationHaptic = UINotificationFeedbackGenerator()
+#endif
+
+    /// Puts the Taptic Engine on standby while nothing is happening yet, so the
+    /// first answer of a round pays no start-up cost either.
+    private func prepareHaptics() {
+#if canImport(UIKit)
+        lightHaptic.prepare()
+        rigidHaptic.prepare()
+        notificationHaptic.prepare()
+#endif
+    }
+
     private func haptic(_ kind: Haptic) {
 #if canImport(UIKit)
         switch kind {
-        case .light: UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        case .rigid: UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-        case .success: UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case .error: UINotificationFeedbackGenerator().notificationOccurred(.error)
+        case .light: lightHaptic.impactOccurred()
+        case .rigid: rigidHaptic.impactOccurred()
+        case .success: notificationHaptic.notificationOccurred(.success)
+        case .error: notificationHaptic.notificationOccurred(.error)
         }
+        // Firing leaves the engine idle again; this keeps the *next* answer,
+        // which in fast play is only a moment away, just as immediate.
+        prepareHaptics()
 #endif
     }
 }

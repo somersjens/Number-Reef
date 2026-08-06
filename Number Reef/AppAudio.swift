@@ -409,6 +409,12 @@ final class AppAudio: NSObject, ObservableObject {
         for node in effectNodes.values { node.play() }
     }
 
+    /// Whether an effect can be fired without any set-up at all: the session is
+    /// live, its output has settled and the always-on engine is running.
+    private var isEffectPathReady: Bool {
+        sessionActive && sessionOutputReady && engine.isRunning
+    }
+
     /// Stops the effect nodes and the engine (used when going silent or
     /// backgrounding); the attached graph is kept for a later restart.
     private func stopEngine() {
@@ -613,10 +619,20 @@ final class AppAudio: NSObject, ObservableObject {
         musicPlayer?.setVolume(volume, fadeDuration: fade)
     }
 
+    private var appliedGameplayRate: Float = 1
+
     /// Keeps the soundtrack in step with the temporary fast streak mode.
+    ///
+    /// The game view model re-publishes its whole state on every answer and
+    /// calls this each time, so the unchanged case has to cost nothing:
+    /// assigning `rate` on a playing `AVAudioPlayer` re-primes its time-pitch
+    /// unit, which is real work on the main thread for no audible change.
     func setGameplayRate(_ rate: Float) {
         guard let player = musicPlayer else { return }
-        player.rate = min(max(rate, 0.5), 2)
+        let clamped = min(max(rate, 0.5), 2)
+        guard clamped != appliedGameplayRate else { return }
+        appliedGameplayRate = clamped
+        player.rate = clamped
     }
 
     /// Fades the music out and stops it — used only when sound is switched off
@@ -671,8 +687,15 @@ final class AppAudio: NSObject, ObservableObject {
 
     private func playEffect(_ key: String) {
         guard gameSoundsEnabled else { return }
-        prepare()
-        activateSession()
+        // Once the graph is genuinely up, triggering a sound must do nothing but
+        // trigger it. `activateSession()` on an already-active session still
+        // walks its music and speech maintenance — including a `setVolume`
+        // that restarts a 0.4 s fade ramp — and during fast play that ran on
+        // every single effect. Only fall back to it when something is missing.
+        if !isEffectPathReady {
+            prepare()
+            activateSession()
+        }
         // Preloaded by `prepare()`. If a sound is somehow needed before that
         // finished (rare — play happens well after launch) it's simply skipped;
         // no synchronous file work is ever done on this hot path.

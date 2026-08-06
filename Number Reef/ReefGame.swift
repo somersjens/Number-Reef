@@ -70,6 +70,9 @@ private enum ReefPerformanceBudget {
     static let wakeInterval = isConstrained ? 0.105 : 0.075
     static let completionStreamInterval = isConstrained ? 0.055 : 0.035
     static let completionTrailInterval = isConstrained ? 0.070 : 0.045
+    /// Scenery sway: 20 Hz normally, 12 Hz where the frame budget is tightest.
+    static let swayInterval = isConstrained ? 1.0 / 12.0 : 1.0 / 20.0
+    static let driftInterval = isConstrained ? 1.0 / 4.0 : 1.0 / 6.0
 }
 
 #if canImport(UIKit)
@@ -304,6 +307,16 @@ enum ReefConfig {
 
     // MARK: Ambience
 
+    /// How often the swaying scenery is re-sampled. Coral, plants and vents all
+    /// breathe at well under 1.2 Hz, so a fresh position 20 times a second is
+    /// already smoother than the eye can follow — while a full 60 Hz rebuild of
+    /// that whole sea floor is by far the most expensive thing in the frame.
+    /// Everything the player actually steers and touches keeps the 60 Hz step.
+    static let swayInterval = ReefPerformanceBudget.swayInterval
+    /// The sun shafts drift on a 35-second cycle and are the one full-screen
+    /// blur in the scene, so they are re-sampled far more sparingly still.
+    static let driftInterval = ReefPerformanceBudget.driftInterval
+
     /// Specks of drifting plankton, purely decorative. They freeze with the
     /// rest of the scene when the game is paused.
     static let moteCount = ReefPerformanceBudget.moteCount
@@ -506,9 +519,18 @@ final class ReefEngine: ObservableObject {
     private(set) var celebrationBubbles: [ReefCelebrationBubble] = []
     private(set) var ambientBubbles: [ReefAmbientBubble] = []
     private(set) var hasBonusAura = false
-    /// Seconds of running time, which the swaying coral reads. It stops when
-    /// the game does, so nothing moves behind a pause.
+    /// Seconds of running time. It stops when the game does, so nothing moves
+    /// behind a pause. Everything the player steers, touches or reads timing
+    /// from follows this at the full display cadence.
     @Published private(set) var clock: Double = 0
+    /// The same clock, held still between sway steps. The sea floor is ~185
+    /// gradient, stroke and shadow nodes; rebuilding all of them 60 times a
+    /// second left no frame budget for the moments that actually matter — an
+    /// answer being taken. Because the scenery views are `Equatable` on their
+    /// clock, an unchanged value here skips that entire rebuild.
+    @Published private(set) var swayClock: Double = 0
+    /// Coarser still, for the drifting sun shafts and their full-screen blur.
+    @Published private(set) var driftClock: Double = 0
 
     /// Called when the fish touches an answer bubble. Returns whether the
     /// session accepted it, so a touch the engine ignores leaves the water
@@ -895,7 +917,7 @@ final class ReefEngine: ObservableObject {
             moveWakes(dt)
             moveCollectedBubbles(dt)
             moveLevelCompletion(dt)
-            clock += dt
+            advanceClocks(dt)
             return
         }
         moveWakes(dt)
@@ -927,7 +949,18 @@ final class ReefEngine: ObservableObject {
         if entranceElapsed == nil { checkCollisions() }
         // Publish only after every part of this frame has been simulated, so
         // SwiftUI observes one coherent scene rather than intermediate state.
+        advanceClocks(dt)
+    }
+
+    /// Advances the frame clock, and steps the two scenery clocks only when
+    /// they reach their next sample. Writing an unchanged value would still
+    /// fire `objectWillChange`, so both are guarded.
+    private func advanceClocks(_ dt: Double) {
         clock += dt
+        let sway = (clock / ReefConfig.swayInterval).rounded(.down) * ReefConfig.swayInterval
+        if sway != swayClock { swayClock = sway }
+        let drift = (clock / ReefConfig.driftInterval).rounded(.down) * ReefConfig.driftInterval
+        if drift != driftClock { driftClock = drift }
     }
 
     // MARK: Level completion
@@ -1961,7 +1994,7 @@ struct ReefPlayfield: View {
                  isPad: isPad,
                  bandHeight: bandHeight,
                  sandHeight: sandHeight,
-                 clock: engine.clock,
+                 clock: engine.swayClock,
                  prompt: round?.question.prompt ?? "",
                  roundID: round?.id,
                  bottomReserve: bottomReserve)
@@ -1975,7 +2008,7 @@ struct ReefPlayfield: View {
             ZStack(alignment: .topLeading) {
                 // The open water takes the touch; the fish only ever moves
                 // while a finger is down on it.
-                WaterColumn(palette: palette, clock: engine.clock)
+                WaterColumn(palette: palette, clock: engine.driftClock)
                     .equatable()
                     .contentShape(Rectangle())
 
@@ -2466,8 +2499,7 @@ private struct AnswerBubbleView: View, Equatable {
 
             if bubble.isPopping {
                 BubbleSplashView(diameter: bubble.diameter,
-                                 progress: popProgress,
-                                 isPad: isPad)
+                                 progress: popProgress)
             }
         }
         .frame(width: bubble.diameter, height: bubble.diameter)
@@ -2482,7 +2514,6 @@ private struct AnswerBubbleView: View, Equatable {
 private struct BubbleSplashView: View {
     let diameter: CGFloat
     let progress: Double
-    let isPad: Bool
 
     private let angles: [Double] = [
         -2.92, -2.58, -2.22, -1.88, -1.58, -1.31,
@@ -2517,12 +2548,16 @@ private struct BubbleSplashView: View {
         let y = CGFloat(sin(angle)) * distance + gravity
         let opacity = max(0, 1 - progress * 0.92)
 
+        // A correct answer bursts all five bubbles at once, so this drop is on
+        // screen sixty times over in the same instant. It deliberately carries
+        // no shadow: a 1 pt cyan halo at a quarter opacity behind a white drop
+        // is invisible against the water, while sixty offscreen blur passes
+        // landing on the frame the player just scored in are not.
         return Ellipse()
             .fill(.white.opacity(opacity))
             .frame(width: dropWidth, height: dropHeight)
             .rotationEffect(.radians(angle + .pi / 2))
             .offset(x: x, y: y)
-            .shadow(color: .cyan.opacity(0.25), radius: isPad ? 2 : 1)
     }
 }
 
