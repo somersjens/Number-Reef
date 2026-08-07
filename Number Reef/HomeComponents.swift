@@ -100,7 +100,7 @@ struct CompactStreakView: View {
             .offset(x: -4 * scale)
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 4 * scale) {
-                Text(verbatim: "\(tracker.streakDays)")
+                Text(verbatim: LN(tracker.streakDays))
                     .font(.system(size: 28 * scale, weight: .heavy, design: .rounded))
                 Image(systemName: "flame.fill")
                     .font(.system(size: 17 * scale, weight: .bold))
@@ -155,7 +155,7 @@ struct DailyGoalPicker: View {
                     Button {
                         goalPeriod == .weekly ? tracker.setWeeklyGoal(minutes) : tracker.setDailyGoal(minutes)
                     } label: {
-                        Text(verbatim: "\(minutes)")
+                        Text(verbatim: LN(minutes))
                     }
                     .font(.subheadline.weight(.bold))
                     .frame(maxWidth: .infinity, minHeight: 36)
@@ -623,7 +623,7 @@ struct LevelCardView: View {
                 HStack(spacing: 2 * cardScale) {
                     Image(systemName: "pause.fill")
                         .font(.system(size: 8 * cardScale))
-                    Text(verbatim: "\(pausedCards)")
+                    Text(verbatim: LN(pausedCards))
                         .font(.system(size: 11 * cardScale, weight: .bold))
                         .monospacedDigit()
                 }
@@ -1160,14 +1160,14 @@ struct CountingNumber: View {
                 numeral(at: .greatestFiniteMagnitude)
             }
         }
-        .accessibilityLabel(Text(verbatim: "\(to)"))
+        .accessibilityLabel(Text(verbatim: LN(to)))
     }
 
     private func numeral(at elapsed: TimeInterval) -> some View {
         let progress = min(1, max(0, (elapsed - delay) / duration))
         let eased = 1 - pow(1 - progress, 3)
         let value = Int((Double(from) + Double(to - from) * eased).rounded())
-        return Text(verbatim: "\(value)")
+        return Text(verbatim: LN(value))
             .contentTransition(.numericText())
             .monospacedDigit()
             // A gentle swell that peaks mid-count and settles again.
@@ -1276,7 +1276,7 @@ struct AlternatingCardSummary: View {
                 // and goes would make it unfindable for VoiceOver.
                 .accessibilityElement(children: .ignore)
                 .accessibilityIdentifier("card-total")
-                .accessibilityLabel(Text(L("home.cardsTotal \(totalTo)")))
+                .accessibilityLabel(Text(L("game.bubblesCollected \(totalTo)")))
 
             if let displayedPrompt {
                 promptLabel(displayedPrompt, contentScale: contentScale)

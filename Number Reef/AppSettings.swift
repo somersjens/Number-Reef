@@ -32,6 +32,14 @@ enum GameSettings {
     /// completion flag, this must not be merged monotonically through iCloud:
     /// doing so would immediately undo a user's long-press from the home menu.
     static let onboardingReplayRequestedKey = "onboarding.replayRequested"
+    /// Set when the welcome flow ends, and spent by the home screen the moment
+    /// it opens the first level: the tutorial follows straight on from the last
+    /// welcome screen, on exactly the exercise the player just chose.
+    static let tutorialPendingKey = "tutorial.pending"
+    /// Set as soon as a tutorial session starts, and spent by the home screen
+    /// when the player comes back to it — that return is the tenth and last
+    /// step of the walkthrough, so it must survive the session itself.
+    static let tutorialHomeHintPendingKey = "tutorial.homeHintPending"
     static let totalCardsKey = ProgressStore.Key.totalCards
     static let topicKey = ProgressStore.Key.selectedTopic
     static let levelKey = ProgressStore.Key.selectedLevel
@@ -69,6 +77,13 @@ enum GameSettings {
     static var spokenSumsEnabled: Bool {
         get { storedBool(spokenSumsEnabledKey, default: true) }
         set { UserDefaults.standard.set(newValue, forKey: spokenSumsEnabledKey) }
+    }
+
+    /// Whether the walkthrough still owes the player its closing step on the
+    /// home screen. Written by the tutorial itself and cleared once shown.
+    static var tutorialHomeHintPending: Bool {
+        get { storedBool(tutorialHomeHintPendingKey, default: false) }
+        set { UserDefaults.standard.set(newValue, forKey: tutorialHomeHintPendingKey) }
     }
 
     static var characterID: String {

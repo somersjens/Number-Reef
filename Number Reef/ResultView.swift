@@ -183,17 +183,42 @@ struct ResultView: View {
         }
     }
 
+    /// "×7 complete!" — where the "×7" is a drawn label (a stacked fraction, or
+    /// a glyph beside a star) rather than text, so it cannot simply be
+    /// interpolated into the sentence.
+    ///
+    /// The catalog still owns the whole sentence: it carries one `%@`, and the
+    /// label is dropped in wherever that placeholder lands. A language that puts
+    /// the verb first therefore needs no code change — only a moved `%@`.
     private var completionTitle: some View {
         let fontSize = 29 * textScale
+        let font = Font.system(size: fontSize, weight: .heavy, design: .rounded)
+        // U+FFFC OBJECT REPLACEMENT CHARACTER: the standard stand-in for
+        // embedded content, and never part of a translation.
+        let placeholder = "\u{FFFC}"
+        let sentence = L("game.end.completionTitle \(placeholder)")
+        let parts = sentence.components(separatedBy: placeholder)
+
         return HStack(spacing: 7 * scale) {
+            if let leading = parts.first, !leading.isEmpty {
+                sentenceFragment(leading, font: font)
+            }
             operationLabel(fontSize: fontSize)
-            Text("game.end.completionSuffix")
-                .font(.system(size: fontSize, weight: .heavy, design: .rounded))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+            if parts.count > 1, !parts[1].isEmpty {
+                sentenceFragment(parts[1], font: font)
+            }
         }
         .foregroundStyle(character.deepColor)
         .accessibilityElement(children: .combine)
+    }
+
+    /// One side of the completion sentence. Leading and trailing spaces around
+    /// the placeholder are dropped, since the `HStack` already spaces the parts.
+    private func sentenceFragment(_ text: String, font: Font) -> some View {
+        Text(verbatim: text.trimmingCharacters(in: .whitespaces))
+            .font(font)
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
     }
 
     @ViewBuilder
@@ -251,7 +276,7 @@ struct ResultView: View {
     }
 
     private var scoreCapsule: some View {
-        Text(verbatim: "\(levelScore) / \(maximum)")
+        Text(verbatim: "\(LN(levelScore)) / \(LN(maximum))")
             // Keep "x / y" from flipping around.
             .environment(\.layoutDirection, .leftToRight)
             .font(.system(size: 30 * textScale, weight: .heavy, design: .rounded))

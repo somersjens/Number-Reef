@@ -94,9 +94,84 @@
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				af,
+				sq,
+				am,
+				ar,
+				hy,
+				as,
+				az,
+				eu,
+				bn,
+				my,
+				bs,
+				bg,
+				ca,
+				zh,
+				da,
+				de,
+				en,
+				et,
+				fo,
+				fi,
+				fr,
+				gl,
+				ka,
+				el,
+				gu,
+				he,
+				hi,
+				hu,
+				ga,
+				is,
+				id,
+				it,
+				ja,
+				kn,
+				kk,
+				km,
+				ko,
+				hr,
+				lo,
+				lv,
+				lt,
+				mk,
+				ms,
+				ml,
+				mr,
+				mn,
 				nl,
+				ne,
+				no,
+				uk,
+				or,
+				ug,
+				uz,
+				fa,
+				pl,
+				pt,
+				pa,
+				ro,
+				ru,
+				sr,
+				si,
+				sk,
+				sl,
+				es,
+				sw,
+				ta,
+				te,
+				th,
+				bo,
+				cs,
+				tr,
+				ur,
+				vi,
+				cy,
+				be,
+				zu,
+				sv,
 			);
 			mainGroup = F9F3C1C9301CC1AD00464555;
 			minimizedProjectReferenceProxies = 1;
@@ -263,7 +338,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Number Reef";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.educational-games";
-				INFOPLIST_KEY_NSCameraUsageDescription = CAMERA_USAGE_DESCRIPTION;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -313,7 +387,6 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Number Reef";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.educational-games";
-				INFOPLIST_KEY_NSCameraUsageDescription = CAMERA_USAGE_DESCRIPTION;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

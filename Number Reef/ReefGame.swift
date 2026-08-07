@@ -242,6 +242,19 @@ enum ReefConfig {
     static let maximumAmbientBubbles = ReefPerformanceBudget.maximumAmbientBubbles
     static let ambientBubblePopDuration = 0.24
 
+    // MARK: Tutorial
+
+    /// How long the walkthrough's helper fish takes to come round, both the
+    /// first time and after a miss. Short enough not to be a wait, long enough
+    /// that a fish never appears on top of the message announcing it.
+    static let tutorialFishArrival = 0.8
+
+    /// Water the walkthrough keeps free below the HUD: its message card hangs
+    /// there, and a helper fish crossing behind that card is a helper fish the
+    /// player never sees. Generous enough for the longest translation, which
+    /// runs to three lines.
+    static func tutorialMessageReserve(isPad: Bool) -> CGFloat { isPad ? 150 : 116 }
+
     // MARK: 2x fish
 
     static func bonusFishLength(isPad: Bool) -> CGFloat { isPad ? 82 : 62 }
@@ -580,6 +593,16 @@ final class ReefEngine: ObservableObject {
     private var isHeartFishAvailable = false
     private var heartFishDelay: Double?
 
+    // The walkthrough. While a plan is active it decides what may be in the
+    // water; the reef keeps releasing, steering and colliding exactly as it
+    // otherwise would. See `Tutorial.swift`.
+    private var tutorialPlan = ReefTutorialPlan()
+    /// Where the current step asks the player to swim, in reef coordinates.
+    @Published private(set) var tutorialTarget: CGPoint?
+    /// Time until the taught helper fish comes back around after being missed.
+    private var tutorialFishDelay: Double?
+    var onTutorialEvent: ((ReefTutorialEvent) -> Void)?
+
     // Steering.
     private var target: CGPoint?
     /// Residual velocity after the scripted entrance. It gently decays until a
@@ -667,6 +690,7 @@ final class ReefEngine: ObservableObject {
         } else {
             fish.position = clampedFishPosition(fish.position)
         }
+        updateTutorialTarget()
         seedMotes()
     }
 
@@ -780,6 +804,139 @@ final class ReefEngine: ObservableObject {
         speedMultiplier = max(1, multiplier)
     }
 
+    /// Takes the walkthrough's marching orders for the step now being taught.
+    /// A step that changes what the water holds clears it first, so the player
+    /// always reads the new message against the bubbles that message describes.
+    func applyTutorial(_ plan: ReefTutorialPlan) {
+        let previous = tutorialPlan
+        tutorialPlan = plan
+        guard plan != previous else { return }
+        updateTutorialTarget()
+
+        guard plan.isActive else {
+            tutorialFishDelay = nil
+            return
+        }
+
+        if plan.suppressesAnswers {
+            popAllAnswerBubbles()
+            queue.removeAll()
+        } else if plan.answers != previous.answers || previous.suppressesAnswers {
+            popAllAnswerBubbles()
+            queue.removeAll()
+            timeToNextSpawn = Double.random(in: ReefConfig.firstGap)
+        }
+
+        // A helper fish that has already given up its reward is on its way out
+        // and may finish crossing; one still carrying a reward belongs to the
+        // step that asked for it and leaves with it.
+        if !plan.wantsHeartFish, heartFish?.isCarryingReward == true { heartFish = nil }
+        if !plan.wantsBonusFish, bonusFish?.isCarryingReward == true { bonusFish = nil }
+        if plan.wantsHeartFish != previous.wantsHeartFish
+            || plan.wantsBonusFish != previous.wantsBonusFish {
+            tutorialFishDelay = (plan.wantsHeartFish || plan.wantsBonusFish)
+                ? ReefConfig.tutorialFishArrival
+                : nil
+        }
+    }
+
+    /// Turns the step's unit target into a point in the open water: never under
+    /// the HUD, never inside the coral, and always somewhere the fish can
+    /// actually reach.
+    private func updateTutorialTarget() {
+        guard tutorialPlan.isActive,
+              let unit = tutorialPlan.swimTarget,
+              size.width > 0, spawnLine > topReserve else {
+            if tutorialTarget != nil { tutorialTarget = nil }
+            return
+        }
+        let top = topReserve + fishLength * 0.6
+        let bottom = max(top, spawnLine - fishLength * 0.6)
+        let point = CGPoint(x: size.width * CGFloat(unit.x),
+                            y: top + (bottom - top) * CGFloat(unit.y))
+        if tutorialTarget != point { tutorialTarget = point }
+    }
+
+    /// Reports the moment the fish arrives, which is what ends the step.
+    private func checkTutorialTarget() {
+        guard let target = tutorialTarget, entranceElapsed == nil else { return }
+        let dx = target.x - fish.position.x
+        let dy = target.y - fish.position.y
+        let reach = fishLength * 0.55
+        guard dx * dx + dy * dy <= reach * reach else { return }
+        tutorialTarget = nil
+        onTutorialEvent?(.reachedSwimTarget)
+    }
+
+    /// Puts the taught helper fish in the water, and puts it back whenever it
+    /// crosses without being caught: a step ends because the player managed it,
+    /// never because they were unlucky. It enters from the side the player is
+    /// furthest from, so there is always a swim to make.
+    private func spawnTutorialFishIfDue(_ dt: Double) {
+        guard tutorialPlan.isActive,
+              tutorialPlan.wantsHeartFish || tutorialPlan.wantsBonusFish,
+              size.width > 0 else { return }
+        // Only ever one of them, and never a second while the first is still
+        // carrying its reward.
+        guard heartFish?.isCarryingReward != true,
+              bonusFish?.isCarryingReward != true else { return }
+
+        guard var delay = tutorialFishDelay else {
+            tutorialFishDelay = ReefConfig.tutorialFishArrival
+            return
+        }
+        delay -= dt
+        tutorialFishDelay = delay
+        guard delay <= 0 else { return }
+        tutorialFishDelay = nil
+
+        let length = tutorialPlan.wantsHeartFish
+            ? ReefConfig.heartFishLength(isPad: isPad)
+            : ReefConfig.bonusFishLength(isPad: isPad)
+        // Enter from the far side, so there is always a swim to make.
+        let direction: CGFloat = fish.position.x > size.width / 2 ? 1 : -1
+        let startX = direction > 0 ? -length : size.width + length
+        let speed = CGFloat.random(in: tutorialPlan.wantsHeartFish
+                                   ? ReefConfig.heartFishSpeed
+                                   : ReefConfig.bonusFishSpeed)
+        let y = tutorialFishLane(length: length)
+
+        if tutorialPlan.wantsHeartFish {
+            heartFish = ReefHeartFish(position: CGPoint(x: startX, y: y),
+                                      direction: direction,
+                                      speed: speed,
+                                      length: length)
+        } else {
+            bonusFish = ReefBonusFish(position: CGPoint(x: startX, y: y),
+                                      direction: direction,
+                                      speed: speed,
+                                      length: length)
+        }
+    }
+
+    /// The height a taught helper fish crosses at. It clears the message card
+    /// completely — a fish swimming behind it is one the player never sees —
+    /// and stays well away from where the player is floating, so catching it is
+    /// something they have to actually swim for.
+    private func tutorialFishLane(length: CGFloat) -> CGFloat {
+        // Half the drawn sprite, which is taller than the collision length.
+        let halfSprite = length * 0.67
+        let top = topReserve + ReefConfig.tutorialMessageReserve(isPad: isPad) + halfSprite
+        let bottom = max(top, spawnLine - halfSprite - length * 0.2)
+        guard bottom > top else { return top }
+
+        let clearance = length * 1.15
+        let lanes = [top...max(top, fish.position.y - clearance),
+                     min(bottom, fish.position.y + clearance)...bottom]
+            .filter { $0.upperBound - $0.lowerBound > length * 0.4 }
+        // The roomiest side of the player, or — if there is no room either side
+        // — simply the middle of the band.
+        guard let lane = lanes.max(by: {
+            ($0.upperBound - $0.lowerBound) < ($1.upperBound - $1.lowerBound)
+        }) else { return (top + bottom) / 2 }
+        return CGFloat.random(in: lane)
+    }
+
     func setScoreTarget(_ target: CGPoint?) {
         scoreTarget = target
     }
@@ -835,11 +992,15 @@ final class ReefEngine: ObservableObject {
         ambientBubbles.removeAll()
         completionElapsed = nil
         completionCallback = nil
+        tutorialPlan = ReefTutorialPlan()
+        tutorialTarget = nil
+        tutorialFishDelay = nil
         onHit = nil
         onCollectedBubbleArrived = nil
         onBonusFishCaught = nil
         onHeartFishCaught = nil
         onHeartFishMissed = nil
+        onTutorialEvent = nil
     }
 
     /// Sends the fish in from beyond the right edge along a tightening loop.
@@ -940,7 +1101,9 @@ final class ReefEngine: ObservableObject {
         if collisionCooldown > 0 { collisionCooldown = max(0, collisionCooldown - dt) }
         spawnBonusFishIfDue(dt)
         spawnHeartFishIfDue(dt)
-        if isLive {
+        spawnTutorialFishIfDue(dt)
+        checkTutorialTarget()
+        if isLive, !tutorialPlan.suppressesAnswers {
             spawnIfDue(dt * speedMultiplier)
         }
         // The 2x fish remains catchable during answer feedback. Answer bubbles
@@ -1644,6 +1807,10 @@ final class ReefEngine: ObservableObject {
     /// comes back around.
     private func refillQueue() {
         guard let round else { return }
+        if let wave = tutorialPlan.answers, tutorialPlan.isActive {
+            queue = tutorialWave(wave, from: round)
+            return
+        }
         var wrongAnswers = round.options.filter { !$0.isCorrect }.shuffled()
         guard let correctAnswer = round.options.first(where: \.isCorrect) else {
             queue = wrongAnswers
@@ -1672,6 +1839,19 @@ final class ReefEngine: ObservableObject {
         wrongAnswers.insert(correctAnswer,
                             at: min(correctPosition, wrongAnswers.endIndex))
         queue = wrongAnswers
+    }
+
+    /// The exact set of answers a tutorial step wants released, in a fresh
+    /// order each wave. A step can ask for fewer answers than a round holds —
+    /// never for more, since the same number may not be in the water twice.
+    private func tutorialWave(_ wave: ReefTutorialPlan.Wave,
+                              from round: GameRound) -> [AnswerOption] {
+        var picks: [AnswerOption] = []
+        if wave.correct > 0, let correct = round.options.first(where: \.isCorrect) {
+            picks.append(correct)
+        }
+        picks += round.options.filter { !$0.isCorrect }.shuffled().prefix(wave.wrong)
+        return picks.shuffled()
     }
 
     private func makeBubble(for option: AnswerOption, at x: CGFloat) -> ReefBubble {
@@ -1729,6 +1909,7 @@ final class ReefEngine: ObservableObject {
                 hasBonusAura = true
                 collisionCooldown = ReefConfig.collisionCooldown
                 onBonusFishCaught?()
+                onTutorialEvent?(.caughtBonusFish)
                 return
             }
         }
@@ -1743,6 +1924,7 @@ final class ReefEngine: ObservableObject {
                 isHeartFishAvailable = false
                 heartFishDelay = nil
                 collisionCooldown = ReefConfig.collisionCooldown
+                onTutorialEvent?(.caughtHeartFish)
                 return
             }
         }
@@ -1772,6 +1954,10 @@ final class ReefEngine: ObservableObject {
             if bubble.isCorrect {
                 collectCorrectBubble(bubble)
                 popAllAnswerBubbles()
+            } else if tutorialPlan.burstsWaveOnWrong {
+                // The step that teaches what a wrong answer costs bursts the
+                // whole set, so the price is unmistakable.
+                popAllAnswerBubbles()
             } else {
                 pop(bubbleID: bubble.id)
             }
@@ -1782,7 +1968,10 @@ final class ReefEngine: ObservableObject {
     // MARK: 2x fish
 
     private func spawnBonusFishIfDue(_ dt: Double) {
-        guard bonusFish == nil,
+        // While the walkthrough is running, the only helper fish in the water
+        // is the one the current step put there.
+        guard !tutorialPlan.isActive,
+              bonusFish == nil,
               heartFish == nil,
               !hasBonusAura,
               !pendingBonusFishDelays.isEmpty,
@@ -1814,6 +2003,11 @@ final class ReefEngine: ObservableObject {
             : swimmer.position.x < -swimmer.length
         if hasLeftScreen {
             bonusFish = nil
+            // The step that is teaching this fish sends it round again rather
+            // than letting a miss end the lesson.
+            if swimmer.isCarryingReward, tutorialPlan.wantsBonusFish {
+                tutorialFishDelay = ReefConfig.tutorialFishArrival
+            }
         } else {
             bonusFish = swimmer
         }
@@ -1822,7 +2016,8 @@ final class ReefEngine: ObservableObject {
     // MARK: Heart fish
 
     private func spawnHeartFishIfDue(_ dt: Double) {
-        guard heartFish == nil,
+        guard !tutorialPlan.isActive,
+              heartFish == nil,
               bonusFish == nil,
               isHeartFishAvailable,
               var delay = heartFishDelay,
@@ -1852,11 +2047,16 @@ final class ReefEngine: ObservableObject {
             : swimmer.position.x < -swimmer.length
         if hasLeftScreen {
             heartFish = nil
-            if swimmer.isCarryingReward {
-                isHeartFishAvailable = false
-                heartFishDelay = nil
-                onHeartFishMissed?()
+            guard swimmer.isCarryingReward else { return }
+            // In the walkthrough the fish simply comes back: its step is not
+            // over until the player has actually caught one.
+            if tutorialPlan.wantsHeartFish {
+                tutorialFishDelay = ReefConfig.tutorialFishArrival
+                return
             }
+            isHeartFishAvailable = false
+            heartFishDelay = nil
+            onHeartFishMissed?()
         } else {
             heartFish = swimmer
         }
@@ -1963,6 +2163,8 @@ struct ReefPlayfield: View {
     let isStreakBoostActive: Bool
     let playsLevelCompletion: Bool
     let reduceMotion: Bool
+    /// What the walkthrough wants in the water, if one is running.
+    var tutorialPlan = ReefTutorialPlan()
     /// Screen edges the reef works around: the HUD at the top, the home
     /// indicator at the bottom.
     let topReserve: CGFloat
@@ -1978,6 +2180,8 @@ struct ReefPlayfield: View {
     let onHeartFishMissed: () -> Void
     let onFishEntranceComplete: () -> Void
     let onLevelCompletionFinished: () -> Void
+    /// Everything the walkthrough waits on that only the reef can see.
+    var onTutorialEvent: (ReefTutorialEvent) -> Void = { _ in }
 
     @StateObject private var engine = ReefEngine()
 
@@ -2024,6 +2228,25 @@ struct ReefPlayfield: View {
                 ForEach(engine.celebrationBubbles) { bubble in
                     CelebrationBubbleView(bubble: bubble, palette: palette)
                         .position(bubble.position)
+                }
+
+                // Under the answers and the swimmer: the marker is a place in
+                // the water, not an object floating in front of the game.
+                if let target = engine.tutorialTarget {
+                    if tutorialPlan.showsSwipeHint {
+                        TutorialSwipeHint(start: engine.fish.position,
+                                          end: target,
+                                          theme: character,
+                                          clock: engine.clock,
+                                          isPad: isPad)
+                            .frame(width: size.width, height: size.height)
+                            .transition(.opacity)
+                    }
+                    TutorialTargetView(theme: character,
+                                       clock: engine.clock,
+                                       isPad: isPad)
+                        .position(target)
+                        .transition(.scale(scale: 0.7).combined(with: .opacity))
                 }
 
                 ForEach(engine.bubbles) { bubble in
@@ -2105,6 +2328,7 @@ struct ReefPlayfield: View {
                 engine.onBonusFishCaught = onBonusFishCaught
                 engine.onHeartFishCaught = onHeartFishCaught
                 engine.onHeartFishMissed = onHeartFishMissed
+                engine.onTutorialEvent = onTutorialEvent
                 engine.layout(size: size, spawnLine: spawnLine,
                               topReserve: topReserve, isPad: isPad,
                               fishArtworkWidth: fishArtworkSize(for: character,
@@ -2117,6 +2341,7 @@ struct ReefPlayfield: View {
                 engine.setSpeedMultiplier(isStreakBoostActive
                                           ? GameConfig.streakSpeedMultiplier : 1)
                 engine.setScoreTarget(scoreTarget)
+                engine.applyTutorial(tutorialPlan)
                 engine.setRunning(isRunning)
                 if playsFishEntrance {
                     engine.beginFishEntrance(completion: onFishEntranceComplete)
@@ -2157,6 +2382,11 @@ struct ReefPlayfield: View {
         }
         .onChange(of: scoreTarget) { _, target in
             engine.setScoreTarget(target)
+        }
+        .onChange(of: tutorialPlan) { _, plan in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                engine.applyTutorial(plan)
+            }
         }
         .onChange(of: playsFishEntrance) { _, shouldPlay in
             if shouldPlay {
@@ -2504,7 +2734,7 @@ private struct AnswerBubbleView: View, Equatable {
         }
         .frame(width: bubble.diameter, height: bubble.diameter)
         .accessibilityLabel(Text(verbatim: bubble.text))
-        .accessibilityValue(Text(verbatim: bubble.isCorrect ? "correct" : "wrong"))
+        .accessibilityValue(Text(bubble.isCorrect ? "game.answer.correct" : "game.answer.wrong"))
     }
 }
 

@@ -209,12 +209,15 @@ struct PremiumView: View {
 
     private var featureList: some View {
         VStack(alignment: .leading, spacing: 14) {
+            // The level and animal counts travel as arguments rather than being
+            // written into the sentence, so a translation never has to be
+            // revisited when the catalog grows.
             featureRow(icon: "square.grid.3x3.fill",
-                       title: L("premium.feature.levels.title"),
+                       title: L("premium.feature.levels.title \(GameConfig.maximumLevel)"),
                        subtitle: L("premium.feature.levels.subtitle"))
             featureRow(icon: "pawprint.fill",
                        title: L("premium.feature.animals.title"),
-                       subtitle: L("premium.feature.animals.subtitle"))
+                       subtitle: L("premium.feature.animals.subtitle \(CharacterUnlocks.orderedCharacterIDs.count)"))
             featureRow(icon: "nosign",
                        title: L("premium.feature.noAds.title"),
                        subtitle: L("premium.feature.noAds.subtitle"))
@@ -334,7 +337,7 @@ struct PremiumView: View {
             Image(systemName: "checkmark.circle.fill")
                 .characterChipStyle(character: character, scale: scale)
         } else if let cards = CharacterUnlockStore.requirement(for: animal.id) {
-            Text(verbatim: "\(cards)")
+            Text(verbatim: LN(cards))
                 .characterChipStyle(character: character, scale: scale)
         } else {
             Image(systemName: "crown.fill")
@@ -518,7 +521,7 @@ struct PremiumView: View {
                     .frame(width: stageSize, height: stageSize)
                     .clipped()
 
-                    Text(verbatim: L(key: "premium.characterUnlocked"))
+                    Text(verbatim: L("premium.unlockBanner"))
                         .font(.system(size: 19 * scale, weight: .black, design: .rounded))
                         .tracking(0.8)
                         .foregroundStyle(animal.deepColor)

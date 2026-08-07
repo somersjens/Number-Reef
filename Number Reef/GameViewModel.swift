@@ -39,6 +39,10 @@ final class GameViewModel: ObservableObject {
     /// its bubble-style announcement even after an earlier streak was broken.
     @Published private(set) var streakAnnouncementID = 0
 
+    /// Set by the tutorial, which needs to know about every answer the moment
+    /// the engine accepts it — that is what moves its script on.
+    var onAnswerResolved: ((_ isCorrect: Bool, _ startedStreak: Bool) -> Void)?
+
     /// Invalidates pending timed work when a round is superseded (restart, or
     /// leaving the screen), so a late callback can never touch a newer round.
     private var generation = 0
@@ -203,6 +207,7 @@ final class GameViewModel: ObservableObject {
         case .correct(let cardsEarned, let usedBonusFish, let startedStreak):
             pendingScoreRewards.append(cardsEarned)
             sync()
+            onAnswerResolved?(true, startedStreak)
             AppAudio.shared.playCorrect()
             if usedBonusFish {
                 hasBonusFishPower = false
@@ -216,11 +221,16 @@ final class GameViewModel: ObservableObject {
             delay = GameConfig.nextRoundDelay.correct
         case .wrong(_, let lostHalfLife):
             sync()
+            onAnswerResolved?(false, false)
             AppAudio.shared.playWrong()
-            if lostHalfLife {
-                AppAudio.shared.playHalfLife()
-            } else {
-                AppAudio.shared.playLifeLost()
+            // The tutorial's free attempt costs nothing, so it must not sound
+            // like it did: only the plain "not that one" note plays there.
+            if engine.appliesWrongAnswerPenalty {
+                if lostHalfLife {
+                    AppAudio.shared.playHalfLife()
+                } else {
+                    AppAudio.shared.playLifeLost()
+                }
             }
             haptic(.error)
             delay = GameConfig.nextRoundDelay.wrong
@@ -280,6 +290,31 @@ final class GameViewModel: ObservableObject {
     func missHeartFish() {
         engine.missHeartFish()
         sync()
+    }
+
+    // MARK: - Tutorial
+
+    /// The tutorial's free attempt: a wrong bubble may be tried once without
+    /// paying for it. The rule is untouched — only waived, and only there.
+    func setWrongAnswerPenalty(_ applies: Bool) {
+        engine.appliesWrongAnswerPenalty = applies
+    }
+
+    /// The tutorial's heart fish gives a whole life back, as its step promises.
+    func setHeartFishRestoresWholeLife(_ restores: Bool) {
+        engine.heartFishRestoresWholeLife = restores
+    }
+
+    /// Arms the heart fish directly, for the step that teaches it.
+    func makeHeartFishAvailable() {
+        engine.makeHeartFishAvailable()
+        sync()
+    }
+
+    /// Whether a caught heart fish would hand back a whole life right now, so
+    /// the swimming fish can carry a full heart rather than a half one.
+    var heartFishGivesWholeLife: Bool {
+        engine.heartFishRestoresWholeLife || livesRemaining <= 0.5
     }
 
     // MARK: - Finishing

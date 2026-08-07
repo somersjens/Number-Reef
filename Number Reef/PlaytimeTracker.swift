@@ -32,6 +32,13 @@ struct DayRecord: Codable {
 final class PlaytimeTracker: ObservableObject {
     static let shared = PlaytimeTracker()
 
+    /// The goals a player starts with, before touching the sliders in Settings.
+    /// Named because the explanatory copy in Settings quotes the daily figure,
+    /// and a number that lives in a translated sentence would otherwise have to
+    /// be corrected in every language whenever it changed.
+    static let defaultDailyGoalMinutes = 5
+    static let defaultWeeklyGoalMinutes = 30
+
     // Published summaries — updated only when the visible value changes.
     @Published private(set) var todayMinutes = 0
     @Published private(set) var weekMinutes = 0
@@ -82,12 +89,12 @@ final class PlaytimeTracker: ObservableObject {
 
     var dailyGoalMinutes: Int {
         let value = UserDefaults.standard.integer(forKey: dailyKey)
-        return value > 0 ? value : 5
+        return value > 0 ? value : Self.defaultDailyGoalMinutes
     }
 
     var weeklyGoalMinutes: Int {
         let value = UserDefaults.standard.integer(forKey: weeklyKey)
-        return value > 0 ? value : 30
+        return value > 0 ? value : Self.defaultWeeklyGoalMinutes
     }
 
     /// Daily and weekly goals are chosen independently in the menu. Changing

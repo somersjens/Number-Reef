@@ -111,6 +111,16 @@ public final class MemoryGame {
     /// answer moves the session on to the next sum.
     private var repeatsRound = false
 
+    /// The tutorial's "collect the right answer" step lets a wrong bubble be
+    /// tried without paying for it. Every other run, and every later step,
+    /// leaves this on — the rule itself is unchanged, it is only waived while
+    /// the player is being shown what the bubbles are.
+    public var appliesWrongAnswerPenalty = true
+    /// The tutorial's heart fish hands back a whole life whatever the damage,
+    /// because that is what its step promises. Normal play keeps the graded
+    /// recovery, which only reaches a whole life at the last half-heart.
+    public var heartFishRestoresWholeLife = false
+
     // MARK: Derived
 
     public var livesRemaining: Double {
@@ -273,9 +283,11 @@ public final class MemoryGame {
             let streakWasActive = isStreakBoostActive
             result.wrongAnswers += 1
             correctStreak = 0
-            spendLifeHalves(streakWasActive
-                            ? GameConfig.streakWrongAnswerCostHalves
-                            : GameConfig.wrongAnswerCostHalves)
+            if appliesWrongAnswerPenalty {
+                spendLifeHalves(streakWasActive
+                                ? GameConfig.streakWrongAnswerCostHalves
+                                : GameConfig.wrongAnswerCostHalves)
+            }
             // The sum stays on the coral; `advance` puts this very round back
             // into play instead of installing the next one.
             repeatsRound = true
@@ -293,13 +305,22 @@ public final class MemoryGame {
         guard isHeartFishAvailable,
               lifeHalves > 0,
               lifeHalves < GameConfig.startingLifeHalves else { return 0 }
-        let recovery = lifeHalves == 1
+        let recovery = (lifeHalves == 1 || heartFishRestoresWholeLife)
             ? GameConfig.criticalHeartFishRecoveryHalves
             : GameConfig.heartFishRecoveryHalves
         let previous = lifeHalves
         lifeHalves = min(GameConfig.startingLifeHalves, lifeHalves + recovery)
         resetHeartFishProgress()
         return lifeHalves - previous
+    }
+
+    /// Hands the heart fish its cue directly, which is what the tutorial's
+    /// helper-fish step needs: there the fish is the lesson, not a reward the
+    /// player has to earn eight answers over.
+    public func makeHeartFishAvailable() {
+        guard state != .gameOver, lifeHalves > 0 else { return }
+        heartFishProgress = heartFishTarget
+        isHeartFishAvailable = true
     }
 
     /// A missed heart fish returns after four more correct answers, rather than

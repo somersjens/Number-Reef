@@ -35,6 +35,7 @@ struct OnboardingView: View {
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
     @AppStorage(GameSettings.practiceModeKey) private var practiceModeRaw = PracticeMode.fallback.rawValue
     @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
+    @AppStorage(GameSettings.tutorialPendingKey) private var tutorialPending = false
     @ObservedObject private var language = LanguageManager.shared
     @State private var step = 0
     @FocusState private var isNameFieldFocused: Bool
@@ -283,6 +284,10 @@ struct OnboardingView: View {
             if let target { mixedVariantRaw = target.rawValue }
         }
         AppAudio.shared.playMenuTap()
+        // The welcome flow hands straight over to the walkthrough, on the first
+        // level of the exercise just chosen. The menu picks this up as it
+        // settles, so the player's first sight of the game is being taught it.
+        tutorialPending = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
             isComplete = true
             replayRequested = false

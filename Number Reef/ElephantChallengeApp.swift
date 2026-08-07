@@ -75,6 +75,10 @@ struct ElephantChallengeApp: App {
             // changes; combined with the bundle redirection this makes the
             // switch instant, no restart required.
             .environment(\.locale, language.locale)
+            // SwiftUI takes reading direction from the bundle's language, which
+            // the in-app switch overrides, so Arabic and Hebrew must be told
+            // explicitly to lay out right-to-left.
+            .environment(\.layoutDirection, language.layoutDirection)
             .sheet(isPresented: Binding(
                 get: { promotedPurchase.isAwaitingParentApproval },
                 set: { isPresented in

@@ -94,8 +94,13 @@ struct LevelIntroCard: View {
     /// True when this instance was opened by the in-game pause button. A saved
     /// session also makes the card a continuation screen on a later visit.
     var isPauseCard = false
+    /// Whether pressing Start will play the walkthrough.
+    var isTutorialArmed = false
 
     private var level: MathLevel { board.level }
+    /// The cap beside the two audio switches. It decides for itself whether the
+    /// walkthrough can be armed at all, and says so when it cannot.
+    var onToggleTutorial: () -> Void = {}
     let onStart: () -> Void
     let onExit: () -> Void
 
@@ -165,7 +170,7 @@ struct LevelIntroCard: View {
 
                         VStack(spacing: 10) {
                             Button(action: onStart) {
-                                Text(isContinuation ? "game.intro.continue" : "game.intro.start")
+                                Text(startTitleKey)
                                     .font(.system(size: 17 * actionScale, weight: .heavy))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 15 * actionScale)
@@ -212,6 +217,14 @@ struct LevelIntroCard: View {
         }
     }
 
+    /// What the big button promises. The walkthrough takes precedence over
+    /// everything else: it can only be armed on a fresh run, so it can never
+    /// contradict the continuation label.
+    private var startTitleKey: LocalizedStringKey {
+        if isTutorialArmed { return "game.intro.startTutorial" }
+        return isContinuation ? "game.intro.continue" : "game.intro.start"
+    }
+
     /// Confirms that the run is safely waiting without repeating a potentially
     /// awkward singular/plural bubble count.
     private var pausedMessage: some View {
@@ -252,8 +265,30 @@ struct LevelIntroCard: View {
                         accessibilityLabel: L("settings.soundEffects")) {
                 withAnimation(.snappy(duration: 0.2)) { audio.toggleGameSounds() }
             }
+            tutorialButton
             Spacer(minLength: 0)
         }
+    }
+
+    /// The third switch in the row: play this level as a walkthrough. It reads
+    /// as "selected" rather than "on/off", because arming it changes what the
+    /// big button below does.
+    private var tutorialButton: some View {
+        Button(action: onToggleTutorial) {
+            Image(systemName: "graduationcap.fill")
+                .font(.system(size: 16 * scale, weight: .heavy))
+                .foregroundStyle(isTutorialArmed ? .white : theme.deepColor)
+                .frame(width: 40 * scale, height: 32 * scale)
+                .background(isTutorialArmed ? AnyShapeStyle(theme.deepColor)
+                                            : AnyShapeStyle(theme.skyColor),
+                            in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(theme.deepColor.opacity(isTutorialArmed ? 0 : 0.15), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("intro-tutorial")
+        .accessibilityLabel(Text("tutorial.button"))
+        .accessibilityValue(Text(isTutorialArmed ? "common.on" : "common.off"))
     }
 
     private func audioButton(icon: String,

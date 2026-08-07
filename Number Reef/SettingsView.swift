@@ -121,7 +121,7 @@ struct SettingsView: View {
                         Button {
                             tracker.setDailyGoal(minutes)
                         } label: {
-                            Text(verbatim: "\(minutes)")
+                            Text(verbatim: LN(minutes))
                                 .font(.subheadline.weight(.bold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -144,7 +144,9 @@ struct SettingsView: View {
                     .font(.subheadline)
             }
 
-            Text("settings.goalInfo")
+            // The starting goal is quoted from the tracker rather than written
+            // into the sentence, so no translation goes stale if it changes.
+            Text("settings.goalInfo \(PlaytimeTracker.defaultDailyGoalMinutes)")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -217,7 +219,7 @@ struct SettingsView: View {
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.primary)
                 if isLocked, let cards = CharacterUnlockStore.requirement(for: animal.id) {
-                    Text(verbatim: "\(cards)")
+                    Text(verbatim: LN(cards))
                         .font(.system(size: 10, weight: .heavy, design: .rounded))
                         .foregroundStyle(.secondary)
                 }

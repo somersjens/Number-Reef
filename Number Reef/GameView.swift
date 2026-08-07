@@ -25,6 +25,10 @@ struct GameSessionRequest: Identifiable {
     var mixedVariant: MixedVariant = .all
     /// Which of the three order buttons was chosen. Supermix ignores it.
     var mode: PracticeMode = .mixed
+    /// True when the level was opened to be taught: the start card offers the
+    /// walkthrough straight away. Deliberately outside `id`, which identifies
+    /// the *board* being played.
+    var startsTutorialArmed = false
     var id: String { "\(level.id).\(mixedVariant.rawValue).\(mode.rawValue)" }
 
     /// The scoreboard this session plays on.
@@ -41,6 +45,8 @@ struct GameView: View {
     @ObservedObject private var premium = PremiumStore.shared
     @ObservedObject private var language = LanguageManager.shared
     @StateObject private var model: GameViewModel
+    /// The walkthrough. Inert until a run is actually started with it armed.
+    @StateObject private var tutorial = TutorialController()
 
     /// The window's safe area, sampled once the view is on screen — never from
     /// inside `body`; see `ScreenSafeArea`.
@@ -65,12 +71,24 @@ struct GameView: View {
     /// card appears. Other endings (no lives, or leaving) remain immediate.
     @State private var playsLevelCompletion = false
     @State private var showsResult = false
+    /// Whether pressing Start will run the walkthrough. Armed from the menu for
+    /// a brand-new player, and toggled by the cap button on the start card.
+    @State private var isTutorialArmed: Bool
+    /// The "only at the start of a game" note, raised by the cap button on a
+    /// run that is already under way.
+    @State private var showsTutorialNotice = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(request: GameSessionRequest) {
         self.request = request
         _model = StateObject(wrappedValue: GameViewModel(request: request))
+        // A level with a run waiting on it is continued, never taught: the
+        // walkthrough needs a session it can shape from its very first round.
+        _isTutorialArmed = State(
+            initialValue: request.startsTutorialArmed
+                && PausedSessionStore.shared.session(request.board) == nil
+        )
     }
 
     private var character: AnimalCharacter { CharacterCatalog.current(isPremium: premium.isPremium) }
@@ -110,10 +128,20 @@ struct GameView: View {
                 LevelIntroCard(board: request.board,
                                theme: character,
                                isPauseCard: showsPauseCard,
+                               isTutorialArmed: isTutorialArmed,
+                               onToggleTutorial: toggleTutorial,
                                onStart: startSession,
                                onExit: { dismiss() })
                     .transition(.opacity)
                     .zIndex(2)
+            }
+
+            if showsTutorialNotice {
+                TutorialNoticeCard(theme: character) {
+                    withAnimation(.easeOut(duration: 0.2)) { showsTutorialNotice = false }
+                }
+                .transition(.opacity)
+                .zIndex(3)
             }
         }
         .animation(.easeInOut(duration: 0.28), value: model.isGameOver)
@@ -132,6 +160,8 @@ struct GameView: View {
         }
 #endif
         .onChange(of: model.isGameOver) { _, isOver in
+            // There is nothing left to teach on a finished board.
+            if isOver { tutorial.finish() }
             guard isOver else {
                 showsResult = false
                 playsLevelCompletion = false
@@ -143,7 +173,10 @@ struct GameView: View {
                 showsResult = true
             }
         }
-        .onDisappear { model.end() }
+        .onDisappear {
+            tutorial.cancel()
+            model.end()
+        }
     }
 
     private func startSession() {
@@ -161,6 +194,28 @@ struct GameView: View {
         guard playsFishEntrance else { return }
         playsFishEntrance = false
         model.begin()
+        // The walkthrough opens on the first round, once the fish has swum in
+        // and there is a reef to talk about. Disarming it here is what makes
+        // the pause card offer Continue rather than another Start tutorial.
+        if isTutorialArmed {
+            isTutorialArmed = false
+            tutorial.begin(model: model)
+        }
+    }
+
+    /// The cap on the start card. A run that is already under way cannot be
+    /// rewound into a lesson, so there the button explains itself instead.
+    private func toggleTutorial() {
+        AppAudio.shared.playMenuTap()
+        guard model.state == .intro,
+              PausedSessionStore.shared.session(request.board) == nil,
+              !showsPauseCard else {
+            withAnimation(.spring(response: 0.34, dampingFraction: 0.84)) {
+                showsTutorialNotice = true
+            }
+            return
+        }
+        withAnimation(.snappy(duration: 0.2)) { isTutorialArmed.toggle() }
     }
 
     // MARK: - Playfield
@@ -184,10 +239,11 @@ struct GameView: View {
                           playsFishEntrance: playsFishEntrance,
                           hasBonusFishPower: model.hasBonusFishPower,
                           isHeartFishAvailable: model.isHeartFishAvailable,
-                          heartFishRestoresWholeLife: model.livesRemaining <= 0.5,
+                          heartFishRestoresWholeLife: model.heartFishGivesWholeLife,
                           isStreakBoostActive: model.isStreakBoostActive,
                           playsLevelCompletion: playsLevelCompletion,
                           reduceMotion: reduceMotion,
+                          tutorialPlan: tutorial.plan,
                           topReserve: topInset + (isPad ? 54 : 42),
                           bottomReserve: screenInsets.bottom,
                           scoreTarget: scoreIconCenter,
@@ -197,7 +253,8 @@ struct GameView: View {
                           onHeartFishCaught: model.catchHeartFish,
                           onHeartFishMissed: model.missHeartFish,
                           onFishEntranceComplete: finishFishEntrance,
-                          onLevelCompletionFinished: finishLevelCompletion)
+                          onLevelCompletionFinished: finishLevelCompletion,
+                          onTutorialEvent: tutorial.handle)
 
             hud
                 .padding(.leading, max(isPad ? 28 : 16, screenInsets.leading + 12))
@@ -207,9 +264,27 @@ struct GameView: View {
                 .animation(.easeOut(duration: 0.22), value: playsLevelCompletion)
                 .allowsHitTesting(!playsLevelCompletion)
 
+            // The walkthrough speaks from just under the HUD, clear of both the
+            // sum on the coral and the water the first steps ask the player to
+            // cross. It never takes a touch: the reef stays fully steerable
+            // while a step is being read.
+            if let message = tutorial.message, !playsLevelCompletion {
+                TutorialMessageCard(text: message, theme: character, isPad: isPad)
+                    .padding(.horizontal, max(isPad ? 28 : 14, screenInsets.leading + 12))
+                    .padding(.top, topInset + (isPad ? 66 : 50))
+                    // Scales up in place rather than sliding down: a card that
+                    // travelled would cross the HUD on its way in.
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .top)))
+                    .allowsHitTesting(false)
+                    .id(tutorial.step)
+            }
+
             if showsStreakBanner {
                 StreakBoostBanner(character: character, isPad: isPad)
-                    .padding(.top, topInset + (isPad ? 70 : 52))
+                    // Steps down below the walkthrough's own card when one is
+                    // on screen — the streak starts on a tutorial step.
+                    .padding(.top, topInset + (isPad ? 70 : 52)
+                             + (tutorial.message == nil ? 0 : (isPad ? 100 : 78)))
                     .transition(.scale(scale: 0.65).combined(with: .opacity))
                     .allowsHitTesting(false)
             }
@@ -306,7 +381,7 @@ struct GameView: View {
     /// not have to carry it too.
     private var progressCounter: some View {
         HStack(alignment: .center, spacing: isPad ? 7 : 5) {
-            Text(verbatim: "\(model.cards)")
+            Text(verbatim: LN(model.cards))
                 .font(.system(size: hudNumberSize, weight: .heavy, design: .rounded))
                 .monospacedDigit()
                 .lineLimit(1)

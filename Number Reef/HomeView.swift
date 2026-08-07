@@ -14,6 +14,9 @@ import UIKit
 
 struct LevelSelection: Identifiable {
     let level: MathLevel
+    /// Set only for the level the welcome flow opens: its start card offers the
+    /// walkthrough straight away.
+    var startsTutorialArmed = false
     var id: String { level.id }
 }
 
@@ -42,6 +45,7 @@ struct HomeView: View {
     @AppStorage(GameSettings.topicKey) private var topicRaw = MathTopic.allCases[0].rawValue
     @AppStorage(GameSettings.mixedVariantKey) private var mixedVariantRaw = MixedVariant.allCases[0].rawValue
     @AppStorage(GameSettings.practiceModeKey) private var practiceModeRaw = PracticeMode.fallback.rawValue
+    @AppStorage(GameSettings.tutorialPendingKey) private var tutorialPending = false
 
     @ObservedObject private var premium = PremiumStore.shared
     @ObservedObject private var progressSync = ProgressSync.shared
@@ -83,6 +87,9 @@ struct HomeView: View {
     /// is replaced in a single pop instead of ticking down with the total.
     @State private var unlockPrompt: NextCharacterPrompt?
     @State private var unlockPreviewTrigger = 0
+    /// The last step of the walkthrough: on the way back from that first game
+    /// the menu points out where the score is kept.
+    @State private var showsTutorialHint = false
 
     private var character: AnimalCharacter { CharacterCatalog.current(isPremium: premium.isPremium) }
     private var topic: MathTopic { MathTopic(rawValue: topicRaw) ?? MathTopic.allCases[0] }
@@ -119,6 +126,9 @@ struct HomeView: View {
 
         ZStack {
             AmbientReefBackground(character: character)
+                // The closing tutorial step softens everything except the line
+                // it is pointing at.
+                .blur(radius: showsTutorialHint ? 8 : 0)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
@@ -129,6 +139,10 @@ struct HomeView: View {
                         // width would sit visibly narrower than the row under it.
                         .frame(maxWidth: isWidePad ? .infinity : 760)
                         .frame(maxWidth: .infinity)
+                        // The closing tutorial step is about the level's score,
+                        // not about the settings above it.
+                        .blur(radius: showsTutorialHint ? 7 : 0)
+                        .opacity(showsTutorialHint ? 0.45 : 1)
                     levelGrid(topicTotal: topicTotal)
                 }
                 .padding(isPad ? 26 : 16)
@@ -150,12 +164,24 @@ struct HomeView: View {
                     CardFlightView(flight: flight)
                 }
             }
+
+            if showsTutorialHint {
+                TutorialMessageCard(text: L("tutorial.step.10"),
+                                    theme: character,
+                                    isPad: isPad)
+                    .padding(.horizontal, isPad ? 26 : 16)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, isPad ? 18 : 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .allowsHitTesting(false)
+            }
         }
         .coordinateSpace(name: "home")
         .fullScreenCover(item: $selection, onDismiss: handleSessionDismissed) { item in
             GameView(request: GameSessionRequest(level: item.level,
                                                  mixedVariant: mixedVariant,
-                                                 mode: practiceMode))
+                                                 mode: practiceMode,
+                                                 startsTutorialArmed: item.startsTutorialArmed))
                 .gameEnvironment()
         }
         .sheet(isPresented: $showPremium, onDismiss: {
@@ -186,6 +212,7 @@ struct HomeView: View {
             premium.startInitialRefresh()
             totalCards = Progress.store.totalCards
             synchronizeUnlockPrompt(animated: false)
+            openTutorialLevelIfRequested()
         }
         .onChange(of: totalCards) { _, _ in
             // A returning session banks its cards before any of the celebration
@@ -692,6 +719,8 @@ struct HomeView: View {
 
             if !premiumLevels.isEmpty {
                 premiumSection(premiumLevels)
+                    .blur(radius: showsTutorialHint ? 7 : 0)
+                    .opacity(showsTutorialHint ? 0.45 : 1)
             }
         }
     }
@@ -724,6 +753,29 @@ struct HomeView: View {
             rememberBeforePlaying(level)
             selection = LevelSelection(level: level)
         }
+        // The closing tutorial step points at one card and one card only: the
+        // level that is about to show what this game was worth.
+        .blur(radius: dimsForTutorialHint(level) ? 7 : 0)
+        .opacity(dimsForTutorialHint(level) ? 0.45 : 1)
+        .scaleEffect(highlightsForTutorialHint(level) ? 1.06 : 1)
+        .overlay {
+            if highlightsForTutorialHint(level) {
+                RoundedRectangle(cornerRadius: 18 * (isPad ? 1.35 : 1), style: .continuous)
+                    .stroke(character.deepColor, lineWidth: isPad ? 5 : 4)
+                    .shadow(color: character.color.opacity(0.9), radius: isPad ? 12 : 9)
+                    .scaleEffect(highlightsForTutorialHint(level) ? 1.06 : 1)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    private func highlightsForTutorialHint(_ level: MathLevel) -> Bool {
+        showsTutorialHint && level.id == lastPlayedLevelID
+    }
+
+    private func dimsForTutorialHint(_ level: MathLevel) -> Bool {
+        showsTutorialHint && level.id != lastPlayedLevelID
     }
 
     private func status(for level: MathLevel,
@@ -817,6 +869,47 @@ struct HomeView: View {
         holdsPreSessionValues = true
     }
 
+    // MARK: Tutorial
+
+    /// The welcome flow ends by asking for the walkthrough. The menu opens the
+    /// first level of the exercise the player just chose, one beat after it has
+    /// settled in — long enough for the hand-over from the welcome screens to
+    /// finish, short enough that it still reads as one continuous movement.
+    private func openTutorialLevelIfRequested() {
+        guard tutorialPending,
+              selection == nil,
+              let first = LevelCatalog.levels(for: topic).first else { return }
+        tutorialPending = false
+        rememberBeforePlaying(first)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                selection = LevelSelection(level: first, startsTutorialArmed: true)
+            }
+        }
+    }
+
+    /// The tenth and last step of the walkthrough, which belongs to the menu:
+    /// the reef softens, the score is named, and the usual return celebration
+    /// waits its turn behind it.
+    private func showTutorialHint(then continuation: @escaping () -> Void) {
+        GameSettings.tutorialHomeHintPending = false
+        AppAudio.shared.playMenuTap()
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
+            showsTutorialHint = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.tutorialHintDuration) {
+            withAnimation(.easeInOut(duration: 0.42)) {
+                showsTutorialHint = false
+            }
+            // Only once the menu has settled back does the ordinary return
+            // animation start, so the two never play over each other.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: continuation)
+        }
+    }
+
+    /// How long the score pointer stays up.
+    private static let tutorialHintDuration = 3.0
+
     private func openCharacterCollection(initialCharacterID: String? = nil) {
         premiumInitialCharacterID = initialCharacterID
         showPremium = true
@@ -865,6 +958,17 @@ struct HomeView: View {
     /// before-values are captured first, so the level score and the headers
     /// count up from what the player had rather than snapping to the new value.
     private func handleSessionDismissed() {
+        // A first game played as a walkthrough still owes the player its last
+        // step. It goes first: the score is named while it is still the score
+        // they left with, and only then does it visibly grow.
+        guard !GameSettings.tutorialHomeHintPending else {
+            showTutorialHint(then: runReturnCelebration)
+            return
+        }
+        runReturnCelebration()
+    }
+
+    private func runReturnCelebration() {
         let levelID = lastPlayedLevelID
         let levelStart = lastPlayedLevelBest
         let topicStart = lastPlayedTopic
@@ -1015,7 +1119,9 @@ struct HomeView: View {
            let milestone = CharacterUnlocks.nextMilestone(totalCards: store.totalCards) {
             _ = store.addCards(milestone.remaining)
         }
-        handleSessionDismissed()
+        // Straight to the celebration: the self-test is about that sequence,
+        // not about whatever the walkthrough may still owe the player.
+        runReturnCelebration()
     }
 
     private func presentNextUnlockIfAny() {

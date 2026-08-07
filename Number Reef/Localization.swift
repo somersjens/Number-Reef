@@ -35,24 +35,153 @@ struct AppLanguage: Identifiable, Hashable, Sendable {
     let flag: String
     /// The language's name in its own language — the convention for a picker.
     let displayName: String
+    /// The English name, so the search field finds "German" as readily as
+    /// "Deutsch". Nothing is ever shown to the player from this.
+    let searchName: String
 
     var id: String { code }
 
-    /// The two languages the app ships in. Adding a row here (plus its column
-    /// in the string catalog) is all it takes to offer another one.
-    static let all: [AppLanguage] = [
-        AppLanguage(code: "en", flag: "\u{1F1EC}\u{1F1E7}", displayName: "English"),
-        AppLanguage(code: "nl", flag: "\u{1F1F3}\u{1F1F1}", displayName: "Nederlands")
-    ]
-
-    /// Look up a language by its ISO code.
-    static func named(_ code: String) -> AppLanguage? {
-        all.first { $0.code == code }
+    /// A flag and an English name are the only things the system cannot supply;
+    /// the endonym is read from the language's own locale unless a row
+    /// overrides it.
+    init(code: String, flag: String, searchName: String, displayName: String? = nil) {
+        self.code = code
+        self.flag = flag
+        self.searchName = searchName
+        self.displayName = displayName ?? Self.endonym(for: code)
     }
 
-    /// Convenience handles on the two supported languages.
-    static let english = named("en")!
-    static let dutch = named("nl")!
+    /// The language's name written in that language, capitalized the way that
+    /// language capitalizes it (Dutch lowercases "nederlands", so the first
+    /// letter is raised using the language's own casing rules rather than the
+    /// device's).
+    private static func endonym(for code: String) -> String {
+        let locale = Locale(identifier: code)
+        guard let name = locale.localizedString(forLanguageCode: code), !name.isEmpty else {
+            return code.uppercased()
+        }
+        return name.prefix(1).uppercased(with: locale) + name.dropFirst()
+    }
+
+    /// True for Arabic, Hebrew, Persian, Urdu and Uyghur — read from the
+    /// language itself rather than a hand-kept list, so a language added later
+    /// lays itself out correctly without anyone remembering to say so.
+    var isRightToLeft: Bool {
+        Locale(identifier: code).language.characterDirection == .rightToLeft
+    }
+
+    /// What CLDR considers this language, ignoring spelling differences between
+    /// codes for the same tongue: `no` and `nb` both canonicalize to `nb`, so a
+    /// Norwegian device matches the roster's `no` row. Used only for matching,
+    /// never for a bundle path.
+    private var canonicalCode: String { AppLanguage.canonical(code) }
+
+    /// CLDR's name for a language, folding the legacy spellings together.
+    /// `Locale.Language(identifier:)` alone does *not* do this — only going
+    /// through a full `Locale` maps "no" to "nb" and "iw" to "he" — and getting
+    /// it wrong silently strands a language on English.
+    fileprivate static func canonical(_ identifier: String) -> String {
+        Locale(identifier: identifier).language.languageCode?.identifier ?? identifier
+    }
+
+    /// Every language the app offers, in the order the picker lists them.
+    ///
+    /// This roster is the single place to add a language: one row here, plus
+    /// its column in the string catalog. Nothing else in the app branches on a
+    /// language code. A language whose translations have not landed yet is
+    /// still offered and simply reads in English — see `LanguageManager.bundle`.
+    static let all: [AppLanguage] = [
+        AppLanguage(code: "af", flag: "\u{1F1FF}\u{1F1E6}", searchName: "Afrikaans"),
+        AppLanguage(code: "sq", flag: "\u{1F1E6}\u{1F1F1}", searchName: "Albanian"),
+        AppLanguage(code: "am", flag: "\u{1F1EA}\u{1F1F9}", searchName: "Amharic"),
+        AppLanguage(code: "ar", flag: "\u{1F1F8}\u{1F1E6}", searchName: "Arabic"),
+        AppLanguage(code: "hy", flag: "\u{1F1E6}\u{1F1F2}", searchName: "Armenian"),
+        AppLanguage(code: "as", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Assamese"),
+        AppLanguage(code: "az", flag: "\u{1F1E6}\u{1F1FF}", searchName: "Azerbaijani"),
+        AppLanguage(code: "eu", flag: "\u{1F1EA}\u{1F1F8}", searchName: "Basque"),
+        AppLanguage(code: "bn", flag: "\u{1F1E7}\u{1F1E9}", searchName: "Bengali"),
+        AppLanguage(code: "my", flag: "\u{1F1F2}\u{1F1F2}", searchName: "Burmese"),
+        AppLanguage(code: "bs", flag: "\u{1F1E7}\u{1F1E6}", searchName: "Bosnian"),
+        AppLanguage(code: "bg", flag: "\u{1F1E7}\u{1F1EC}", searchName: "Bulgarian"),
+        AppLanguage(code: "ca", flag: "\u{1F1EA}\u{1F1F8}", searchName: "Catalan"),
+        AppLanguage(code: "zh", flag: "\u{1F1E8}\u{1F1F3}", searchName: "Chinese"),
+        AppLanguage(code: "da", flag: "\u{1F1E9}\u{1F1F0}", searchName: "Danish"),
+        AppLanguage(code: "de", flag: "\u{1F1E9}\u{1F1EA}", searchName: "German"),
+        AppLanguage(code: "en", flag: "\u{1F1EC}\u{1F1E7}", searchName: "English"),
+        AppLanguage(code: "et", flag: "\u{1F1EA}\u{1F1EA}", searchName: "Estonian"),
+        AppLanguage(code: "fo", flag: "\u{1F1EB}\u{1F1F4}", searchName: "Faroese"),
+        AppLanguage(code: "fi", flag: "\u{1F1EB}\u{1F1EE}", searchName: "Finnish"),
+        AppLanguage(code: "fr", flag: "\u{1F1EB}\u{1F1F7}", searchName: "French"),
+        AppLanguage(code: "gl", flag: "\u{1F1EA}\u{1F1F8}", searchName: "Galician"),
+        AppLanguage(code: "ka", flag: "\u{1F1EC}\u{1F1EA}", searchName: "Georgian"),
+        AppLanguage(code: "el", flag: "\u{1F1EC}\u{1F1F7}", searchName: "Greek"),
+        AppLanguage(code: "gu", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Gujarati"),
+        AppLanguage(code: "he", flag: "\u{1F1EE}\u{1F1F1}", searchName: "Hebrew"),
+        AppLanguage(code: "hi", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Hindi"),
+        AppLanguage(code: "hu", flag: "\u{1F1ED}\u{1F1FA}", searchName: "Hungarian"),
+        AppLanguage(code: "ga", flag: "\u{1F1EE}\u{1F1EA}", searchName: "Irish"),
+        AppLanguage(code: "is", flag: "\u{1F1EE}\u{1F1F8}", searchName: "Icelandic"),
+        AppLanguage(code: "id", flag: "\u{1F1EE}\u{1F1E9}", searchName: "Indonesian"),
+        AppLanguage(code: "it", flag: "\u{1F1EE}\u{1F1F9}", searchName: "Italian"),
+        AppLanguage(code: "ja", flag: "\u{1F1EF}\u{1F1F5}", searchName: "Japanese"),
+        AppLanguage(code: "kn", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Kannada"),
+        AppLanguage(code: "kk", flag: "\u{1F1F0}\u{1F1FF}", searchName: "Kazakh"),
+        AppLanguage(code: "km", flag: "\u{1F1F0}\u{1F1ED}", searchName: "Khmer"),
+        AppLanguage(code: "ko", flag: "\u{1F1F0}\u{1F1F7}", searchName: "Korean"),
+        AppLanguage(code: "hr", flag: "\u{1F1ED}\u{1F1F7}", searchName: "Croatian"),
+        AppLanguage(code: "lo", flag: "\u{1F1F1}\u{1F1E6}", searchName: "Lao"),
+        AppLanguage(code: "lv", flag: "\u{1F1F1}\u{1F1FB}", searchName: "Latvian"),
+        AppLanguage(code: "lt", flag: "\u{1F1F1}\u{1F1F9}", searchName: "Lithuanian"),
+        AppLanguage(code: "mk", flag: "\u{1F1F2}\u{1F1F0}", searchName: "Macedonian"),
+        AppLanguage(code: "ms", flag: "\u{1F1F2}\u{1F1FE}", searchName: "Malay"),
+        AppLanguage(code: "ml", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Malayalam"),
+        AppLanguage(code: "mr", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Marathi"),
+        AppLanguage(code: "mn", flag: "\u{1F1F2}\u{1F1F3}", searchName: "Mongolian"),
+        AppLanguage(code: "nl", flag: "\u{1F1F3}\u{1F1F1}", searchName: "Dutch"),
+        AppLanguage(code: "ne", flag: "\u{1F1F3}\u{1F1F5}", searchName: "Nepali"),
+        AppLanguage(code: "no", flag: "\u{1F1F3}\u{1F1F4}", searchName: "Norwegian"),
+        AppLanguage(code: "uk", flag: "\u{1F1FA}\u{1F1E6}", searchName: "Ukrainian"),
+        AppLanguage(code: "or", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Odia"),
+        AppLanguage(code: "ug", flag: "\u{1F1E8}\u{1F1F3}", searchName: "Uyghur"),
+        AppLanguage(code: "uz", flag: "\u{1F1FA}\u{1F1FF}", searchName: "Uzbek"),
+        AppLanguage(code: "fa", flag: "\u{1F1EE}\u{1F1F7}", searchName: "Persian"),
+        AppLanguage(code: "pl", flag: "\u{1F1F5}\u{1F1F1}", searchName: "Polish"),
+        AppLanguage(code: "pt", flag: "\u{1F1F5}\u{1F1F9}", searchName: "Portuguese"),
+        AppLanguage(code: "pa", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Punjabi"),
+        AppLanguage(code: "ro", flag: "\u{1F1F7}\u{1F1F4}", searchName: "Romanian"),
+        AppLanguage(code: "ru", flag: "\u{1F1F7}\u{1F1FA}", searchName: "Russian"),
+        AppLanguage(code: "sr", flag: "\u{1F1F7}\u{1F1F8}", searchName: "Serbian"),
+        AppLanguage(code: "si", flag: "\u{1F1F1}\u{1F1F0}", searchName: "Sinhala"),
+        AppLanguage(code: "sk", flag: "\u{1F1F8}\u{1F1F0}", searchName: "Slovak"),
+        AppLanguage(code: "sl", flag: "\u{1F1F8}\u{1F1EE}", searchName: "Slovenian"),
+        AppLanguage(code: "es", flag: "\u{1F1EA}\u{1F1F8}", searchName: "Spanish"),
+        AppLanguage(code: "sw", flag: "\u{1F1F0}\u{1F1EA}", searchName: "Swahili"),
+        AppLanguage(code: "ta", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Tamil"),
+        AppLanguage(code: "te", flag: "\u{1F1EE}\u{1F1F3}", searchName: "Telugu"),
+        AppLanguage(code: "th", flag: "\u{1F1F9}\u{1F1ED}", searchName: "Thai"),
+        AppLanguage(code: "bo", flag: "\u{1F1E8}\u{1F1F3}", searchName: "Tibetan"),
+        AppLanguage(code: "cs", flag: "\u{1F1E8}\u{1F1FF}", searchName: "Czech"),
+        AppLanguage(code: "tr", flag: "\u{1F1F9}\u{1F1F7}", searchName: "Turkish"),
+        AppLanguage(code: "ur", flag: "\u{1F1F5}\u{1F1F0}", searchName: "Urdu"),
+        AppLanguage(code: "vi", flag: "\u{1F1FB}\u{1F1F3}", searchName: "Vietnamese"),
+        AppLanguage(code: "cy", flag: "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}", searchName: "Welsh"),
+        AppLanguage(code: "be", flag: "\u{1F1E7}\u{1F1FE}", searchName: "Belarusian"),
+        AppLanguage(code: "zu", flag: "\u{1F1FF}\u{1F1E6}", searchName: "Zulu"),
+        AppLanguage(code: "sv", flag: "\u{1F1F8}\u{1F1EA}", searchName: "Swedish")
+    ]
+
+    /// Look up a language by code, tolerating regional and script variants and
+    /// the legacy spellings CLDR folds together ("nb-NO" finds "no").
+    static func named(_ identifier: String) -> AppLanguage? {
+        if let exact = all.first(where: { $0.code == identifier }) { return exact }
+        let wanted = canonical(identifier)
+        return all.first { $0.canonicalCode == wanted }
+    }
+
+    /// The source language, and what every other language falls back to. Falls
+    /// back to a synthesised row in the (impossible) case of an empty roster.
+    static let english = all.first { $0.code == "en" }
+        ?? AppLanguage(code: "en", flag: "\u{1F1EC}\u{1F1E7}", searchName: "English")
 }
 
 // MARK: - Language manager
@@ -88,9 +217,11 @@ final class LanguageManager: ObservableObject {
     /// catalog) is all it takes to have the device follow it automatically.
     var effective: AppLanguage {
         if let override { return override }
-        for code in Bundle.main.preferredLocalizations {
-            let base = code.split(separator: "-").first.map(String.init) ?? code
-            if let match = AppLanguage.named(base) { return match }
+        for identifier in Bundle.main.preferredLocalizations {
+            // `preferredLocalizations` can hand back a regional or script
+            // variant ("nl-BE", "zh-Hans-CN"), and CLDR folds some codes
+            // together ("nb" for the roster's "no"). `named(_:)` handles both.
+            if let match = AppLanguage.named(identifier) { return match }
         }
         return .english
     }
@@ -99,18 +230,76 @@ final class LanguageManager: ObservableObject {
     /// forces every `Text` to re-render when the language changes.
     var locale: Locale { Locale(identifier: effective.code) }
 
-    /// The `.lproj` bundle for the language currently shown. `String(localized:)`
-    /// ignores the runtime bundle redirection used for `Text`, so any string
-    /// resolved in code must be pointed at this bundle explicitly (see `L`).
-    var bundle: Bundle { Self.lprojBundle(for: effective.code) ?? .main }
+    /// Which way the chosen language reads. Set explicitly at the app root:
+    /// SwiftUI derives layout direction from the *bundle's* language, which the
+    /// in-app switch deliberately overrides, so it would otherwise stay
+    /// left-to-right when the player picks Arabic or Hebrew.
+    var layoutDirection: LayoutDirection {
+        effective.isRightToLeft ? .rightToLeft : .leftToRight
+    }
 
-    /// The English `.lproj`, used as the last-resort fallback for any key a
-    /// language has not translated yet.
-    static let englishBundle: Bundle? = lprojBundle(for: "en")
+    /// The bundle strings are resolved from. `String(localized:)` ignores the
+    /// runtime redirection installed on `Bundle.main`, so any string resolved in
+    /// code must be pointed at this bundle explicitly (see `L`). It falls back
+    /// to English for anything the chosen language has not translated, and is
+    /// English outright for a language whose `.lproj` has not shipped at all.
+    var bundle: Bundle { Self.fallbackBundles.value(for: effective.code) }
 
-    private static func lprojBundle(for code: String) -> Bundle? {
-        guard let path = Bundle.main.path(forResource: code, ofType: "lproj") else { return nil }
-        return Bundle(path: path)
+    /// The English `.lproj`, the last-resort fallback for every other language,
+    /// and the locale to format its arguments with.
+    static let englishBundle: Bundle? = plainLprojBundle(for: "en")
+    static let englishLocale = Locale(identifier: AppLanguage.english.code)
+
+    /// One prepared bundle per language, built on first use. Each is a real
+    /// `.lproj` bundle whose class has been swapped so misses reach English.
+    private static let fallbackBundles = BundleCache()
+
+    /// The `.lproj` holding a language's strings.
+    ///
+    /// The folder is not always named after the roster's code: Xcode writes the
+    /// canonical CLDR name, so the catalog's `no` column ships as `nb.lproj`.
+    /// Rather than keep a table of such renames, ask the bundle which of its
+    /// localizations is the same language.
+    fileprivate static func plainLprojBundle(for code: String) -> Bundle? {
+        for name in lprojNames(for: code) {
+            if let path = Bundle.main.path(forResource: name, ofType: "lproj") {
+                return Bundle(path: path)
+            }
+        }
+        return nil
+    }
+
+    private static func lprojNames(for code: String) -> [String] {
+        let canonical = AppLanguage.canonical(code)
+        var names = [code]
+        if canonical != code { names.append(canonical) }
+        names += Bundle.main.localizations.filter { shipped in
+            shipped != code && shipped != canonical
+                && AppLanguage.canonical(shipped) == canonical
+        }
+        return names
+    }
+
+    /// Lazily built, then reused: `Bundle(path:)` re-reads the `.strings` file,
+    /// and the game asks for strings inside its frame loop.
+    private final class BundleCache {
+        private var bundles: [String: Bundle] = [:]
+
+        func value(for code: String) -> Bundle {
+            if let cached = bundles[code] { return cached }
+            let resolved: Bundle
+            if let lproj = plainLprojBundle(for: code) {
+                resolved = lproj
+            } else {
+                // A roster language whose translations have not landed yet has
+                // no `.lproj` at all. Reading English is right; reading the
+                // device's language — which is what doing nothing would give —
+                // is not.
+                resolved = englishBundle ?? .main
+            }
+            bundles[code] = resolved
+            return resolved
+        }
     }
 
     func select(_ language: AppLanguage) {
@@ -121,9 +310,17 @@ final class LanguageManager: ObservableObject {
 /// Resolve a localized string in the language the user has chosen. Use this
 /// everywhere instead of `String(localized:)`, which always follows the system
 /// language regardless of the in-app switch.
+///
+/// The English fallback has to live here rather than in the bundle:
+/// `String(localized:bundle:)` reads the string table directly and never calls
+/// `Bundle.localizedString(forKey:value:table:)`, so a `Bundle` subclass cannot
+/// intercept it — verified, not assumed. An untranslated language's table holds
+/// an empty placeholder for every key, and an empty result is the signal.
 func L(_ key: String.LocalizationValue) -> String {
     let manager = LanguageManager.shared
-    return String(localized: key, bundle: manager.bundle, locale: manager.locale)
+    let value = String(localized: key, bundle: manager.bundle, locale: manager.locale)
+    guard value.isEmpty, let english = LanguageManager.englishBundle else { return value }
+    return String(localized: key, bundle: english, locale: LanguageManager.englishLocale)
 }
 
 /// Resolve a localized string from a key that is only known at runtime (for
@@ -133,27 +330,51 @@ func L(_ key: String.LocalizationValue) -> String {
 func L(key: String) -> String {
     let manager = LanguageManager.shared
     let value = manager.bundle.localizedString(forKey: key, value: key, table: nil)
-    // A key that resolves to itself was not found in the chosen language; fall
-    // back to English so an untranslated key never surfaces as a raw identifier.
-    if value == key, let english = LanguageManager.englishBundle {
+    // Fall back to English so an untranslated key never surfaces as a raw
+    // identifier or, worse, as a blank label.
+    if !isTranslated(value, forKey: key), let english = LanguageManager.englishBundle {
         return english.localizedString(forKey: key, value: key, table: nil)
     }
     return value
+}
+
+/// Write a number the way the chosen language writes it.
+///
+/// A bare `"\(total)"` always produces Western digits with no grouping, so a
+/// four-figure bubble total reads "3000" in every language instead of "3,000"
+/// or "3.000" — and would stay Western in a language that uses its own
+/// numerals. Every standalone number the player sees goes through here, so a
+/// new language gets the right shape without touching the views.
+func LN(_ value: Int) -> String {
+    value.formatted(.number.locale(LanguageManager.shared.locale))
 }
 
 // MARK: - Bundle redirection (the mechanism behind a live switch)
 
 private var languageBundleKey: UInt8 = 0
 
+/// Whether a lookup found a real translation.
+///
+/// A key that resolves to itself was not in the table at all. A key that
+/// resolves to an empty string *is* in the table, but only as the placeholder
+/// the string catalog writes for a language nobody has translated yet — which
+/// on screen would be a blank label, the one failure mode worse than English.
+/// Both count as a miss.
+private func isTranslated(_ result: String, forKey key: String) -> Bool {
+    result != key && !result.isEmpty
+}
+
 /// A Bundle that, when asked for a localized string, forwards the request to a
-/// specific `.lproj` bundle if one has been set.
+/// specific `.lproj` bundle if one has been set. Installed on `Bundle.main`,
+/// which is what plain `Text("some.key")` reads from.
 private final class LanguageBundle: Bundle, @unchecked Sendable {
     override func localizedString(forKey key: String, value: String?, table tableName: String?) -> String {
         if let redirected = objc_getAssociatedObject(self, &languageBundleKey) as? Bundle {
             let result = redirected.localizedString(forKey: key, value: key, table: tableName)
             // Fall back to English for any key the chosen language is missing,
-            // so a partial translation never leaves a raw key on screen.
-            if result == key,
+            // so a partial translation never leaves a raw key or a blank on
+            // screen.
+            if !isTranslated(result, forKey: key),
                let english = LanguageManager.englishBundle,
                english !== redirected {
                 return english.localizedString(forKey: key, value: value, table: tableName)
@@ -172,12 +393,17 @@ extension Bundle {
 
     /// Point `Bundle.main` at a language's `.lproj`, or pass `nil` to fall back
     /// to the device's normal resolution.
+    ///
+    /// A roster language with no `.lproj` yet is pointed at English rather than
+    /// left unredirected: the player picked a language, and falling through to
+    /// whatever the device happens to be set to would be a different answer to
+    /// a different question.
     static func setLanguage(_ language: String?) {
         _ = installLanguageBundle
         let target: Bundle?
-        if let language,
-           let path = Bundle.main.path(forResource: language, ofType: "lproj") {
-            target = Bundle(path: path)
+        if let language {
+            target = LanguageManager.plainLprojBundle(for: language)
+                ?? LanguageManager.englishBundle
         } else {
             target = nil
         }
@@ -218,19 +444,27 @@ private struct GameEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.locale, language.locale)
+            .environment(\.layoutDirection, language.layoutDirection)
     }
 }
 
 extension View {
-    /// Carry the chosen language's locale into a modally presented surface.
+    /// Carry the chosen language's locale and reading direction into a modally
+    /// presented surface.
     func gameEnvironment() -> some View { modifier(GameEnvironment()) }
 }
 
 // MARK: - The picker
 
-/// A flag with a chevron. Tap to choose a language; the current one is ticked.
+/// A flag with a chevron. Tap to open the language list.
+///
+/// The list is a sheet rather than a menu: at this many languages a pull-down
+/// menu is a single unsearchable column taller than the screen, and several
+/// languages share a flag (four are spoken in Spain, ten in India), so the
+/// name — not the flag — is what a player actually picks by.
 struct LanguagePicker: View {
     @ObservedObject private var language = LanguageManager.shared
+    @State private var isPresented = false
 
     /// Colour for the chevron so it can sit on light or dark backgrounds.
     var tint: Color = .secondary
@@ -239,24 +473,9 @@ struct LanguagePicker: View {
     var scale: CGFloat = 1
 
     var body: some View {
-        Menu {
-            ForEach(AppLanguage.all) { option in
-                Button {
-                    language.select(option)
-                } label: {
-                    // Flag + endonym are already runtime strings and must not
-                    // be treated as a localizable key, so compose them verbatim.
-                    let title = Text(verbatim: "\(option.flag)  \(option.displayName)")
-                    if language.effective == option {
-                        Label { title } icon: { Image(systemName: "checkmark") }
-                    } else {
-                        title
-                    }
-                }
-            }
-        } label: {
+        Button { isPresented = true } label: {
             HStack(spacing: 5) {
-                Text(language.effective.flag)
+                Text(verbatim: language.effective.flag)
                     .font(.system(size: 20 * scale))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10 * scale, weight: .bold))
@@ -267,6 +486,80 @@ struct LanguagePicker: View {
             .liquidGlassCapsule()
             .contentShape(Capsule())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(Text("language.select"))
+        .accessibilityValue(Text(verbatim: language.effective.displayName))
+        .sheet(isPresented: $isPresented) { LanguageList(isPresented: $isPresented) }
+    }
+}
+
+/// The list behind the flag button.
+///
+/// Deliberately *not* localized into the language being left behind: a player
+/// who cannot read the current language is exactly the one who came here, so
+/// every row is written in its own language and the only chrome is a search
+/// field and a close button that need no words.
+private struct LanguageList: View {
+    @ObservedObject private var language = LanguageManager.shared
+    @Binding var isPresented: Bool
+    @State private var query = ""
+
+    /// Matches the endonym, the English name and the code, so "German",
+    /// "Deutsch" and "de" all find the same row. Diacritics are ignored, since
+    /// a search typed on one language's keyboard has to find another's name.
+    private var matches: [AppLanguage] {
+        let needle = query.trimmingCharacters(in: .whitespaces)
+        guard !needle.isEmpty else { return AppLanguage.all }
+        return AppLanguage.all.filter { option in
+            [option.displayName, option.searchName, option.code].contains {
+                $0.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+            }
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List(matches) { option in
+                Button {
+                    language.select(option)
+                    isPresented = false
+                } label: {
+                    HStack(spacing: 14) {
+                        Text(verbatim: option.flag)
+                            .font(.system(size: 26))
+                        Text(verbatim: option.displayName)
+                            // Each row reads in its own language, so it gets
+                            // that language's locale and reading direction.
+                            .environment(\.locale, Locale(identifier: option.code))
+                            .environment(\.layoutDirection,
+                                         option.isRightToLeft ? .rightToLeft : .leftToRight)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if language.effective == option {
+                            Image(systemName: "checkmark")
+                                .font(.body.weight(.semibold))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(language.effective == option ? [.isButton, .isSelected] : .isButton)
+            }
+            .listStyle(.plain)
+            .navigationTitle(Text("language.select"))
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $query)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button { isPresented = false } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel(Text("common.done"))
+                }
+            }
+        }
+        // The list itself is chrome-free on purpose, but the search field and
+        // the system's own labels still follow the language in force.
+        .environment(\.locale, language.locale)
+        .environment(\.layoutDirection, language.layoutDirection)
     }
 }

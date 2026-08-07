@@ -962,10 +962,14 @@ final class AppAudio: NSObject, ObservableObject {
         bestVoicesByLanguage()["en"] ?? AVSpeechSynthesisVoice(language: "en-US")
     }
 
-    /// Picks the clearest installed voice for each supported language. Apple
-    /// identifies Norwegian Bokmål as `nb`, while the app uses the broader
-    /// language code `no`, so that one is mapped explicitly. Dutch is pinned
-    /// to the Netherlands locale so a higher-quality Belgian voice cannot win.
+    /// Picks the clearest installed voice for each spoken language.
+    ///
+    /// Which voice identifier to look for, and whether one regional variant
+    /// should be preferred over another, are properties of the language and are
+    /// declared alongside its words in `SpokenMath.lexicons` — so a new
+    /// language never needs a branch here. If a preferred locale turns out not
+    /// to be installed, the search widens back to the whole language rather
+    /// than leaving the player with no voice at all.
     private static func bestVoicesByLanguage() -> [String: AVSpeechSynthesisVoice] {
         let novelty: Set<String> = ["Albert", "Bad News", "Bahh", "Bells", "Boing",
                                     "Bubbles", "Cellos", "Wobble", "Fred", "Good News",
@@ -985,18 +989,16 @@ final class AppAudio: NSObject, ObservableObject {
         let installed = AVSpeechSynthesisVoice.speechVoices()
             .filter { !novelty.contains($0.name) }
         var result: [String: AVSpeechSynthesisVoice] = [:]
-        for languageCode in SpokenMath.lexicons.keys {
-            let voiceCode = languageCode == "no" ? "nb" : languageCode
+        for (languageCode, lexicon) in SpokenMath.lexicons {
             let candidates = installed.filter {
-                $0.language.split(separator: "-").first.map(String.init) == voiceCode
+                $0.language.split(separator: "-").first.map(String.init) == lexicon.voiceLanguage
             }
-            let localeCandidates: [AVSpeechSynthesisVoice]
-            if languageCode == "nl" {
-                localeCandidates = candidates.filter { $0.language == "nl-NL" }
-            } else {
-                localeCandidates = candidates
+            var preferred = candidates
+            if let locale = lexicon.preferredVoiceLocale {
+                let regional = candidates.filter { $0.language == locale }
+                if !regional.isEmpty { preferred = regional }
             }
-            if let best = localeCandidates.max(by: { score($0) < score($1) }) {
+            if let best = preferred.max(by: { score($0) < score($1) }) {
                 result[languageCode] = best
             }
         }
