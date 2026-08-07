@@ -10,6 +10,7 @@
 import SwiftUI
 
 struct ResultView: View {
+    @Environment(\.layoutDirection) private var layoutDirection
     let result: SessionResult
     /// Which scoreboard was played: it sets what a full score is worth here.
     let board: LevelBoard
@@ -286,11 +287,14 @@ struct ResultView: View {
             .background(character.tintColor, in: Capsule())
             .overlay { Capsule().stroke(character.color.opacity(0.12), lineWidth: 1) }
             // The smaller capsule deliberately sits just beyond the score's
-            // top-right corner, leaving the tally itself unobscured.
+            // trailing top corner, leaving the tally itself unobscured. The
+            // alignment follows the reading direction but the offset does not,
+            // so the sign has to be turned over with it — otherwise the badge
+            // lands *on* the score in Arabic instead of beside it.
             .overlay(alignment: .topTrailing) {
                 if showsNewBest {
                     newBestBadge
-                        .offset(x: 30, y: -16)
+                        .offset(x: layoutDirection == .rightToLeft ? -30 : 30, y: -16)
                         .scaleEffect(badgeLanded ? 1 : 0.4)
                         .rotationEffect(.degrees(badgeLanded ? 0 : -18))
                         .opacity(badgeLanded ? 1 : 0)

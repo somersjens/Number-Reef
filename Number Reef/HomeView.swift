@@ -158,11 +158,25 @@ struct HomeView: View {
             )
             .onPreferenceChange(ControlAnchorKey.self) { controlAnchors = $0 }
             .onPreferenceChange(CardGlyphAnchorKey.self) { cardGlyphAnchors = $0 }
-            .overlay(alignment: .topLeading) { infoPopoutOverlay }
+            // Both overlays place themselves from anchors collected through
+            // `GeometryProxy.frame(in:)`, which measures from the left edge
+            // whatever the language reads like — while `position` and the
+            // `topLeading` alignment below are both turned over by a
+            // right-to-left environment. Measuring in one space and placing in
+            // its mirror is what sent the bubble to an empty patch of screen in
+            // Arabic, so placement is pinned to the space the numbers came from.
+            // The cards themselves put their own direction back afterwards.
             .overlay {
-                ForEach(flights) { flight in
-                    CardFlightView(flight: flight)
+                infoPopoutOverlay
+                    .environment(\.layoutDirection, .leftToRight)
+            }
+            .overlay {
+                ZStack {
+                    ForEach(flights) { flight in
+                        CardFlightView(flight: flight)
+                    }
                 }
+                .environment(\.layoutDirection, .leftToRight)
             }
 
             if showsTutorialHint {
@@ -688,8 +702,12 @@ struct HomeView: View {
                            message: popup.message,
                            caretOffset: caretOffset,
                            theme: character)
+                // The card is placed in left-origin space, but its contents are
+                // ordinary copy and read in the player's language.
+                .environment(\.layoutDirection, language.layoutDirection)
                 .frame(width: width)
                 .offset(x: clampedX, y: popup.anchor.maxY + 4)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .top)))
                 .allowsHitTesting(false)
         }

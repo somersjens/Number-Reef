@@ -2146,6 +2146,15 @@ private struct CelebrationBubbleView: View {
 // MARK: - Playfield
 
 /// The reef itself. Everything below the HUD and above the helper button.
+/// The reef itself: water, fish, bubbles, the sea floor.
+///
+/// Deliberately never mirrored. Everything below is a simulation in screen
+/// points — the fish carries a heading in radians, the sprite is flipped from
+/// `cos(heading)`, and steering reads the raw touch location — so a
+/// right-to-left environment turns the whole world into its own reflection: the
+/// character swims backwards, a tap on the right steers left, and a turn that
+/// looks correct going up comes out wrong coming down. Reading direction
+/// belongs to text and to the HUD around this view, not to a physical space.
 struct ReefPlayfield: View {
     let round: GameRound?
     let maximumRounds: Int
@@ -2319,6 +2328,9 @@ struct ReefPlayfield: View {
                     .onEnded { _ in engine.releaseTouch() }
             )
             .allowsHitTesting(!playsLevelCompletion)
+            // See the note on the type: the reef is a simulated space, so it
+            // keeps its own orientation whatever the language reads like.
+            .environment(\.layoutDirection, .leftToRight)
             .onAppear {
 #if canImport(UIKit)
                 ReefArtworkCache.prewarm()

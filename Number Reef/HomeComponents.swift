@@ -391,6 +391,7 @@ enum LevelCardStatus: Equatable {
 /// progress indicator and the top-left tier badge. Reaching the completion
 /// score turns it into the gold "completed" card.
 struct LevelCardView: View {
+    @Environment(\.layoutDirection) private var layoutDirection
     let level: MathLevel
     let status: LevelCardStatus
     let best: Int
@@ -779,7 +780,12 @@ struct LevelCardView: View {
                             // a wider label ("MAX") never creeps back over the
                             // number instead of staying pinned beside it.
                             .frame(width: 23 * cardScale, alignment: .leading)
-                            .offset(x: 20 * cardScale, y: -7 * cardScale)
+                            // Same story as the alignment above: `topTrailing`
+                            // turns over with the reading direction, a raw
+                            // offset does not, and an unturned one walks the
+                            // badge back across the number it sits beside.
+                            .offset(x: (layoutDirection == .rightToLeft ? -20 : 20) * cardScale,
+                                    y: -7 * cardScale)
                     }
                 }
                 Spacer(minLength: 2)

@@ -659,14 +659,20 @@ private extension View {
 
 extension View {
     @ViewBuilder
+    /// A sheet begins a fresh environment and inherits nothing from the app
+    /// root, so the chosen language and its reading direction have to be handed
+    /// back in here — otherwise the premium screen follows the device instead
+    /// of the picker, and never mirrors for Arabic or Hebrew.
     func premiumSheetPresentation() -> some View {
         if #available(iOS 18.0, *) {
             self
+                .gameEnvironment()
                 .presentationSizing(.page)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         } else {
             self
+                .gameEnvironment()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

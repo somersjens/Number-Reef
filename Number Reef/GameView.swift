@@ -423,6 +423,9 @@ private struct ScoreIconCenterPreferenceKey: PreferenceKey {
 private struct StreakBoostBanner: View {
     let character: AnimalCharacter
     let isPad: Bool
+    @Environment(\.layoutDirection) private var layoutDirection
+
+    private var isRightToLeft: Bool { layoutDirection == .rightToLeft }
 
     var body: some View {
         HStack(spacing: isPad ? 10 : 7) {
@@ -435,6 +438,12 @@ private struct StreakBoostBanner: View {
                     .opacity(0.82)
             }
             Image(systemName: "forward.fill")
+                // SF Symbols leaves the media-transport arrows pointing right
+                // in every language, which is right for a play button and wrong
+                // here: this one is not a control but a picture of going fast,
+                // and it sits at the trailing edge. Unmirrored it points back
+                // into the text it is meant to lead away from.
+                .scaleEffect(x: isRightToLeft ? -1 : 1, y: 1)
         }
         .foregroundStyle(character.deepColor)
         .padding(.horizontal, isPad ? 20 : 15)
@@ -451,7 +460,10 @@ private struct StreakBoostBanner: View {
             Circle()
                 .fill(.white.opacity(0.8))
                 .frame(width: 10, height: 10)
-                .offset(x: 18, y: 10)
+                // `bottomLeading` follows the reading direction but `offset` does
+                // not, so the same positive x that tucks this bubble under the
+                // capsule in English pushes it off the other side in Arabic.
+                .offset(x: isRightToLeft ? -18 : 18, y: 10)
         }
         .accessibilityElement(children: .combine)
     }

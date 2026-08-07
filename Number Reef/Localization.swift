@@ -70,6 +70,16 @@ struct AppLanguage: Identifiable, Hashable, Sendable {
         Locale(identifier: code).language.characterDirection == .rightToLeft
     }
 
+    /// The writing system, from CLDR: "Latn", "Cyrl", "Arab", "Deva"…
+    ///
+    /// Used to order the picker. Grouping by script puts the languages a given
+    /// reader can even recognise next to each other, which at this length
+    /// matters more than one long alphabetical run — the alphabet a name is
+    /// written in is the first thing you can tell about it.
+    var script: String {
+        Locale(identifier: code).language.script?.identifier ?? "Zzzz"
+    }
+
     /// What CLDR considers this language, ignoring spelling differences between
     /// codes for the same tongue: `no` and `nb` both canonicalize to `nb`, so a
     /// Norwegian device matches the roster's `no` row. Used only for matching,
@@ -464,7 +474,6 @@ extension View {
 /// name — not the flag — is what a player actually picks by.
 struct LanguagePicker: View {
     @ObservedObject private var language = LanguageManager.shared
-    @State private var isPresented = false
 
     /// Colour for the chevron so it can sit on light or dark backgrounds.
     var tint: Color = .secondary
@@ -473,7 +482,9 @@ struct LanguagePicker: View {
     var scale: CGFloat = 1
 
     var body: some View {
-        Button { isPresented = true } label: {
+        Menu {
+            LanguageMenuContent()
+        } label: {
             HStack(spacing: 5) {
                 Text(verbatim: language.effective.flag)
                     .font(.system(size: 20 * scale))
@@ -486,80 +497,61 @@ struct LanguagePicker: View {
             .liquidGlassCapsule()
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
         .accessibilityLabel(Text("language.select"))
         .accessibilityValue(Text(verbatim: language.effective.displayName))
-        .sheet(isPresented: $isPresented) { LanguageList(isPresented: $isPresented) }
     }
 }
 
-/// The list behind the flag button.
+/// The menu behind the flag button.
+///
+/// A pull-down menu rather than a sheet. Seventy-seven rows is a lot for one,
+/// but it scrolls, it costs one tap instead of two, and it puts the list right
+/// under the button that opened it — which is what the rest of the family of
+/// apps does, so a player moving between them meets the same control.
 ///
 /// Deliberately *not* localized into the language being left behind: a player
 /// who cannot read the current language is exactly the one who came here, so
-/// every row is written in its own language and the only chrome is a search
-/// field and a close button that need no words.
-private struct LanguageList: View {
+/// every row is written in its own language and there is no chrome to read.
+private struct LanguageMenuContent: View {
     @ObservedObject private var language = LanguageManager.shared
-    @Binding var isPresented: Bool
-    @State private var query = ""
 
-    /// Matches the endonym, the English name and the code, so "German",
-    /// "Deutsch" and "de" all find the same row. Diacritics are ignored, since
-    /// a search typed on one language's keyboard has to find another's name.
-    private var matches: [AppLanguage] {
-        let needle = query.trimmingCharacters(in: .whitespaces)
-        guard !needle.isEmpty else { return AppLanguage.all }
-        return AppLanguage.all.filter { option in
-            [option.displayName, option.searchName, option.code].contains {
-                $0.range(of: needle, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    /// The two languages the app is actually written in come first — they are
+    /// what most players want and what everything else falls back to. Then
+    /// Latin script, then each remaining script as its own block, so the
+    /// alphabets a given reader cannot even tell apart are not interleaved
+    /// with the ones they can.
+    private static let ordered: [AppLanguage] = {
+        let collator = Locale(identifier: "en")
+        let pinned = ["en", "nl"]
+        let first = pinned.compactMap { code in AppLanguage.all.first { $0.code == code } }
+        let rest = AppLanguage.all.filter { !pinned.contains($0.code) }
+        return first + rest.sorted { a, b in
+            if a.script != b.script {
+                if a.script == "Latn" { return true }
+                if b.script == "Latn" { return false }
+                return a.script < b.script
             }
+            return a.displayName.compare(b.displayName,
+                                         options: [.caseInsensitive, .diacriticInsensitive],
+                                         range: nil,
+                                         locale: collator) == .orderedAscending
         }
-    }
+    }()
 
     var body: some View {
-        NavigationStack {
-            List(matches) { option in
-                Button {
-                    language.select(option)
-                    isPresented = false
-                } label: {
-                    HStack(spacing: 14) {
-                        Text(verbatim: option.flag)
-                            .font(.system(size: 26))
-                        Text(verbatim: option.displayName)
-                            // Each row reads in its own language, so it gets
-                            // that language's locale and reading direction.
-                            .environment(\.locale, Locale(identifier: option.code))
-                            .environment(\.layoutDirection,
-                                         option.isRightToLeft ? .rightToLeft : .leftToRight)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        if language.effective == option {
-                            Image(systemName: "checkmark")
-                                .font(.body.weight(.semibold))
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(language.effective == option ? [.isButton, .isSelected] : .isButton)
-            }
-            .listStyle(.plain)
-            .navigationTitle(Text("language.select"))
-            .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button { isPresented = false } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel(Text("common.done"))
+        ForEach(Self.ordered) { option in
+            Button {
+                language.select(option)
+            } label: {
+                // Flag and endonym are already runtime strings and must not be
+                // treated as a localizable key, so compose them verbatim.
+                let title = Text(verbatim: "\(option.flag)  \(option.displayName)")
+                if language.effective == option {
+                    Label { title } icon: { Image(systemName: "checkmark") }
+                } else {
+                    title
                 }
             }
         }
-        // The list itself is chrome-free on purpose, but the search field and
-        // the system's own labels still follow the language in force.
-        .environment(\.locale, language.locale)
-        .environment(\.layoutDirection, language.layoutDirection)
     }
 }
