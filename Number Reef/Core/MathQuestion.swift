@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct MathQuestion: Equatable, Codable, Sendable {
+nonisolated public struct MathQuestion: Equatable, Codable, Sendable {
     /// The sum as shown on the question card, e.g. "7 × 8 = ?".
     public let prompt: String
     /// The one correct answer, as shown on its card.
@@ -53,7 +53,7 @@ public struct MathQuestion: Equatable, Codable, Sendable {
     }
 }
 
-public enum QuestionKind: String, Codable, Sendable, CaseIterable {
+nonisolated public enum QuestionKind: String, Codable, Sendable, CaseIterable {
     case addition
     case subtraction
     case multiplication
@@ -78,7 +78,7 @@ public enum QuestionKind: String, Codable, Sendable, CaseIterable {
 /// Answers are compared by *meaning*, not by spelling, so a distractor can
 /// never accidentally be a second correct answer: "6", "06" and "6/1" all
 /// collapse to the same value, and "50%" never collides with the number 50.
-public struct AnswerValue: Hashable, Sendable, Comparable {
+nonisolated public struct AnswerValue: Hashable, Sendable, Comparable {
     private enum Form: Hashable {
         /// A rational number in lowest terms.
         case rational(numerator: Int, denominator: Int)

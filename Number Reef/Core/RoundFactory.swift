@@ -13,7 +13,7 @@ import Foundation
 
 // MARK: - Answer card
 
-public struct AnswerOption: Identifiable, Equatable, Sendable {
+nonisolated public struct AnswerOption: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let text: String
     public let isCorrect: Bool
@@ -27,7 +27,7 @@ public struct AnswerOption: Identifiable, Equatable, Sendable {
 
 // MARK: - Round
 
-public struct GameRound: Identifiable, Equatable, Sendable {
+nonisolated public struct GameRound: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// 1-based position in the session.
     public let number: Int
@@ -51,7 +51,7 @@ public struct GameRound: Identifiable, Equatable, Sendable {
 
 // MARK: - Factory
 
-public final class RoundFactory {
+nonisolated public final class RoundFactory {
     private let generator: QuestionGenerator
     private let random: RandomSource
 

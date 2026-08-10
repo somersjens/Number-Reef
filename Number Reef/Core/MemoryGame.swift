@@ -18,7 +18,7 @@ import Foundation
 
 // MARK: - State
 
-public enum GameState: String, Equatable, Sendable {
+nonisolated public enum GameState: String, Equatable, Sendable {
     /// Session created, nothing shown yet.
     case intro
     /// The answer cards lie face up: this is the memorising beat. The question
@@ -38,14 +38,14 @@ public enum GameState: String, Equatable, Sendable {
     case gameOver
 }
 
-public enum GameOverReason: String, Equatable, Sendable {
+nonisolated public enum GameOverReason: String, Equatable, Sendable {
     case outOfLives
     case roundsCompleted
     case quit
 }
 
 /// What resolving a tap produced, so the view knows which feedback to play.
-public enum AnswerOutcome: Equatable, Sendable {
+nonisolated public enum AnswerOutcome: Equatable, Sendable {
     case correct(cardsEarned: Int, usedBonusFish: Bool, startedStreak: Bool)
     case wrong(correctOptionID: UUID, lostHalfLife: Bool)
     /// The tap was ignored (wrong state, or the round was already answered).
@@ -54,7 +54,7 @@ public enum AnswerOutcome: Equatable, Sendable {
 
 // MARK: - Result
 
-public struct SessionResult: Equatable, Sendable {
+nonisolated public struct SessionResult: Equatable, Sendable {
     public var correctAnswers = 0
     public var wrongAnswers = 0
     public var cardsEarned = 0
@@ -73,7 +73,7 @@ public struct SessionResult: Equatable, Sendable {
 
 // MARK: - Engine
 
-public final class MemoryGame {
+nonisolated public final class MemoryGame {
     // MARK: Configuration
 
     public let level: MathLevel

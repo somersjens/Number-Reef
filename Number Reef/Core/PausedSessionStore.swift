@@ -14,7 +14,7 @@ import Foundation
 
 /// A session frozen mid-play. Everything here is plain, validated data: a
 /// corrupt or outdated record is discarded rather than resumed.
-public struct PausedSession: Codable, Equatable, Sendable {
+nonisolated public struct PausedSession: Codable, Equatable, Sendable {
     /// The scoreboard this run belongs to — see `LevelBoard.storageID`. A run
     /// paused on one Supermix combination must not resume onto another, where
     /// its cards would be banked against the wrong best.

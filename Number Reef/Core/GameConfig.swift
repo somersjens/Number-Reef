@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Central configuration
 
-public enum GameConfig {
+nonisolated public enum GameConfig {
 
     // MARK: Answers
 

@@ -14,7 +14,7 @@ import Foundation
 
 // MARK: - Topics
 
-public enum MathTopic: String, CaseIterable, Identifiable, Codable, Sendable {
+nonisolated public enum MathTopic: String, CaseIterable, Identifiable, Codable, Sendable {
     case addition
     case subtraction
     case tables
@@ -101,7 +101,7 @@ public enum MathTopic: String, CaseIterable, Identifiable, Codable, Sendable {
 /// The Supermix sub-choices: how many operations the mix draws from. Each one
 /// adds the next operation to the one before it, so the ladder is strictly
 /// widening rather than four unrelated sets.
-public enum MixedVariant: String, CaseIterable, Identifiable, Codable, Sendable {
+nonisolated public enum MixedVariant: String, CaseIterable, Identifiable, Codable, Sendable {
     case basic      // + −
     case times      // + − ×
     case fraction   // + − × ÷
@@ -153,7 +153,7 @@ public enum MixedVariant: String, CaseIterable, Identifiable, Codable, Sendable 
     }
 }
 
-public enum MathScaling {
+nonisolated public enum MathScaling {
     /// Fraction denominators for all 99 levels, in the intended learning order.
     public static let fractionDenominators = [
         2, 4, 8, 3, 6, 12, 5, 10, 20, 7, 14, 28, 16, 32, 64, 128, 256, 512,
@@ -250,7 +250,7 @@ public enum MathScaling {
 ///
 /// Addition and subtraction run three groups of five sums (fifteen per lap)
 /// and then start over; the tables simply cycle ×1 … ×12.
-public enum PracticeRoute {
+nonisolated public enum PracticeRoute {
     public static let groupSize = 5
     /// What each group of five adds to the starting point, so the second and
     /// third lap are not a literal repeat of the first.
@@ -290,7 +290,7 @@ public enum PracticeRoute {
 // MARK: - Level
 
 /// One selectable level within a topic.
-public struct MathLevel: Identifiable, Hashable, Codable, Sendable {
+nonisolated public struct MathLevel: Identifiable, Hashable, Codable, Sendable {
     public let topic: MathTopic
     /// 1-based level number.
     public let index: Int
@@ -319,7 +319,7 @@ public struct MathLevel: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
-public enum LevelCatalog {
+nonisolated public enum LevelCatalog {
     /// The catalog is fixed at build time, so each topic's 99 levels are built
     /// once instead of on every menu redraw.
     private static let byTopic: [MathTopic: [MathLevel]] = Dictionary(

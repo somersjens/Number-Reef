@@ -26,7 +26,7 @@ import Foundation
 /// Alternative labels and pop-out copy for a topic whose three buttons mean
 /// something other than "order". `mixedTitleKey` / `mixedInfoKey` stay nil for
 /// both current topics: Mixed keeps its shared label and its shared text.
-public struct ModeLabelOverride: Sendable {
+nonisolated public struct ModeLabelOverride: Sendable {
     public let orderTitleKey: String
     public let randomTitleKey: String
     public var mixedTitleKey: String?
@@ -39,7 +39,7 @@ public struct ModeLabelOverride: Sendable {
 
 // MARK: - The three modes
 
-public enum PracticeMode: String, CaseIterable, Identifiable, Codable, Sendable {
+nonisolated public enum PracticeMode: String, CaseIterable, Identifiable, Codable, Sendable {
     /// The calm, predictable climbing route.
     case order = "standard"
     /// This level's own number only, shuffled.

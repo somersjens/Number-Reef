@@ -22,6 +22,14 @@ final class GameViewModel: ObservableObject {
     private let request: GameSessionRequest
     private var engine: MemoryGame
 
+    /// `MemoryGame` is built on a worker and then transferred exactly once to
+    /// the main actor. It is never read on both executors at the same time.
+    private struct PreparedEngine: @unchecked Sendable {
+        let engine: MemoryGame
+        let pausedSession: PausedSession?
+    }
+    private var preparationTask: Task<PreparedEngine, Never>?
+
     // Published mirrors of the engine, so SwiftUI observes value changes.
     @Published private(set) var state: GameState = .intro
     @Published private(set) var round: GameRound?
@@ -67,20 +75,48 @@ final class GameViewModel: ObservableObject {
 
     // MARK: - Lifecycle
 
+    /// Builds the first two rounds while the level card (and then the fish
+    /// entrance) is still on screen. Round generation is pure CPU work and
+    /// does not belong on the frame that responds to Start.
+    func prepare() {
+        guard engine.state == .intro, preparationTask == nil else { return }
+        startPreparation(pausedSession: PausedSessionStore.shared.session(request.board))
+    }
+
+    private func startPreparation(pausedSession: PausedSession?) {
+        guard preparationTask == nil else { return }
+        let level = request.level
+        let mixedVariant = request.mixedVariant
+        let mode = request.mode
+        preparationTask = Task.detached(priority: .userInitiated) {
+            let prepared = MemoryGame(level: level,
+                                      mixedVariant: mixedVariant,
+                                      mode: mode)
+            if let pausedSession {
+                prepared.resume(from: pausedSession)
+            } else {
+                prepared.start()
+            }
+            return PreparedEngine(engine: prepared, pausedSession: pausedSession)
+        }
+    }
+
     /// Starts the level, resuming a paused session when one is waiting.
-    func begin() {
+    func begin() async {
         guard engine.state == .intro else { return }
+        let token = generation
+        prepare()
+        guard let prepared = await preparationTask?.value,
+              generation == token,
+              engine.state == .intro else { return }
+        engine = prepared.engine
+        preparationTask = nil
         isPaused = false
         prepareHaptics()
         PlaytimeTracker.shared.challengeStarted()
         AppAudio.shared.setGameplayActive(true, questionText: nil)
         AppAudio.shared.playSessionStart()
-        if let paused = PausedSessionStore.shared.session(request.board) {
-            engine.resume(from: paused)
-            hasBonusFishPower = paused.hasBonusFishPower ?? false
-        } else {
-            engine.start()
-        }
+        hasBonusFishPower = prepared.pausedSession?.hasBonusFishPower ?? false
         openRound()
         announceRound()
         sync()
@@ -106,6 +142,8 @@ final class GameViewModel: ObservableObject {
         AppAudio.shared.setGameplayActive(false, questionText: nil)
         AppAudio.shared.setGameplayRate(1)
         generation &+= 1
+        preparationTask?.cancel()
+        preparationTask = nil
         pendingScheduledWork = nil
         pendingScoreRewards.removeAll()
     }
@@ -165,17 +203,22 @@ final class GameViewModel: ObservableObject {
 
     /// Play again always starts a clean run, so any paused record for this
     /// level is spent.
-    func restart() {
+    func restart() async {
         generation &+= 1
+        let token = generation
+        PausedSessionStore.shared.clear(request.board)
+        // Normally this engine has already been built during the result
+        // animation. If Play Again somehow wins that race, wait for the worker
+        // instead of doing its remaining generation work on the tap frame.
+        startPreparation(pausedSession: nil)
+        guard let prepared = await preparationTask?.value,
+              generation == token else { return }
+        engine = prepared.engine
+        preparationTask = nil
         hasRecordedResult = false
         isPaused = false
         pendingScheduledWork = nil
         pendingScoreRewards.removeAll()
-        PausedSessionStore.shared.clear(request.board)
-        engine = MemoryGame(level: request.level,
-                            mixedVariant: request.mixedVariant,
-                            mode: request.mode)
-        engine.start()
         hasBonusFishPower = false
         streakAnnouncementID = 0
         AppAudio.shared.playSessionStart()
@@ -322,6 +365,8 @@ final class GameViewModel: ObservableObject {
     private func finishSession() {
         AppAudio.shared.setGameplayRate(1)
         recordResultIfNeeded()
+        // Hide replay generation under the reef finale/result card too.
+        startPreparation(pausedSession: nil)
     }
 
     /// Writes the session to disk exactly once, whichever way the screen is
@@ -336,10 +381,15 @@ final class GameViewModel: ObservableObject {
 
         let store = Progress.store
         let previousTotal = store.totalCards
-        let newTotal = store.addCards(engine.cards)
+        let board = request.board
+        // Only the improvement on this board joins the player's total. A board
+        // can therefore contribute its maximum once, even though subsequent
+        // maximum runs still count toward the separate ×N completion badge.
+        let previousBest = store.bestScore(board)
+        let gained = max(0, min(engine.cards, board.maximum) - previousBest)
+        let newTotal = store.addCards(gained)
         // The score belongs to the board this session was played on: the card
         // count, and on Supermix the combination, keep separate bests.
-        let board = request.board
         let best = store.recordScore(engine.cards, board: board)
         let unlocked = CharacterUnlocks.newlyUnlocked(from: previousTotal, to: newTotal)
 

@@ -38,7 +38,7 @@ import Foundation
 /// exactly once before any of them comes round again. A new lap never opens
 /// with the value the previous lap closed on, so no sum can appear twice in a
 /// row across the seam.
-final class ShuffledCycle {
+nonisolated final class ShuffledCycle {
     private let values: [Int]
     private var remaining: [Int] = []
     private var last: Int?
@@ -64,7 +64,7 @@ final class ShuffledCycle {
 
 // MARK: - Generator
 
-public final class QuestionGenerator {
+nonisolated public final class QuestionGenerator {
     public let level: MathLevel
     /// Which of the three menu buttons this session is playing.
     public let mode: PracticeMode

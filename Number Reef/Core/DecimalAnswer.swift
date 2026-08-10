@@ -15,7 +15,7 @@
 
 import Foundation
 
-public enum DecimalAnswer {
+nonisolated public enum DecimalAnswer {
     /// Supplies the separator to print. The app points this at the in-app
     /// language switch on launch; the default follows the device.
     public nonisolated(unsafe) static var separatorProvider: () -> String = {

@@ -117,7 +117,7 @@ struct GameView: View {
                            onPlayAgain: {
                                showsResult = false
                                playsLevelCompletion = false
-                               model.restart()
+                               Task { await model.restart() }
                            },
                            onExit: { dismiss() })
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -146,7 +146,10 @@ struct GameView: View {
         }
         .animation(.easeInOut(duration: 0.28), value: model.isGameOver)
         .animation(.easeInOut(duration: 0.25), value: showsIntro)
-        .onAppear { screenInsets = ScreenSafeArea.current }
+        .onAppear {
+            screenInsets = ScreenSafeArea.current
+            model.prepare()
+        }
 #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(
             for: UIDevice.orientationDidChangeNotification
@@ -193,13 +196,15 @@ struct GameView: View {
     private func finishFishEntrance() {
         guard playsFishEntrance else { return }
         playsFishEntrance = false
-        model.begin()
-        // The walkthrough opens on the first round, once the fish has swum in
-        // and there is a reef to talk about. Disarming it here is what makes
-        // the pause card offer Continue rather than another Start tutorial.
-        if isTutorialArmed {
-            isTutorialArmed = false
-            tutorial.begin(model: model)
+        Task {
+            await model.begin()
+            // The walkthrough opens on the first round, once the fish has swum
+            // in and there is a reef to talk about. Disarming it here is what
+            // makes the pause card offer Continue rather than Start tutorial.
+            if isTutorialArmed, model.state != .intro {
+                isTutorialArmed = false
+                tutorial.begin(model: model)
+            }
         }
     }
 

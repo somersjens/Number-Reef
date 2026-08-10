@@ -29,7 +29,7 @@ public struct SeededGenerator: RandomNumberGenerator, Sendable {
 
 /// Type-erased random source so generators can hold either the system RNG or a
 /// seeded one without becoming generic over their whole call graph.
-public final class RandomSource {
+nonisolated public final class RandomSource {
     private var generator: any RandomNumberGenerator
 
     public init(seed: UInt64? = nil) {

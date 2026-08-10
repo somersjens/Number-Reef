@@ -216,7 +216,9 @@ enum ReefConfig {
     // MARK: Level completion
 
     /// A compact finale: gather, draw the heart, then let the bubbles fill the
-    /// water before the result card arrives.
+    /// water while the fish follows its last heading out of view. The exit
+    /// occupies the old post-heart pause, so the result card follows motion
+    /// instead of a frozen final frame.
     static let completionDuration = 3.45
     static let completionGatherDuration = 0.55
     static let completionHeartDuration = 2.45
@@ -534,16 +536,16 @@ final class ReefEngine: ObservableObject {
     private(set) var hasBonusAura = false
     /// Seconds of running time. It stops when the game does, so nothing moves
     /// behind a pause. Everything the player steers, touches or reads timing
-    /// from follows this at the full display cadence.
+    /// from follows this at the display's full cadence (60 or 120 Hz).
     @Published private(set) var clock: Double = 0
     /// The same clock, held still between sway steps. The sea floor is ~185
     /// gradient, stroke and shadow nodes; rebuilding all of them 60 times a
     /// second left no frame budget for the moments that actually matter — an
     /// answer being taken. Because the scenery views are `Equatable` on their
     /// clock, an unchanged value here skips that entire rebuild.
-    @Published private(set) var swayClock: Double = 0
+    private(set) var swayClock: Double = 0
     /// Coarser still, for the drifting sun shafts and their full-screen blur.
-    @Published private(set) var driftClock: Double = 0
+    private(set) var driftClock: Double = 0
 
     /// Called when the fish touches an answer bubble. Returns whether the
     /// session accepted it, so a touch the engine ignores leaves the water
@@ -644,12 +646,13 @@ final class ReefEngine: ObservableObject {
                 displayLink.invalidate()
                 return
             }
-            owner.tick()
+            owner.advance(displayLink)
         }
     }
 
     private lazy var displayLinkTarget = DisplayLinkTarget(owner: self)
     private var displayLink: CADisplayLink?
+    private var lastFrameTargetTimestamp: CFTimeInterval?
 #else
     private var timer: Timer?
 #endif
@@ -947,17 +950,23 @@ final class ReefEngine: ObservableObject {
         if running {
 #if canImport(UIKit)
             guard displayLink == nil else { return }
+            lastFrameTargetTimestamp = nil
             let link = CADisplayLink(target: displayLinkTarget,
                                      selector: #selector(DisplayLinkTarget.advance(_:)))
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 60,
-                                                            maximum: 60,
-                                                            preferred: 60)
+            let maximumFPS = ReefPerformanceBudget.isConstrained
+                ? 60
+                : max(60, UIScreen.main.maximumFramesPerSecond)
+            link.preferredFrameRateRange = CAFrameRateRange(
+                minimum: 60,
+                maximum: Float(maximumFPS),
+                preferred: Float(maximumFPS)
+            )
             link.add(to: .main, forMode: .common)
             displayLink = link
 #else
             guard timer == nil else { return }
             let timer = Timer(timeInterval: ReefConfig.tick, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.tick() }
+                MainActor.assumeIsolated { self?.tick(dt: ReefConfig.tick) }
             }
             RunLoop.main.add(timer, forMode: .common)
             self.timer = timer
@@ -966,6 +975,7 @@ final class ReefEngine: ObservableObject {
 #if canImport(UIKit)
             displayLink?.invalidate()
             displayLink = nil
+            lastFrameTargetTimestamp = nil
 #else
             timer?.invalidate()
             timer = nil
@@ -1071,8 +1081,22 @@ final class ReefEngine: ObservableObject {
 
     // MARK: Simulation
 
-    private func tick() {
-        let dt = ReefConfig.tick
+    #if canImport(UIKit)
+    /// Uses the display's real presentation interval. This keeps motion at the
+    /// same speed when a frame is late and lets ProMotion devices render the
+    /// simulation at their native cadence instead of repeating every frame.
+    private func advance(_ displayLink: CADisplayLink) {
+        let target = displayLink.targetTimestamp
+        let measured = lastFrameTargetTimestamp.map { target - $0 }
+            ?? (target - displayLink.timestamp)
+        lastFrameTargetTimestamp = target
+        // Do not let a debugger stop or a transient system stall teleport an
+        // answer through the fish. Normal 60/120 Hz intervals pass unchanged.
+        tick(dt: min(max(measured, 1.0 / 120.0), 1.0 / 30.0))
+    }
+    #endif
+
+    private func tick(dt: Double) {
         if completionElapsed != nil {
             moveMotes(dt)
             moveWakes(dt)
@@ -1115,15 +1139,18 @@ final class ReefEngine: ObservableObject {
         advanceClocks(dt)
     }
 
-    /// Advances the frame clock, and steps the two scenery clocks only when
-    /// they reach their next sample. Writing an unchanged value would still
-    /// fire `objectWillChange`, so both are guarded.
+    /// Advances the frame clock and samples the two slower scenery clocks
+    /// before publishing the completed frame.
     private func advanceClocks(_ dt: Double) {
-        clock += dt
-        let sway = (clock / ReefConfig.swayInterval).rounded(.down) * ReefConfig.swayInterval
-        if sway != swayClock { swayClock = sway }
-        let drift = (clock / ReefConfig.driftInterval).rounded(.down) * ReefConfig.driftInterval
-        if drift != driftClock { driftClock = drift }
+        let nextClock = clock + dt
+        swayClock = (nextClock / ReefConfig.swayInterval).rounded(.down)
+            * ReefConfig.swayInterval
+        driftClock = (nextClock / ReefConfig.driftInterval).rounded(.down)
+            * ReefConfig.driftInterval
+        // This is the one published write for the completed frame. The
+        // scenery clocks above are sampled by the same render pass without
+        // triggering two extra full playfield invalidations.
+        clock = nextClock
     }
 
     // MARK: Level completion
@@ -1145,9 +1172,22 @@ final class ReefEngine: ObservableObject {
             } else {
                 let raw = (next - gatherEnd) / ReefConfig.completionHeartDuration
                 let p = min(max(raw, 0), 1)
-                fish.position = completionPathPoint(progress: p)
+                if raw <= 1 {
+                    fish.position = completionPathPoint(progress: p)
+                } else {
+                    let exitDuration = max(
+                        0.001,
+                        ReefConfig.completionDuration
+                            - ReefConfig.completionGatherDuration
+                            - ReefConfig.completionHeartDuration
+                    )
+                    let exitProgress = min((next - gatherEnd
+                                            - ReefConfig.completionHeartDuration)
+                                           / exitDuration, 1)
+                    fish.position = completionExitPoint(progress: exitProgress)
+                }
                 completionTrailCountdown -= dt
-                if completionTrailCountdown <= 0, p < 0.99 {
+                if completionTrailCountdown <= 0, raw < 1 {
                     completionTrailCountdown = ReefPerformanceBudget.completionTrailInterval
                     celebrationBubbles.append(ReefCelebrationBubble(
                         position: fish.position,
@@ -1220,6 +1260,21 @@ final class ReefEngine: ObservableObject {
         let point = pointAlongBezierPath(segments, progress: progress)
         return CGPoint(x: centre.x + point.x * scale,
                        y: centre.y + point.y * scale)
+    }
+
+    /// Carries the fish beyond the right edge along the final Bézier tangent.
+    /// A linear continuation preserves its swimming speed and heading, avoiding
+    /// the pause that previously followed the completed heart stroke.
+    private func completionExitPoint(progress: Double) -> CGPoint {
+        let start = completionPathPoint(progress: 1)
+        let direction = CGVector(dx: 0.07, dy: -0.03)
+        let length = max(0.001, hypot(direction.dx, direction.dy))
+        let unit = CGVector(dx: direction.dx / length, dy: direction.dy / length)
+        let requiredX = size.width + fishArtworkWidth * 0.65
+        let distance = max(fishArtworkWidth, (requiredX - start.x) / max(0.001, unit.dx))
+        let p = CGFloat(min(max(progress, 0), 1))
+        return CGPoint(x: start.x + unit.dx * distance * p,
+                       y: start.y + unit.dy * distance * p)
     }
 
     /// Maps time to approximate distance rather than assigning every segment

@@ -50,7 +50,7 @@ public final class InMemoryKeyValueStore: KeyValueStore {
 /// operations is separate again. Every one of those keeps its own best and its
 /// own "reached the maximum" tally. Targets depend on the chosen exercise;
 /// only Supermix reaches 50 bubbles.
-public struct LevelBoard: Hashable, Sendable {
+nonisolated public struct LevelBoard: Hashable, Sendable {
     public let level: MathLevel
     /// Only meaningful on Supermix; ignored for every single-operation topic.
     public let mixedVariant: MixedVariant
