@@ -515,17 +515,15 @@ struct LanguagePicker: View {
 private struct LanguageMenuContent: View {
     @ObservedObject private var language = LanguageManager.shared
 
-    /// The two languages the app is actually written in come first — they are
-    /// what most players want and what everything else falls back to. Then
-    /// Latin script, then each remaining script as its own block, so the
+    /// Latin script first, then each remaining script as its own block, so the
     /// alphabets a given reader cannot even tell apart are not interleaved
-    /// with the ones they can.
+    /// with the ones they can. Within a block the rows run alphabetically by
+    /// endonym — including English and Dutch, which the app is written in but
+    /// which sit in the list like any other language rather than pinned above
+    /// it, so scanning for a name never has to account for an exception.
     private static let ordered: [AppLanguage] = {
         let collator = Locale(identifier: "en")
-        let pinned = ["en", "nl"]
-        let first = pinned.compactMap { code in AppLanguage.all.first { $0.code == code } }
-        let rest = AppLanguage.all.filter { !pinned.contains($0.code) }
-        return first + rest.sorted { a, b in
+        return AppLanguage.all.sorted { a, b in
             if a.script != b.script {
                 if a.script == "Latn" { return true }
                 if b.script == "Latn" { return false }

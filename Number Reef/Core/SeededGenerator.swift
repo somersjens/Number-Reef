@@ -10,7 +10,7 @@
 import Foundation
 
 /// SplitMix64 — tiny, fast, and well-distributed. Deterministic for a seed.
-public struct SeededGenerator: RandomNumberGenerator, Sendable {
+nonisolated public struct SeededGenerator: RandomNumberGenerator, Sendable {
     private var state: UInt64
 
     public init(seed: UInt64) {

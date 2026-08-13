@@ -889,21 +889,34 @@ struct HomeView: View {
 
     // MARK: Tutorial
 
-    /// The welcome flow ends by asking for the walkthrough. The menu opens the
-    /// first level of the exercise the player just chose, one beat after it has
-    /// settled in — long enough for the hand-over from the welcome screens to
-    /// finish, short enough that it still reads as one continuous movement.
+    /// The welcome flow ends by asking for the walkthrough. Its three starting
+    /// points map to levels 2, 5 and 10, respectively. The menu opens that
+    /// level one beat after it has settled in — long enough for the hand-over
+    /// from the welcome screens to finish, short enough that it still reads as
+    /// one continuous movement.
     private func openTutorialLevelIfRequested() {
         guard tutorialPending,
               selection == nil,
-              let first = LevelCatalog.levels(for: topic).first else { return }
+              let level = onboardingStartLevel else { return }
         tutorialPending = false
-        rememberBeforePlaying(first)
+        rememberBeforePlaying(level)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
             withAnimation(.easeInOut(duration: 0.3)) {
-                selection = LevelSelection(level: first, startsTutorialArmed: true)
+                selection = LevelSelection(level: level, startsTutorialArmed: true)
             }
         }
+    }
+
+    /// Choice one, two and three on the final welcome screen start the player
+    /// at a suitable point in their chosen topic.
+    private var onboardingStartLevel: MathLevel? {
+        let index: Int
+        switch practiceMode {
+        case .order:  index = 2
+        case .random: index = 5
+        case .mixed:  index = 10
+        }
+        return LevelCatalog.levels(for: topic).first { $0.index == index }
     }
 
     /// The tenth and last step of the walkthrough, which belongs to the menu:
