@@ -298,6 +298,14 @@ enum ReefConfig {
     /// keeps the exact arrival surprising and independent of answer releases.
     static let bonusFishQuestionDelay: ClosedRange<Double> = 2.0...5.0
     static let bonusFishPopDuration = 0.32
+    /// How long the caught 2× coin spirals from the swimmer onto the player's
+    /// tail before it settles into the short trailing orbit.
+    static let bonusCoinCatchDuration = 0.55
+    /// Distance behind the character where the coin rides once caught.
+    static func bonusCoinTrailDistance(fishLength: CGFloat) -> CGFloat {
+        fishLength * 0.62
+    }
+    static func bonusCoinSize(isPad: Bool) -> CGFloat { isPad ? 34 : 26 }
 
     // MARK: Heart fish
 
@@ -508,6 +516,24 @@ struct ReefBonusFish: Identifiable {
     let speed: CGFloat
     let length: CGFloat
     var isCarryingReward = true
+
+    /// World position of the yellow coin badge riding on this swimmer.
+    var carriedCoinPosition: CGPoint {
+        CGPoint(x: position.x + length * 0.64 * direction,
+                y: position.y + length * -0.02)
+    }
+}
+
+/// The yellow 2× coin after it has been taken off the passing fish. It either
+/// spirals onto the player's tail, or already rides there (e.g. after a pause
+/// resume). The swimmer itself keeps crossing the water without it.
+struct ReefBonusCoin: Identifiable {
+    let id = UUID()
+    var position: CGPoint
+    let catchOrigin: CGPoint
+    var age: Double = 0
+
+    var isSettled: Bool { age >= ReefConfig.bonusCoinCatchDuration }
 }
 
 /// A passing recovery fish earned by a run of correct answers after damage.
@@ -567,6 +593,9 @@ final class ReefEngine: ObservableObject {
     private(set) var celebrationBubbles: [ReefCelebrationBubble] = []
     private(set) var ambientBubbles: [ReefAmbientBubble] = []
     private(set) var hasBonusAura = false
+    /// Caught 2× coin riding behind the player. Visual only — collisions and
+    /// bubble pops never consult it.
+    private(set) var bonusCoin: ReefBonusCoin?
     /// Seconds of running time. It stops when the game does, so nothing moves
     /// behind a pause. Everything the player steers, touches or reads timing
     /// from follows this at a capped 60 Hz — fast enough for collisions, and
@@ -828,6 +857,19 @@ final class ReefEngine: ObservableObject {
     func setBonusAura(_ active: Bool) {
         guard hasBonusAura != active else { return }
         hasBonusAura = active
+        if active {
+            // Resume / already-powered: appear settled behind the fish. A live
+            // catch creates the coin itself so the spiral can start at the
+            // swimmer's badge.
+            if bonusCoin == nil {
+                let trail = bonusCoinTrailTarget(at: motionClock)
+                bonusCoin = ReefBonusCoin(position: trail,
+                                          catchOrigin: trail,
+                                          age: ReefConfig.bonusCoinCatchDuration)
+            }
+        } else {
+            bonusCoin = nil
+        }
         // This can change while the simulation is paused, so it cannot wait
         // for the next clock update to be drawn.
         objectWillChange.send()
@@ -1037,6 +1079,7 @@ final class ReefEngine: ObservableObject {
         entranceCompletion = nil
         wakes.removeAll()
         bonusFish = nil
+        bonusCoin = nil
         heartFish = nil
         celebrationBubbles.removeAll()
         ambientBubbles.removeAll()
@@ -1081,6 +1124,7 @@ final class ReefEngine: ObservableObject {
         isLive = false
         bubbles.removeAll()
         bonusFish = nil
+        bonusCoin = nil
         heartFish = nil
         celebrationBubbles.removeAll()
         ambientBubbles.removeAll()
@@ -1162,6 +1206,7 @@ final class ReefEngine: ObservableObject {
         retireMissedCorrectIfNeeded()
         moveBonusFish(dt)
         moveHeartFish(dt)
+        moveBonusCoin(dt)
         if collisionCooldown > 0 { collisionCooldown = max(0, collisionCooldown - dt) }
         spawnBonusFishIfDue(dt)
         spawnHeartFishIfDue(dt)
@@ -2002,8 +2047,14 @@ final class ReefEngine: ObservableObject {
             let dy = bonusFish.position.y - fish.position.y
             let hitRadius = fishRadius + bonusFish.length * 0.48
             if dx * dx + dy * dy <= hitRadius * hitRadius {
+                // The swimmer keeps going; only its coin peels off and spirals
+                // onto the player's tail.
+                let coinOrigin = bonusFish.carriedCoinPosition
                 self.bonusFish?.isCarryingReward = false
                 hasBonusAura = true
+                bonusCoin = ReefBonusCoin(position: coinOrigin,
+                                          catchOrigin: coinOrigin,
+                                          age: 0)
                 collisionCooldown = ReefConfig.collisionCooldown
                 onBonusFishCaught?()
                 onTutorialEvent?(.caughtBonusFish)
@@ -2063,6 +2114,56 @@ final class ReefEngine: ObservableObject {
     }
 
     // MARK: 2x fish
+
+    private func bonusCoinTrailTarget(at time: Double) -> CGPoint {
+        let heading = fish.heading
+        let backward = CGVector(dx: -cos(heading), dy: -sin(heading))
+        let side = CGVector(dx: -sin(heading), dy: cos(heading))
+        let distance = ReefConfig.bonusCoinTrailDistance(fishLength: fishLength)
+        // A short, soft orbit behind the body — close enough to read as carried,
+        // loose enough not to look glued on.
+        let orbit = sin(time * 3.4) * fishLength * 0.055
+        let bob = cos(time * 2.6) * fishLength * 0.040
+        return CGPoint(
+            x: fish.position.x + backward.dx * distance + side.dx * orbit,
+            y: fish.position.y + backward.dy * distance + bob
+        )
+    }
+
+    private func moveBonusCoin(_ dt: Double) {
+        guard hasBonusAura, var coin = bonusCoin else {
+            if !hasBonusAura { bonusCoin = nil }
+            return
+        }
+        coin.age += dt
+        let orbitTarget = bonusCoinTrailTarget(at: motionClock)
+
+        if !coin.isSettled {
+            let duration = ReefConfig.bonusCoinCatchDuration
+            let t = min(1, coin.age / duration)
+            let eased = 1 - pow(1 - t, 3)
+            let heading = fish.heading
+            let side = CGVector(dx: -sin(heading), dy: cos(heading))
+            // One damping swirl while the coin finds the tail slot — a short
+            // "draaidje" that disappears as it settles.
+            let swirl = sin(t * .pi * 2.0) * (1 - t) * fishLength * 0.38
+            let lift = sin(t * .pi) * fishLength * 0.18
+            coin.position = CGPoint(
+                x: coin.catchOrigin.x
+                    + (orbitTarget.x - coin.catchOrigin.x) * CGFloat(eased)
+                    + side.dx * CGFloat(swirl),
+                y: coin.catchOrigin.y
+                    + (orbitTarget.y - coin.catchOrigin.y) * CGFloat(eased)
+                    - CGFloat(lift)
+            )
+        } else {
+            // Soft follow so sharp turns don't yank the coin through the body.
+            let follow = 1 - exp(-CGFloat(dt) * 11)
+            coin.position.x += (orbitTarget.x - coin.position.x) * follow
+            coin.position.y += (orbitTarget.y - coin.position.y) * follow
+        }
+        bonusCoin = coin
+    }
 
     private func spawnBonusFishIfDue(_ dt: Double) {
         // While the walkthrough is running, the only helper fish in the water
@@ -2345,16 +2446,26 @@ struct ReefPlayfield: View {
                         .allowsHitTesting(false)
                 }
 
+                // Drawn in world space (not inside the fish stack) so the catch
+                // spiral can travel from the swimmer to the tail. Always under
+                // the character so it reads as riding behind — and never part
+                // of bubble hit-testing.
+                if let bonusCoin = engine.bonusCoin {
+                    BonusCoinTrailView(coin: bonusCoin,
+                                       palette: palette,
+                                       isPad: isPad,
+                                       clock: engine.motionClock)
+                        .equatable()
+                        .position(bonusCoin.position)
+                        .allowsHitTesting(false)
+                }
+
                 ZStack {
                     if isStreakBoostActive {
                         StreakAuraView(fish: engine.fish,
                                        character: character,
                                        clock: engine.motionClock,
                                        isPad: isPad)
-                    }
-                    if engine.hasBonusAura {
-                        BonusAuraView(character: character, isPad: isPad)
-                            .equatable()
                     }
                     FishView(fish: engine.fish,
                              character: character,
@@ -2578,24 +2689,10 @@ private struct BonusFishView: View, Equatable {
                 .scaleEffect(x: fish.direction < 0 ? -1 : 1, y: 1)
 
             if fish.isCarryingReward {
-                Text(verbatim: "2×")
-                    .font(.system(size: fish.length * 0.21,
-                                  weight: .black,
-                                  design: .rounded))
-                    .foregroundStyle(palette.waterDeep)
-                    .frame(width: fish.length * 0.42, height: fish.length * 0.42)
-                    .background {
-                        Circle()
-                            .fill(
-                                LinearGradient(colors: [.white, .yellow.opacity(0.92)],
-                                               startPoint: .topLeading,
-                                               endPoint: .bottomTrailing)
-                            )
-                            .overlay {
-                                Circle().stroke(.orange, lineWidth: isPad ? 3 : 2)
-                            }
-                    }
-                    .shadow(color: .orange.opacity(0.55), radius: 3, y: 2)
+                BonusCoinBadge(size: fish.length * 0.42,
+                               labelSize: fish.length * 0.21,
+                               strokeWidth: isPad ? 3 : 2,
+                               deepColor: palette.waterDeep)
                     .offset(x: fish.length * 0.64 * fish.direction,
                             y: fish.length * -0.02)
             }
@@ -2603,6 +2700,81 @@ private struct BonusFishView: View, Equatable {
         .frame(width: fish.length * 1.68, height: fish.length * 1.34)
         .shadow(color: .yellow.opacity(0.30), radius: isPad ? 7 : 5, y: 2)
         .accessibilityHidden(true)
+    }
+}
+
+private struct BonusCoinBadge: View {
+    let size: CGFloat
+    let labelSize: CGFloat
+    let strokeWidth: CGFloat
+    let deepColor: Color
+
+    var body: some View {
+        Text(verbatim: "2×")
+            .font(.system(size: labelSize, weight: .black, design: .rounded))
+            .foregroundStyle(deepColor)
+            .frame(width: size, height: size)
+            .background {
+                Circle()
+                    .fill(
+                        LinearGradient(colors: [.white, .yellow.opacity(0.92)],
+                                       startPoint: .topLeading,
+                                       endPoint: .bottomTrailing)
+                    )
+                    .overlay {
+                        Circle().stroke(.orange, lineWidth: strokeWidth)
+                    }
+            }
+            .shadow(color: .orange.opacity(0.55), radius: 3, y: 2)
+    }
+}
+
+private struct BonusCoinTrailView: View, Equatable {
+    let coin: ReefBonusCoin
+    let palette: ReefPalette
+    let isPad: Bool
+    let clock: Double
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.coin.id == rhs.coin.id
+            && lhs.coin.position == rhs.coin.position
+            && lhs.coin.age == rhs.coin.age
+            && lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+            && Int(lhs.clock * 30) == Int(rhs.clock * 30)
+    }
+
+    private var catchProgress: Double {
+        min(1, coin.age / ReefConfig.bonusCoinCatchDuration)
+    }
+
+    private var catchScale: CGFloat {
+        let t = catchProgress
+        if t >= 1 { return 1 }
+        // Pop off the swimmer, then ease into the trailing size.
+        let overshoot = sin(t * .pi) * 0.28
+        return CGFloat(1.08 + overshoot - t * 0.08)
+    }
+
+    private var catchSpin: Angle {
+        .degrees((1 - catchProgress) * -380)
+    }
+
+    private var idleTilt: Angle {
+        guard coin.isSettled else { return .zero }
+        return .degrees(sin(clock * 2.8) * 12)
+    }
+
+    var body: some View {
+        let size = ReefConfig.bonusCoinSize(isPad: isPad)
+        BonusCoinBadge(size: size,
+                       labelSize: size * 0.48,
+                       strokeWidth: isPad ? 2.5 : 2,
+                       deepColor: palette.waterDeep)
+            .scaleEffect(catchScale)
+            .rotationEffect(catchSpin + idleTilt)
+            .opacity(0.72 + 0.28 * min(1, catchProgress / 0.35))
+            .accessibilityHidden(true)
     }
 }
 
@@ -2668,31 +2840,6 @@ private struct FishAuraSilhouette: View {
             .foregroundStyle(color)
             .frame(width: size.width, height: size.height)
             .compositingGroup()
-    }
-}
-
-private struct BonusAuraView: View, Equatable {
-    let character: AnimalCharacter
-    let isPad: Bool
-
-    var body: some View {
-        let size: CGFloat = isPad ? 126 : 94
-        ZStack {
-            Circle()
-                .fill(character.tintColor.opacity(0.20))
-            Circle()
-                .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 3, dash: [7, 5]))
-            Text(verbatim: "2×")
-                .font(.system(size: isPad ? 22 : 17, weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(character.deepColor, in: Capsule())
-                .offset(y: -size * 0.57)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: .white.opacity(0.55), radius: 10)
-        .accessibilityHidden(true)
     }
 }
 

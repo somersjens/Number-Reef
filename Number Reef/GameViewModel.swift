@@ -309,7 +309,7 @@ final class GameViewModel: ObservableObject {
     }
 
     /// Called by the reef when the player catches the passing 2x fish. Multiple
-    /// catches do not stack: one aura always represents one doubled answer.
+    /// catches do not stack: one trailing coin always represents one doubled answer.
     func catchBonusFish() {
         guard !hasBonusFishPower else { return }
         hasBonusFishPower = true

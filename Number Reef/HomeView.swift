@@ -123,7 +123,7 @@ struct HomeView: View {
     private var levelGridContentWidth: CGFloat {
         let padding = (isPad ? 26 : 16) * 2
         let maximum: CGFloat = isWidePad ? 1080 : (isPad ? 760 : 640)
-        let available = viewportWidth > 0 ? viewportWidth - padding : maximum
+        let available = viewportWidth > 0 ? viewportWidth - CGFloat(padding) : maximum
         return max(1, min(available, maximum))
     }
 
