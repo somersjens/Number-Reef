@@ -508,42 +508,60 @@ struct LevelWallpaper: View {
             let columns = Int(ceil(proxy.size.width / spacingX)) + 1
             let rows = Int(ceil(proxy.size.height / spacingY)) + 1
 
-            ZStack {
-                ForEach(0..<rows, id: \.self) { row in
-                    ForEach(0..<columns, id: \.self) { column in
-                        tile
-                            .position(
-                                // Every other row is offset by half a step, so
-                                // the pattern staggers instead of gridding.
-                                x: CGFloat(column) * spacingX
-                                    + (row.isMultiple(of: 2) ? 0 : spacingX / 2),
-                                y: CGFloat(row) * spacingY
-                            )
+            // A staggered grid of 150–300 Text views was rebuilt whenever the
+            // HUD scored. One Canvas draw keeps the same wallpaper and costs a
+            // single pass.
+            Canvas { context, _ in
+                for row in 0..<rows {
+                    for column in 0..<columns {
+                        let point = CGPoint(
+                            x: CGFloat(column) * spacingX
+                                + (row.isMultiple(of: 2) ? 0 : spacingX / 2),
+                            y: CGFloat(row) * spacingY
+                        )
+                        drawTile(in: &context, at: point)
                     }
                 }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .foregroundStyle(tint.opacity(0.10))
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    @ViewBuilder
-    private var tile: some View {
+    private func drawTile(in context: inout GraphicsContext, at point: CGPoint) {
+        let color = tint.opacity(0.10)
         if let glyph {
-            Text(verbatim: glyph)
-                .font(.system(size: fontSize, weight: .heavy, design: .rounded))
-        } else {
-            // The fraction levels have one denominator each, so the wallpaper
-            // mirrors it: 1/3 on the thirds level, and so on.
-            VStack(spacing: 1) {
-                Text(verbatim: "1")
-                Rectangle().frame(height: 2)
-                Text(verbatim: level.cardNumber)
-            }
-            .font(.system(size: fontSize * 0.62, weight: .heavy, design: .rounded))
-            .fixedSize()
+            context.draw(
+                Text(verbatim: glyph)
+                    .font(.system(size: fontSize, weight: .heavy, design: .rounded))
+                    .foregroundColor(color),
+                at: point,
+                anchor: .center
+            )
+            return
         }
+
+        // The fraction levels have one denominator each, so the wallpaper
+        // mirrors it: 1/3 on the thirds level, and so on.
+        let stackedSize = fontSize * 0.62
+        let stackedFont = Font.system(size: stackedSize, weight: .heavy, design: .rounded)
+        context.draw(
+            Text(verbatim: "1").font(stackedFont).foregroundColor(color),
+            at: CGPoint(x: point.x, y: point.y - stackedSize * 0.55),
+            anchor: .center
+        )
+        let ruleWidth = stackedSize * 0.9
+        let rule = CGRect(x: point.x - ruleWidth / 2,
+                          y: point.y - 1,
+                          width: ruleWidth,
+                          height: 2)
+        context.fill(Path(rule), with: .color(color))
+        context.draw(
+            Text(verbatim: "\(level.cardNumber)").font(stackedFont).foregroundColor(color),
+            at: CGPoint(x: point.x, y: point.y + stackedSize * 0.55),
+            anchor: .center
+        )
     }
 }
 

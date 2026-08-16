@@ -73,19 +73,40 @@ private enum ReefPerformanceBudget {
     /// Scenery sway: 20 Hz normally, 12 Hz where the frame budget is tightest.
     static let swayInterval = isConstrained ? 1.0 / 12.0 : 1.0 / 20.0
     static let driftInterval = isConstrained ? 1.0 / 4.0 : 1.0 / 6.0
+    /// Tail-beat, aura pulse and tutorial markers. 30 Hz is already smoother
+    /// than those motions, while feeding the display clock to those views
+    /// forced a shadow/blur rebuild on every ProMotion frame.
+    static let motionInterval = isConstrained ? 1.0 / 20.0 : 1.0 / 30.0
 }
 
 #if canImport(UIKit)
-/// Decode the two occasional power-up sprites before gameplay starts. Their
-/// first appearance should never have to pay PNG decompression on the frame in
-/// which they enter the water.
+/// Decode swimming sprites before gameplay starts. Their first appearance
+/// should never have to pay PNG decompression on the frame in which they
+/// enter the water.
 private enum ReefArtworkCache {
     static let bonusFish: UIImage = preparedImage(named: "2x_coin_fish")
     static let lifeFish: UIImage = preparedImage(named: "life_fish")
+    private static let lock = NSLock()
+    private static var sideImages: [String: UIImage] = [:]
 
-    static func prewarm() {
+    static func prewarm(character: AnimalCharacter) {
         _ = bonusFish
         _ = lifeFish
+        _ = sideImage(named: character.sideImageName)
+    }
+
+    static func sideImage(named name: String) -> UIImage {
+        lock.lock()
+        if let cached = sideImages[name] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+        let image = preparedImage(named: name)
+        lock.lock()
+        sideImages[name] = image
+        lock.unlock()
+        return image
     }
 
     private static func preparedImage(named name: String) -> UIImage {
@@ -94,6 +115,16 @@ private enum ReefArtworkCache {
     }
 }
 #endif
+
+/// The character's side artwork, already decoded for display when UIKit is
+/// available so a 60 Hz swim cycle does not keep touching the asset catalog.
+private func reefSideArtwork(for character: AnimalCharacter) -> Image {
+#if canImport(UIKit)
+    Image(uiImage: ReefArtworkCache.sideImage(named: character.sideImageName))
+#else
+    character.sideArtwork
+#endif
+}
 
 /// Every tunable number of the reef scene, kept together the way `GameConfig`
 /// keeps the session's.
@@ -331,6 +362,8 @@ enum ReefConfig {
     /// The sun shafts drift on a 35-second cycle and are the one full-screen
     /// blur in the scene, so they are re-sampled far more sparingly still.
     static let driftInterval = ReefPerformanceBudget.driftInterval
+    /// Swim-cycle and marker animation. Position and collision stay on `tick`.
+    static let motionInterval = ReefPerformanceBudget.motionInterval
 
     /// Specks of drifting plankton, purely decorative. They freeze with the
     /// rest of the scene when the game is paused.
@@ -536,7 +569,9 @@ final class ReefEngine: ObservableObject {
     private(set) var hasBonusAura = false
     /// Seconds of running time. It stops when the game does, so nothing moves
     /// behind a pause. Everything the player steers, touches or reads timing
-    /// from follows this at the display's full cadence (60 or 120 Hz).
+    /// from follows this at a capped 60 Hz — fast enough for collisions, and
+    /// the highest rate at which this SwiftUI scene can rebuild without hitching
+    /// on ProMotion hardware.
     @Published private(set) var clock: Double = 0
     /// The same clock, held still between sway steps. The sea floor is ~185
     /// gradient, stroke and shadow nodes; rebuilding all of them 60 times a
@@ -546,6 +581,10 @@ final class ReefEngine: ObservableObject {
     private(set) var swayClock: Double = 0
     /// Coarser still, for the drifting sun shafts and their full-screen blur.
     private(set) var driftClock: Double = 0
+    /// Swim-cycle, aura pulse and tutorial markers. These views carry shadows
+    /// or blurs, so they follow this slower clock rather than every simulation
+    /// frame. Position is applied separately at the full 60 Hz step.
+    private(set) var motionClock: Double = 0
 
     /// Called when the fish touches an answer bubble. Returns whether the
     /// session accepted it, so a touch the engine ignores leaves the water
@@ -953,13 +992,14 @@ final class ReefEngine: ObservableObject {
             lastFrameTargetTimestamp = nil
             let link = CADisplayLink(target: displayLinkTarget,
                                      selector: #selector(DisplayLinkTarget.advance(_:)))
-            let maximumFPS = ReefPerformanceBudget.isConstrained
-                ? 60
-                : max(60, UIScreen.main.maximumFramesPerSecond)
+            // ProMotion's 120 Hz doubles SwiftUI's per-frame view diff for a
+            // motion difference the eye cannot pick up in this scene. Steering
+            // and collisions stay locked to the display without paying that
+            // extra invalidation tax.
             link.preferredFrameRateRange = CAFrameRateRange(
-                minimum: 60,
-                maximum: Float(maximumFPS),
-                preferred: Float(maximumFPS)
+                minimum: 30,
+                maximum: 60,
+                preferred: 60
             )
             link.add(to: .main, forMode: .common)
             displayLink = link
@@ -1083,8 +1123,8 @@ final class ReefEngine: ObservableObject {
 
     #if canImport(UIKit)
     /// Uses the display's real presentation interval. This keeps motion at the
-    /// same speed when a frame is late and lets ProMotion devices render the
-    /// simulation at their native cadence instead of repeating every frame.
+    /// same speed when a frame is late. The link itself is capped at 60 Hz, so
+    /// a late frame is a 60 Hz interval rather than a 120 Hz one.
     private func advance(_ displayLink: CADisplayLink) {
         let target = displayLink.targetTimestamp
         let measured = lastFrameTargetTimestamp.map { target - $0 }
@@ -1147,6 +1187,8 @@ final class ReefEngine: ObservableObject {
             * ReefConfig.swayInterval
         driftClock = (nextClock / ReefConfig.driftInterval).rounded(.down)
             * ReefConfig.driftInterval
+        motionClock = (nextClock / ReefConfig.motionInterval).rounded(.down)
+            * ReefConfig.motionInterval
         // This is the one published write for the completed frame. The
         // scenery clocks above are sampled by the same render pass without
         // triggering two extra full playfield invalidations.
@@ -2157,47 +2199,6 @@ final class ReefEngine: ObservableObject {
     }
 }
 
-// MARK: - Level completion bubbles
-
-private struct CelebrationBubbleView: View {
-    let bubble: ReefCelebrationBubble
-    let palette: ReefPalette
-
-    private var scale: CGFloat {
-        switch bubble.kind {
-        case .stream: return min(1, CGFloat(bubble.age / 0.18))
-        case .trail:  return max(0.45, 1 - CGFloat(bubble.age / 2.8) * 0.42)
-        }
-    }
-
-    var body: some View {
-        Circle()
-            .fill(
-                RadialGradient(colors: [
-                    .white.opacity(0.42),
-                    palette.waterTop.opacity(0.22),
-                    .white.opacity(0.16)
-                ], center: .topLeading, startRadius: 1, endRadius: bubble.radius * 1.4)
-            )
-            .overlay {
-                Circle().stroke(.white.opacity(0.48),
-                                lineWidth: max(1, bubble.radius * 0.09))
-            }
-            .overlay(alignment: .topLeading) {
-                Circle()
-                    .fill(.white.opacity(0.72))
-                    .frame(width: bubble.radius * 0.34, height: bubble.radius * 0.34)
-                    .padding(bubble.radius * 0.32)
-            }
-            .frame(width: bubble.radius * 2, height: bubble.radius * 2)
-            .scaleEffect(scale)
-            .opacity(bubble.kind == .trail
-                     ? max(0, 1 - bubble.age / 3.0)
-                     : 1)
-            .allowsHitTesting(false)
-    }
-}
-
 // MARK: - Playfield
 
 /// The reef itself. Everything below the HUD and above the helper button.
@@ -2286,13 +2287,10 @@ struct ReefPlayfield: View {
                 ReefEffectsCanvas(motes: engine.motes,
                                   wakes: engine.wakes,
                                   ambientBubbles: engine.ambientBubbles,
-                                  character: character)
+                                  celebrationBubbles: engine.celebrationBubbles,
+                                  character: character,
+                                  palette: palette)
                     .allowsHitTesting(false)
-
-                ForEach(engine.celebrationBubbles) { bubble in
-                    CelebrationBubbleView(bubble: bubble, palette: palette)
-                        .position(bubble.position)
-                }
 
                 // Under the answers and the swimmer: the marker is a place in
                 // the water, not an object floating in front of the game.
@@ -2301,13 +2299,13 @@ struct ReefPlayfield: View {
                         TutorialSwipeHint(start: engine.fish.position,
                                           end: target,
                                           theme: character,
-                                          clock: engine.clock,
+                                          clock: engine.motionClock,
                                           isPad: isPad)
                             .frame(width: size.width, height: size.height)
                             .transition(.opacity)
                     }
                     TutorialTargetView(theme: character,
-                                       clock: engine.clock,
+                                       clock: engine.motionClock,
                                        isPad: isPad)
                         .position(target)
                         .transition(.scale(scale: 0.7).combined(with: .opacity))
@@ -2325,6 +2323,7 @@ struct ReefPlayfield: View {
                     CollectedAnswerBubbleView(bubble: bubble,
                                               palette: palette,
                                               isPad: isPad)
+                        .equatable()
                         .position(bubble.position)
                         .allowsHitTesting(false)
                 }
@@ -2350,7 +2349,7 @@ struct ReefPlayfield: View {
                     if isStreakBoostActive {
                         StreakAuraView(fish: engine.fish,
                                        character: character,
-                                       clock: engine.clock,
+                                       clock: engine.motionClock,
                                        isPad: isPad)
                     }
                     if engine.hasBonusAura {
@@ -2360,7 +2359,7 @@ struct ReefPlayfield: View {
                     FishView(fish: engine.fish,
                              character: character,
                              isPad: isPad,
-                             clock: engine.clock)
+                             clock: engine.motionClock)
                         .equatable()
                 }
                 .position(engine.fish.position)
@@ -2388,7 +2387,7 @@ struct ReefPlayfield: View {
             .environment(\.layoutDirection, .leftToRight)
             .onAppear {
 #if canImport(UIKit)
-                ReefArtworkCache.prewarm()
+                ReefArtworkCache.prewarm(character: character)
 #endif
                 engine.onHit = onHit
                 engine.onCollectedBubbleArrived = onScoreBubbleArrived
@@ -2662,7 +2661,7 @@ private struct FishAuraSilhouette: View {
     let color: Color
 
     var body: some View {
-        character.sideArtwork
+        reefSideArtwork(for: character)
             .renderingMode(.template)
             .resizable()
             .scaledToFit()
@@ -2699,10 +2698,21 @@ private struct BonusAuraView: View, Equatable {
 
 // MARK: - Bubble
 
-private struct CollectedAnswerBubbleView: View {
+private struct CollectedAnswerBubbleView: View, Equatable {
     let bubble: ReefCollectedBubble
     let palette: ReefPalette
     let isPad: Bool
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.bubble.id == rhs.bubble.id
+            && lhs.scaleStep == rhs.scaleStep
+            && lhs.palette.character == rhs.palette.character
+            && lhs.isPad == rhs.isPad
+    }
+
+    /// Quantize the flight so the glyph is not rebuilt sixty times a second.
+    /// Forty steps over the 0.92 s arc is still a smooth swell.
+    private var scaleStep: Int { Int((progress * 40).rounded()) }
 
     private var progress: Double {
         min(1, bubble.age / ReefConfig.collectedBubbleDuration)
@@ -2733,12 +2743,17 @@ private struct AnswerBubbleView: View, Equatable {
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.bubble.id == rhs.bubble.id
-            && lhs.bubble.emergence == rhs.bubble.emergence
+            && lhs.emergenceStep == rhs.emergenceStep
             && lhs.bubble.isPopping == rhs.bubble.isPopping
-            && lhs.popProgress == rhs.popProgress
+            && lhs.popStep == rhs.popStep
             && lhs.palette.character == rhs.palette.character
             && lhs.isPad == rhs.isPad
     }
+
+    /// Emergence lasts 0.62 s; twenty steps is a smooth swell without a
+    /// shadow/gradient rebuild on every simulation tick.
+    private var emergenceStep: Int { Int((bubble.emergence * 20).rounded()) }
+    private var popStep: Int { Int((popProgress * 16).rounded()) }
 
     /// The shell vanishes immediately; the water it held keeps splashing for
     /// the rest of the beat.
@@ -2909,9 +2924,8 @@ private struct FishView: View, Equatable {
     }
 
     var body: some View {
-        character.sideArtwork
-            .resizable()
-            .scaledToFit()
+        FishArtwork(character: character, size: artworkSize)
+            .equatable()
             // The stroke is what a tail beat reads as here: the body stretches
             // along the swim axis and narrows across it, which suits ten very
             // different shapes better than one hand-tuned fin animation.
@@ -2923,6 +2937,18 @@ private struct FishView: View, Equatable {
             .offset(y: lift)
             .shadow(color: character.deepColor.opacity(0.22), radius: 6, y: 4)
             .accessibilityHidden(true)
+    }
+}
+
+private struct FishArtwork: View, Equatable {
+    let character: AnimalCharacter
+    let size: CGSize
+
+    var body: some View {
+        reefSideArtwork(for: character)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size.width, height: size.height)
     }
 }
 
@@ -2954,9 +2980,15 @@ private struct SunShafts: View {
         GeometryReader { proxy in
             let width = proxy.size.width
             ZStack {
-                shaft(width: width * 0.30, lean: -13)
+                // The blur is baked into an Equatable child so a 6 Hz drift
+                // only moves an already-rasterized layer. Rebuilding two
+                // full-height Gaussian blurs was a hitch every time the shafts
+                // were sampled.
+                CachedSunShaft(width: width * 0.30, lean: -13)
+                    .equatable()
                     .offset(x: width * (0.24 + 0.03 * CGFloat(sin(clock * 0.18))))
-                shaft(width: width * 0.20, lean: -9)
+                CachedSunShaft(width: width * 0.20, lean: -9)
+                    .equatable()
                     .offset(x: width * (0.70 + 0.04 * CGFloat(sin(clock * 0.13 + 1.7))))
             }
             .frame(width: width, height: proxy.size.height, alignment: .topLeading)
@@ -2965,10 +2997,15 @@ private struct SunShafts: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
+}
 
-    /// Kept deliberately faint: the shafts are there to be felt, not looked at,
-    /// and the answers have to stay the brightest thing in the water.
-    private func shaft(width: CGFloat, lean: Double) -> some View {
+/// Kept deliberately faint: the shafts are there to be felt, not looked at,
+/// and the answers have to stay the brightest thing in the water.
+private struct CachedSunShaft: View, Equatable {
+    let width: CGFloat
+    let lean: Double
+
+    var body: some View {
         LinearGradient(stops: [.init(color: .white.opacity(0), location: 0),
                                .init(color: .white, location: 0.22),
                                .init(color: .white.opacity(0), location: 1)],
@@ -2979,20 +3016,24 @@ private struct SunShafts: View {
     }
 }
 
-/// Plankton, wake wisps and ambient bubbles share one immediate-mode render
-/// pass. None of them needs its own layout, accessibility or hit-testing node;
-/// keeping them in a Canvas dramatically reduces SwiftUI diffing during fast
-/// movement and when an extra boost aura is on screen.
+/// Plankton, wake wisps, ambient bubbles and the level-completion bloom share
+/// one immediate-mode render pass. None of them needs its own layout,
+/// accessibility or hit-testing node; keeping them in a Canvas dramatically
+/// reduces SwiftUI diffing during fast movement, a streak aura, and the finale
+/// that used to spawn a hundred individual gradient views.
 private struct ReefEffectsCanvas: View {
     let motes: [ReefMote]
     let wakes: [ReefWake]
     let ambientBubbles: [ReefAmbientBubble]
+    let celebrationBubbles: [ReefCelebrationBubble]
     let character: AnimalCharacter
+    let palette: ReefPalette
 
     var body: some View {
-        // Draw synchronously with the current display frame. Asynchronous
-        // Canvas rendering can trail the fish by a frame on older hardware.
-        Canvas(opaque: false, rendersAsynchronously: false) { context, _ in
+        // Wakes and plankton sit behind the fish, so a frame of asynchronous
+        // rasterization is invisible. Drawing them on the main thread used to
+        // steal the budget that steering and collisions need.
+        Canvas(opaque: false, rendersAsynchronously: true) { context, _ in
             for mote in motes {
                 let rect = CGRect(x: mote.position.x - mote.radius,
                                   y: mote.position.y - mote.radius,
@@ -3007,6 +3048,10 @@ private struct ReefEffectsCanvas: View {
 
             for bubble in ambientBubbles {
                 draw(ambientBubble: bubble, in: &context)
+            }
+
+            for bubble in celebrationBubbles {
+                draw(celebrationBubble: bubble, in: &context)
             }
         }
         .accessibilityHidden(true)
@@ -3098,6 +3143,51 @@ private struct ReefEffectsCanvas: View {
                      with: .color(.white.opacity(0.68 * opacity)))
     }
 
+    private func draw(celebrationBubble bubble: ReefCelebrationBubble,
+                      in context: inout GraphicsContext) {
+        let scale: CGFloat
+        switch bubble.kind {
+        case .stream: scale = min(1, CGFloat(bubble.age / 0.18))
+        case .trail:  scale = max(0.45, 1 - CGFloat(bubble.age / 2.8) * 0.42)
+        }
+        let opacity: Double = bubble.kind == .trail
+            ? max(0, 1 - bubble.age / 3.0)
+            : 1
+        let radius = bubble.radius * scale
+        let rect = CGRect(x: bubble.position.x - radius,
+                          y: bubble.position.y - radius,
+                          width: radius * 2,
+                          height: radius * 2)
+        let shell = Path(ellipseIn: rect)
+        let highlightCenter = CGPoint(
+            x: rect.minX + radius * 0.36,
+            y: rect.minY + radius * 0.36
+        )
+        context.fill(
+            shell,
+            with: .radialGradient(
+                Gradient(colors: [
+                    Color.white.opacity(0.42 * opacity),
+                    palette.waterTop.opacity(0.22 * opacity),
+                    Color.white.opacity(0.16 * opacity)
+                ]),
+                center: highlightCenter,
+                startRadius: 1,
+                endRadius: radius * 1.4
+            )
+        )
+        context.stroke(shell, with: .color(.white.opacity(0.48 * opacity)),
+                       lineWidth: max(1, radius * 0.09))
+
+        let highlightRadius = radius * 0.17
+        let highlight = CGRect(x: highlightCenter.x - highlightRadius,
+                               y: highlightCenter.y - highlightRadius,
+                               width: highlightRadius * 2,
+                               height: highlightRadius * 2)
+        context.fill(Path(ellipseIn: highlight),
+                     with: .color(.white.opacity(0.72 * opacity)))
+    }
+
     private func rotatedPoint(x: CGFloat, y: CGFloat, around centre: CGPoint,
                               angle: Double) -> CGPoint {
         let cosine = CGFloat(cos(angle))
@@ -3140,6 +3230,33 @@ private struct CoralBed: View, Equatable {
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            // ~185 gradient/stroke/shadow nodes flattened into two Metal
+            // textures. The equation stays a real Text view between them so it
+            // stays sharp, and plants remain in front of the sum the way they
+            // were composed.
+            backScenery
+                .padding(16)
+                .drawingGroup()
+                .padding(-16)
+
+            CoralQuestion(prompt: prompt,
+                          roundID: roundID,
+                          palette: palette,
+                          isPad: isPad)
+                .frame(height: doorHeight)
+                .padding(.horizontal, questionInset)
+                .padding(.bottom, floorInset)
+
+            frontScenery
+                .padding(16)
+                .drawingGroup()
+                .padding(-16)
+        }
+    }
+
+    @ViewBuilder
+    private var backScenery: some View {
+        ZStack(alignment: .bottom) {
             SandBank(palette: palette)
                 .frame(height: sandHeight)
 
@@ -3163,15 +3280,12 @@ private struct CoralBed: View, Equatable {
                 .frame(height: rimHeight)
                 .padding(.horizontal, ReefConfig.blockInset(isPad: isPad))
                 .padding(.bottom, floorInset + doorHeight)
+        }
+    }
 
-            CoralQuestion(prompt: prompt,
-                          roundID: roundID,
-                          palette: palette,
-                          isPad: isPad)
-                .frame(height: doorHeight)
-                .padding(.horizontal, questionInset)
-                .padding(.bottom, floorInset)
-
+    @ViewBuilder
+    private var frontScenery: some View {
+        ZStack(alignment: .bottom) {
             SeaPlantField(palette: palette, isPad: isPad, clock: clock)
                 .frame(height: bandHeight)
 
