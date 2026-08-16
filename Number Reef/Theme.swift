@@ -8,6 +8,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The game's currency. A player collects bubbles: in the reef, on the menu
 /// totals, on the level cards and in the shop. One glyph, used everywhere, so
@@ -29,6 +32,37 @@ struct CurrencyIcon: View {
             .frame(width: size, height: size)
     }
 }
+
+#if canImport(UIKit)
+/// Decode portrait sprites once. Opening the collection used to pay PNG
+/// decompression for ten characters on the sheet's first frame.
+enum CharacterArtworkCache {
+    private static let lock = NSLock()
+    private static var images: [String: UIImage] = [:]
+
+    static func prewarm() {
+        for character in CharacterCatalog.all {
+            _ = front(named: character.imageName)
+        }
+    }
+
+    static func front(named name: String) -> UIImage {
+        lock.lock()
+        if let cached = images[name] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+        let image = (UIImage(named: name) ?? UIImage()).preparingForDisplay()
+            ?? UIImage(named: name)
+            ?? UIImage()
+        lock.lock()
+        images[name] = image
+        lock.unlock()
+        return image
+    }
+}
+#endif
 
 struct AnimalCharacter: Identifiable, Equatable {
     let id: String
@@ -62,7 +96,13 @@ struct AnimalCharacter: Identifiable, Equatable {
     /// All ten assets are square and optically equalised, so one square frame
     /// renders any character at the same apparent size.
     var imageName: String { "front_\(slot)" }
-    var artwork: Image { Image(imageName) }
+    var artwork: Image {
+#if canImport(UIKit)
+        Image(uiImage: CharacterArtworkCache.front(named: imageName))
+#else
+        Image(imageName)
+#endif
+    }
 
     /// Facing the way it swims, used while playing.
     var sideImageName: String { "side_\(slot)" }

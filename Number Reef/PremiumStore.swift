@@ -47,6 +47,16 @@ final class PremiumStore: ObservableObject {
         await updateEntitlement()
     }
 
+    /// Opening the collection should not wait on the App Store again if the
+    /// home screen already fetched the product on launch.
+    func refreshIfNeeded() async {
+        if product == nil {
+            await refresh()
+        } else {
+            await updateEntitlement()
+        }
+    }
+
     /// StoreKit may need to wake the App Store daemon on its first request.
     /// Keep that work off the launch frame; the home screen is already usable
     /// while the entitlement and price are fetched just after it is drawn.

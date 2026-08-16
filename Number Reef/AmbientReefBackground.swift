@@ -12,14 +12,18 @@ import SwiftUI
 struct AmbientReefBackground: View {
     let character: AnimalCharacter
     var showsSeaFloor = true
+    /// Freeze decorative motion while a sheet or game cover is on top, so the
+    /// menu behind it is not still ticking a display link.
+    var isPaused = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var palette: ReefPalette { ReefPalette(character: character) }
+    private var motionPaused: Bool { reduceMotion || isPaused }
 
     var body: some View {
         // The geometry sits outside the timeline: only the bubbles move from
-        // frame to frame, and re-proposing the whole backdrop's layout 24 times
+        // frame to frame, and re-proposing the whole backdrop's layout 12 times
         // a second to learn a size that never changes is pure overhead.
         GeometryReader { proxy in
             ZStack {
@@ -31,11 +35,11 @@ struct AmbientReefBackground: View {
                     endPoint: .bottom
                 )
 
-                AmbientLightShafts(paused: reduceMotion)
+                AmbientLightShafts(paused: motionPaused)
                     .opacity(0.16)
 
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
-                    let phase = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate
+                TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: motionPaused)) { timeline in
+                    let phase = motionPaused ? 0 : timeline.date.timeIntervalSinceReferenceDate
                     AmbientBubbleField(phase: phase, size: proxy.size)
                 }
 
@@ -137,30 +141,34 @@ private struct AmbientBubbleField: View {
     ]
 
     var body: some View {
-        ZStack {
-            ForEach(bubbles) { bubble in
+        Canvas { context, _ in
+            for bubble in bubbles {
                 let travel = size.height + 100
                 let shifted = bubble.y * travel - CGFloat(phase) * bubble.speed
                 let wrapped = shifted.truncatingRemainder(dividingBy: travel)
                 let y = wrapped >= 0 ? wrapped : wrapped + travel
+                let radius = bubble.diameter / 2
+                let rect = CGRect(x: bubble.x * size.width - radius,
+                                  y: y - radius,
+                                  width: bubble.diameter,
+                                  height: bubble.diameter)
+                let shell = Path(ellipseIn: rect)
+                context.fill(shell, with: .color(.white.opacity(0.08)))
+                context.stroke(shell, with: .color(.white.opacity(0.32)),
+                               lineWidth: max(1, bubble.diameter * 0.08))
 
-                Circle()
-                    .fill(.white.opacity(0.08))
-                    .overlay {
-                        Circle()
-                            .stroke(.white.opacity(0.32), lineWidth: max(1, bubble.diameter * 0.08))
-                    }
-                    .overlay(alignment: .topLeading) {
-                        Circle()
-                            .fill(.white.opacity(0.48))
-                            .frame(width: bubble.diameter * 0.22, height: bubble.diameter * 0.22)
-                            .padding(bubble.diameter * 0.2)
-                    }
-                    .frame(width: bubble.diameter, height: bubble.diameter)
-                    .position(x: bubble.x * size.width, y: y)
+                let highlightSize = bubble.diameter * 0.22
+                let highlight = CGRect(
+                    x: rect.minX + bubble.diameter * 0.2,
+                    y: rect.minY + bubble.diameter * 0.2,
+                    width: highlightSize,
+                    height: highlightSize
+                )
+                context.fill(Path(ellipseIn: highlight), with: .color(.white.opacity(0.48)))
             }
         }
         .opacity(0.78)
+        .allowsHitTesting(false)
     }
 }
 
