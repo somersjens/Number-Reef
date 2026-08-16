@@ -651,9 +651,11 @@ struct LevelCardView: View {
                 // The launch anchor is read from the unscaled layout frame, so
                 // the flying card starts exactly overlapping this glyph.
                 .background {
-                    GeometryReader { proxy in
-                        Color.clear.preference(key: CardGlyphAnchorKey.self,
-                                               value: [level.id: proxy.frame(in: .named("home"))])
+                    if celebrationStartedAt != nil {
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: CardGlyphAnchorKey.self,
+                                                   value: [level.id: proxy.frame(in: .named("home"))])
+                        }
                     }
                 }
                 .scaleEffect(scorePulse ? 1.48 : 1)
@@ -761,9 +763,11 @@ struct LevelCardView: View {
                         // here the standard card's disappearing glyph leaves
                         // the return animation with no source point.
                         .background {
-                            GeometryReader { proxy in
-                                Color.clear.preference(key: CardGlyphAnchorKey.self,
-                                                       value: [level.id: proxy.frame(in: .named("home"))])
+                            if celebrationStartedAt != nil {
+                                GeometryReader { proxy in
+                                    Color.clear.preference(key: CardGlyphAnchorKey.self,
+                                                           value: [level.id: proxy.frame(in: .named("home"))])
+                                }
                             }
                         }
                         .scaleEffect(scorePulse ? 1.48 : 1)
@@ -893,27 +897,6 @@ private struct CompletionFern: View {
     /// Nil means this is an already-completed card and should render fully.
     let revealStartedAt: Date?
 
-    private struct Leaf: Identifiable {
-        let id: Int
-        let x: CGFloat
-        let y: CGFloat
-        let width: CGFloat
-        let height: CGFloat
-        let rotation: Double
-    }
-
-    private let leaves: [Leaf] = [
-        Leaf(id: 0, x: 0.63, y: 0.82, width: 0.25, height: 0.12, rotation: 48),
-        Leaf(id: 1, x: 0.29, y: 0.75, width: 0.27, height: 0.12, rotation: 27),
-        Leaf(id: 2, x: 0.62, y: 0.66, width: 0.28, height: 0.12, rotation: -42),
-        Leaf(id: 3, x: 0.18, y: 0.58, width: 0.28, height: 0.12, rotation: 13),
-        Leaf(id: 4, x: 0.57, y: 0.49, width: 0.29, height: 0.12, rotation: -52),
-        Leaf(id: 5, x: 0.19, y: 0.39, width: 0.27, height: 0.115, rotation: -7),
-        Leaf(id: 6, x: 0.62, y: 0.31, width: 0.27, height: 0.115, rotation: -58),
-        Leaf(id: 7, x: 0.34, y: 0.20, width: 0.25, height: 0.11, rotation: -25),
-        Leaf(id: 8, x: 0.70, y: 0.14, width: 0.23, height: 0.105, rotation: -45)
-    ]
-
     var body: some View {
         Group {
             // Only a fern that is actually growing needs a frame-by-frame
@@ -921,75 +904,88 @@ private struct CompletionFern: View {
             // and then costs nothing — which matters because the menu can show
             // dozens of completed levels, each carrying two of these.
             if let revealStartedAt {
-                TimelineView(.animation) { context in
-                    fern(at: max(0, context.date.timeIntervalSince(revealStartedAt)))
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                    FernCanvas(color: color,
+                               elapsed: max(0, context.date.timeIntervalSince(revealStartedAt)))
                 }
             } else {
-                fern(at: .greatestFiniteMagnitude)
+                FernCanvas(color: color, elapsed: .greatestFiniteMagnitude)
             }
         }
-        .shadow(color: color.opacity(0.16), radius: 1, y: 0.5)
+        .accessibilityHidden(true)
     }
+}
 
-    private func fern(at elapsed: TimeInterval) -> some View {
-        GeometryReader { proxy in
-            ZStack {
-                FernStemShape()
-                    .trim(from: 0, to: stemProgress(at: elapsed))
-                    .stroke(color.opacity(0.62),
-                            style: StrokeStyle(lineWidth: max(1, proxy.size.width * 0.05),
-                                               lineCap: .round))
+private struct FernCanvas: View {
+    let color: Color
+    let elapsed: TimeInterval
 
-                ForEach(leaves) { leaf in
-                    let progress = leafProgress(leaf, at: elapsed)
-                    let leafX = proxy.size.width * leaf.x
-                    let leafY = proxy.size.height * leaf.y
+    private let leaves: [(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat, rotation: Double, id: Int)] = [
+        (0.63, 0.82, 0.25, 0.12, 48, 0),
+        (0.29, 0.75, 0.27, 0.12, 27, 1),
+        (0.62, 0.66, 0.28, 0.12, -42, 2),
+        (0.18, 0.58, 0.28, 0.12, 13, 3),
+        (0.57, 0.49, 0.29, 0.12, -52, 4),
+        (0.19, 0.39, 0.27, 0.115, -7, 5),
+        (0.62, 0.31, 0.27, 0.115, -58, 6),
+        (0.34, 0.20, 0.25, 0.11, -25, 7),
+        (0.70, 0.14, 0.23, 0.105, -45, 8)
+    ]
 
-                    // A short petiole connects every leaf to the bowed
-                    // stem, so the ornament reads as a growing fern rather
-                    // than a loose row of capsules.
-                    Path { path in
-                        path.move(to: CGPoint(x: proxy.size.width * stemX(at: leaf.y),
-                                              y: leafY))
-                        path.addLine(to: CGPoint(x: leafX, y: leafY))
-                    }
-                    .trim(from: 0, to: min(1, progress))
-                    .stroke(color.opacity(0.48),
-                            style: StrokeStyle(lineWidth: max(0.7, proxy.size.width * 0.025),
-                                               lineCap: .round))
+    var body: some View {
+        Canvas { context, size in
+            let stemProgress = CGFloat(min(1, max(0, elapsed / 0.48)))
+            var stem = FernStemShape().path(in: CGRect(origin: .zero, size: size))
+            stem = stem.trimmedPath(from: 0, to: stemProgress)
+            context.stroke(
+                stem,
+                with: .color(color.opacity(0.62)),
+                style: StrokeStyle(lineWidth: max(1, size.width * 0.05), lineCap: .round)
+            )
 
-                    FernLeafShape()
-                        .fill(
-                            LinearGradient(colors: [color.opacity(0.95), color.opacity(0.62)],
-                                           startPoint: .topLeading,
-                                           endPoint: .bottomTrailing)
-                        )
-                        .frame(width: proxy.size.width * leaf.width,
-                               height: proxy.size.height * leaf.height)
-                        .scaleEffect(x: progress, y: progress, anchor: .leading)
-                        .rotationEffect(.degrees(leaf.rotation
-                            + (leaf.x < stemX(at: leaf.y) ? -14 : 14) * (1 - progress)))
-                        .opacity(min(1, progress))
-                        .position(x: leafX, y: leafY)
-                }
+            for leaf in leaves {
+                let progress = leafProgress(leaf.id, at: elapsed)
+                let leafX = size.width * leaf.x
+                let leafY = size.height * leaf.y
+                let stemX = stemX(at: leaf.y)
+                var petiole = Path()
+                petiole.move(to: CGPoint(x: size.width * stemX, y: leafY))
+                petiole.addLine(to: CGPoint(x: leafX, y: leafY))
+                petiole = petiole.trimmedPath(from: 0, to: min(1, progress))
+                context.stroke(
+                    petiole,
+                    with: .color(color.opacity(0.48)),
+                    style: StrokeStyle(lineWidth: max(0.7, size.width * 0.025), lineCap: .round)
+                )
+
+                let leafWidth = size.width * leaf.width * progress
+                let leafHeight = size.height * leaf.height * progress
+                let rect = CGRect(x: 0, y: -leafHeight / 2, width: leafWidth, height: leafHeight)
+                let extra = (leaf.x < stemX ? -14.0 : 14.0) * (1 - Double(progress))
+                var drawContext = context
+                drawContext.opacity = min(1, progress)
+                drawContext.translateBy(x: leafX, y: leafY)
+                drawContext.rotate(by: .degrees(leaf.rotation + extra))
+                drawContext.fill(
+                    FernLeafShape().path(in: rect),
+                    with: .linearGradient(
+                        Gradient(colors: [color.opacity(0.95), color.opacity(0.62)]),
+                        startPoint: CGPoint(x: rect.minX, y: rect.minY),
+                        endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
+                    )
+                )
             }
         }
     }
 
-    private func stemProgress(at elapsed: TimeInterval) -> CGFloat {
-        CGFloat(min(1, max(0, elapsed / 0.48)))
-    }
-
-    private func leafProgress(_ leaf: Leaf, at elapsed: TimeInterval) -> CGFloat {
-        let delay = 0.16 + Double(leaf.id) * 0.055
+    private func leafProgress(_ id: Int, at elapsed: TimeInterval) -> CGFloat {
+        let delay = 0.16 + Double(id) * 0.055
         let raw = min(1, max(0, (elapsed - delay) / 0.30))
-        // Back ease: each leaf opens with a tiny organic overshoot.
         let c1 = 1.70158
         let c3 = c1 + 1
         return CGFloat(1 + c3 * pow(raw - 1, 3) + c1 * pow(raw - 1, 2))
     }
 
-    /// Approximation of the stem's horizontal position at a leaf's height.
     private func stemX(at y: CGFloat) -> CGFloat {
         let fromBottom = 1 - y
         return 0.76 - 0.10 * fromBottom - 0.34 * sin(fromBottom * .pi)
@@ -1159,7 +1155,7 @@ struct CountingNumber: View {
             // change, so the settled value is rendered as a plain, static view
             // and the whole screen stops redrawing at 120 Hz while idle.
             if let startedAt {
-                TimelineView(.animation) { context in
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
                     numeral(at: context.date.timeIntervalSince(startedAt))
                 }
             } else {
@@ -1274,7 +1270,6 @@ struct AlternatingCardSummary: View {
                            duration: countDuration)
                 .font(.system(size: baseFontSize, weight: .heavy, design: .rounded))
                 .opacity(showsPreview ? 0 : 1)
-                .blur(radius: showsPreview ? 2.2 : 0)
                 .scaleEffect(showsPreview ? 0.985 : 1, anchor: .leading)
                 .reportAnchor("headerTotal")
                 // Deliberately not hidden while the preview shows: the total is
@@ -1325,7 +1320,6 @@ struct AlternatingCardSummary: View {
         }
         .buttonStyle(.plain)
         .opacity(showsPreview ? 1 : 0)
-        .blur(radius: showsPreview ? 0 : 2.2)
         .scaleEffect(showsPreview ? 1 : 0.985, anchor: .leading)
         .allowsHitTesting(showsPreview)
         .accessibilityElement(children: .ignore)

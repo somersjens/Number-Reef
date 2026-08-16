@@ -95,15 +95,13 @@ struct PremiumView: View {
                     .padding(.trailing, isPad ? 28 : 18)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: previewCharacterID)
-        .animation(.spring(response: 0.42, dampingFraction: 0.7), value: premium.isPremium)
         .onAppear {
             if let celebratedUnlockCharacterID {
                 previewCharacterID = celebratedUnlockCharacterID
                 playUnlockCelebration(characterID: celebratedUnlockCharacterID)
             }
         }
-        .task { await premium.refresh() }
+        .task { await premium.refreshIfNeeded() }
         .sheet(isPresented: $showsParentApproval) {
             ParentApprovalGate(
                 accent: character.color,
@@ -164,6 +162,7 @@ struct PremiumView: View {
             availabilityBadge(for: character)
         }
         .padding(.top, 44)
+        .animation(.easeInOut(duration: 0.25), value: previewCharacterID)
     }
 
     @ViewBuilder
@@ -351,58 +350,61 @@ struct PremiumView: View {
 
     @ViewBuilder
     private var purchaseSection: some View {
-        if premium.isPremium {
-            Button { dismiss() } label: {
-                Text("common.done")
-                    .font(isPad ? .system(size: 24, weight: .bold) : .headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14 * scale)
-                    .background(character.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .foregroundStyle(.white)
-            }
-            .buttonStyle(.plain)
-        } else {
-            VStack(spacing: 12) {
-                Button { showsParentApproval = true } label: {
-                    HStack {
-                        if premium.isPurchasing {
-                            ProgressView().tint(.white)
-                        } else {
-                            Text(purchaseButtonTitle)
-                                .font(isPad ? .system(size: 24, weight: .bold) : .headline)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16 * scale)
-                    .background(
-                        LinearGradient(colors: [character.color, character.deepColor],
-                                       startPoint: .top, endPoint: .bottom),
-                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    )
-                    .foregroundStyle(.white)
-                    .shadow(color: character.deepColor.opacity(0.3), radius: 10, y: 5)
+        Group {
+            if premium.isPremium {
+                Button { dismiss() } label: {
+                    Text("common.done")
+                        .font(isPad ? .system(size: 24, weight: .bold) : .headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14 * scale)
+                        .background(character.color, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(premium.isPurchasing)
+            } else {
+                VStack(spacing: 12) {
+                    Button { showsParentApproval = true } label: {
+                        HStack {
+                            if premium.isPurchasing {
+                                ProgressView().tint(.white)
+                            } else {
+                                Text(purchaseButtonTitle)
+                                    .font(isPad ? .system(size: 24, weight: .bold) : .headline)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16 * scale)
+                        .background(
+                            LinearGradient(colors: [character.color, character.deepColor],
+                                           startPoint: .top, endPoint: .bottom),
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        )
+                        .foregroundStyle(.white)
+                        .shadow(color: character.deepColor.opacity(0.3), radius: 10, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(premium.isPurchasing)
 
-                Text("premium.oneTime")
-                    .font(isPad ? .system(size: 20) : .subheadline)
+                    Text("premium.oneTime")
+                        .font(isPad ? .system(size: 20) : .subheadline)
+                        .foregroundStyle(character.deepColor.opacity(0.7))
+
+                    Button("premium.restore") {
+                        Task { await premium.restorePurchases() }
+                    }
+                    .font(isPad ? .system(size: 18) : .footnote)
                     .foregroundStyle(character.deepColor.opacity(0.7))
 
-                Button("premium.restore") {
-                    Task { await premium.restorePurchases() }
-                }
-                .font(isPad ? .system(size: 18) : .footnote)
-                .foregroundStyle(character.deepColor.opacity(0.7))
-
-                if let error = premium.lastError {
-                    Text(error)
-                        .font(isPad ? .system(size: 18) : .footnote)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
+                    if let error = premium.lastError {
+                        Text(error)
+                            .font(isPad ? .system(size: 18) : .footnote)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                    }
                 }
             }
         }
+        .animation(.spring(response: 0.42, dampingFraction: 0.7), value: premium.isPremium)
     }
 
     private var purchaseButtonTitle: String {

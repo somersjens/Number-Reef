@@ -90,6 +90,9 @@ struct HomeView: View {
     /// The last step of the walkthrough: on the way back from that first game
     /// the menu points out where the score is kept.
     @State private var showsTutorialHint = false
+    /// Avoids walking every board of every level on each menu state change
+    /// (opening Premium, pausing the backdrop, rotating).
+    @State private var topicTotalCache = TopicTotalCache()
 
     private var character: AnimalCharacter { CharacterCatalog.current(isPremium: premium.isPremium) }
     private var topic: MathTopic { MathTopic(rawValue: topicRaw) ?? MathTopic.allCases[0] }
@@ -115,6 +118,37 @@ struct HomeView: View {
     private var levelGridSpacing: CGFloat { isPad ? 16 : 10 }
     private var levelCardHeight: CGFloat { isPad ? 132 : 96 }
 
+    /// Width the level cards actually occupy, matching the padded, max-width
+    /// column inside the scroll view.
+    private var levelGridContentWidth: CGFloat {
+        let padding = (isPad ? 26 : 16) * 2
+        let maximum: CGFloat = isWidePad ? 1080 : (isPad ? 760 : 640)
+        let available = viewportWidth > 0 ? viewportWidth - padding : maximum
+        return max(1, min(available, maximum))
+    }
+
+    private var visibleLevelColumns: Int {
+        let minimumWidth: CGFloat = isPad ? 180 : 104
+        let possible = max(1, Int((levelGridContentWidth + levelGridSpacing)
+                                  / (minimumWidth + levelGridSpacing)))
+        return min(possible, isWidePad ? 4 : 3)
+    }
+
+    /// A `blur(radius: 0)` still books an offscreen pass. Only apply the
+    /// softening while the tutorial is actually pointing at a card.
+    @ViewBuilder
+    private var reefBackdrop: some View {
+        let backdrop = AmbientReefBackground(
+            character: character,
+            isPaused: showPremium || selection != nil
+        )
+        if showsTutorialHint {
+            backdrop.blur(radius: 8)
+        } else {
+            backdrop
+        }
+    }
+
     var body: some View {
         // Reading the revision redraws the personal bests when iCloud updates.
         let _ = progressSync.revision
@@ -125,13 +159,10 @@ struct HomeView: View {
         let topicTotal = topicCards
 
         ZStack {
-            AmbientReefBackground(character: character)
-                // The closing tutorial step softens everything except the line
-                // it is pointing at.
-                .blur(radius: showsTutorialHint ? 8 : 0)
+            reefBackdrop
 
             ScrollView {
-                VStack(alignment: .leading, spacing: isPad ? 22 : 16) {
+                LazyVStack(alignment: .leading, spacing: isPad ? 22 : 16) {
                     menuCard(topicTotal: topicTotal)
                         // The card always spans exactly as wide as the level
                         // grid below it. In wide landscape that grid opens up
@@ -141,8 +172,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity)
                         // The closing tutorial step is about the level's score,
                         // not about the settings above it.
-                        .blur(radius: showsTutorialHint ? 7 : 0)
-                        .opacity(showsTutorialHint ? 0.45 : 1)
+                        .modifier(HomeTutorialDim(isActive: showsTutorialHint))
                     levelGrid(topicTotal: topicTotal)
                 }
                 .padding(isPad ? 26 : 16)
@@ -238,6 +268,12 @@ struct HomeView: View {
         .onAppear {
             AppAudio.shared.prepare()
             AppAudio.shared.startMusic()
+#if canImport(UIKit)
+            Task(priority: .utility) {
+                await Task.yield()
+                CharacterArtworkCache.prewarm()
+            }
+#endif
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -459,8 +495,9 @@ struct HomeView: View {
     /// on each Supermix combination — all contribute to its topic, so switching
     /// never appears to wipe progress off the topic total.
     private func topicCards(for topic: MathTopic) -> Int {
-        LevelCatalog.levels(for: topic)
-            .reduce(0) { $0 + Progress.store.bestScoreAcrossBoards(level: $1) }
+        topicTotalCache.total(for: topic,
+                              revision: progressSync.revision,
+                              totalCards: totalCards)
     }
 
     /// The scoreboard the menu is currently showing for a level.
@@ -725,20 +762,35 @@ struct HomeView: View {
         // player.
         let recommendedID = topicTotal > 0 ? nil : regular.first?.id
 
-        return VStack(alignment: .leading, spacing: 14) {
-            AdaptiveLevelGrid(spacing: levelGridSpacing,
-                              minimumCardWidth: isPad ? 180 : 104,
-                              maximumColumns: isWidePad ? 4 : 3,
-                              cardHeight: levelCardHeight) {
-                ForEach(regular) { level in
-                    levelCard(level, recommendedID: recommendedID)
-                }
-            }
+        return Group {
+            lazyLevelRows(regular, recommendedID: recommendedID)
 
             if !premiumLevels.isEmpty {
                 premiumSection(premiumLevels)
-                    .blur(radius: showsTutorialHint ? 7 : 0)
-                    .opacity(showsTutorialHint ? 0.45 : 1)
+                    .modifier(HomeTutorialDim(isActive: showsTutorialHint))
+            }
+        }
+    }
+
+    /// Rows inside the outer `LazyVStack`, so off-screen cards are not built.
+    /// A custom `Layout` or a `LazyVGrid` nested in a `VStack` still materialises
+    /// every level — up to 99 cards, each with shadows and ferns.
+    private func lazyLevelRows(_ levels: [MathLevel], recommendedID: String?) -> some View {
+        let columns = visibleLevelColumns
+        let rows: [LevelCardRow] = stride(from: 0, to: levels.count, by: columns).map { start in
+            let slice = Array(levels[start..<min(start + columns, levels.count)])
+            return LevelCardRow(id: slice[0].id, levels: slice)
+        }
+        return ForEach(rows) { row in
+            HStack(spacing: levelGridSpacing) {
+                ForEach(row.levels) { level in
+                    levelCard(level, recommendedID: recommendedID)
+                }
+                if row.levels.count < columns {
+                    ForEach(0..<(columns - row.levels.count), id: \.self) { _ in
+                        Color.clear.frame(height: levelCardHeight)
+                    }
+                }
             }
         }
     }
@@ -771,21 +823,11 @@ struct HomeView: View {
             rememberBeforePlaying(level)
             selection = LevelSelection(level: level)
         }
-        // The closing tutorial step points at one card and one card only: the
-        // level that is about to show what this game was worth.
-        .blur(radius: dimsForTutorialHint(level) ? 7 : 0)
-        .opacity(dimsForTutorialHint(level) ? 0.45 : 1)
-        .scaleEffect(highlightsForTutorialHint(level) ? 1.06 : 1)
-        .overlay {
-            if highlightsForTutorialHint(level) {
-                RoundedRectangle(cornerRadius: 18 * (isPad ? 1.35 : 1), style: .continuous)
-                    .stroke(character.deepColor, lineWidth: isPad ? 5 : 4)
-                    .shadow(color: character.color.opacity(0.9), radius: isPad ? 12 : 9)
-                    .scaleEffect(highlightsForTutorialHint(level) ? 1.06 : 1)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-            }
-        }
+        .modifier(HomeTutorialDim(isActive: dimsForTutorialHint(level),
+                                  isHighlighted: highlightsForTutorialHint(level),
+                                  highlightColor: character.deepColor,
+                                  glowColor: character.color,
+                                  isPad: isPad))
     }
 
     private func highlightsForTutorialHint(_ level: MathLevel) -> Bool {
@@ -811,33 +853,25 @@ struct HomeView: View {
     @ViewBuilder
     private func premiumSection(_ levels: [MathLevel]) -> some View {
         if premium.isPremium {
-            VStack(spacing: 14) {
-                HStack(spacing: 10) {
-                    Rectangle()
-                        .fill(character.deepColor.opacity(0.28))
-                        .frame(height: 1.5)
-                    HStack(spacing: 5) {
-                        Text("menu.premiumLevels")
-                            .font(.subheadline.weight(.bold))
-                        Image(systemName: "crown.fill")
-                            .font(.caption.weight(.bold))
-                    }
-                    .foregroundStyle(character.deepColor)
-                    .fixedSize()
-                    Rectangle()
-                        .fill(character.deepColor.opacity(0.28))
-                        .frame(height: 1.5)
+            HStack(spacing: 10) {
+                Rectangle()
+                    .fill(character.deepColor.opacity(0.28))
+                    .frame(height: 1.5)
+                HStack(spacing: 5) {
+                    Text("menu.premiumLevels")
+                        .font(.subheadline.weight(.bold))
+                    Image(systemName: "crown.fill")
+                        .font(.caption.weight(.bold))
                 }
-
-                AdaptiveLevelGrid(spacing: levelGridSpacing,
-                                  minimumCardWidth: isPad ? 180 : 104,
-                                  maximumColumns: isWidePad ? 4 : 3,
-                                  cardHeight: levelCardHeight) {
-                    ForEach(levels) { level in
-                        levelCard(level, recommendedID: nil)
-                    }
-                }
+                .foregroundStyle(character.deepColor)
+                .fixedSize()
+                Rectangle()
+                    .fill(character.deepColor.opacity(0.28))
+                    .frame(height: 1.5)
             }
+            .padding(.top, 4)
+
+            lazyLevelRows(levels, recommendedID: nil)
         } else {
             Button {
                 AppAudio.shared.playMenuTap()
@@ -1163,4 +1197,61 @@ struct HomeView: View {
         premiumInitialCharacterID = next
         showPremium = true
     }
+}
+
+/// Softens the menu around the one card the closing tutorial step is pointing
+/// at. A `blur(radius: 0)` still books an offscreen pass, so the filter is
+/// applied only while that step is actually on screen.
+private struct HomeTutorialDim: ViewModifier {
+    var isActive = false
+    var isHighlighted = false
+    var highlightColor: Color = .clear
+    var glowColor: Color = .clear
+    var isPad = false
+
+    func body(content: Content) -> some View {
+        if isHighlighted {
+            content
+                .scaleEffect(1.06)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18 * (isPad ? 1.35 : 1), style: .continuous)
+                        .stroke(highlightColor, lineWidth: isPad ? 5 : 4)
+                        .shadow(color: glowColor.opacity(0.9), radius: isPad ? 12 : 9)
+                        .scaleEffect(1.06)
+                        .allowsHitTesting(false)
+                }
+        } else if isActive {
+            content
+                .blur(radius: 7)
+                .opacity(0.45)
+        } else {
+            content
+        }
+    }
+}
+
+/// Memoises the topic total so toggling a sheet does not re-sum ~300 boards.
+private final class TopicTotalCache {
+    private var topic: MathTopic?
+    private var revision = -1
+    private var totalCards = -1
+    private var total = 0
+
+    func total(for topic: MathTopic, revision: Int, totalCards: Int) -> Int {
+        if self.topic == topic, self.revision == revision, self.totalCards == totalCards {
+            return total
+        }
+        let summed = LevelCatalog.levels(for: topic)
+            .reduce(0) { $0 + Progress.store.bestScoreAcrossBoards(level: $1) }
+        self.topic = topic
+        self.revision = revision
+        self.totalCards = totalCards
+        total = summed
+        return summed
+    }
+}
+
+private struct LevelCardRow: Identifiable {
+    let id: String
+    let levels: [MathLevel]
 }
