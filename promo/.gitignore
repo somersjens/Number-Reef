@@ -1,0 +1,6 @@
+# Promo build artifacts (local)
+.derived*/
+.render*.log
+.launch-*.log
+.buildcheck.log
+.release-build.log
