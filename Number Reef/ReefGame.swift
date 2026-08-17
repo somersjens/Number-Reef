@@ -699,6 +699,23 @@ final class ReefEngine: ObservableObject {
     private var reducesCompletionMotion = false
     private var ambientBubbleCountdown = Double.random(in: ReefConfig.ambientBubbleGap)
 
+    // Promo trailer: deterministic answer release + helper placement. Inactive
+    // unless a trailer method is called; production play never touches these.
+    private var trailerUsesForcedSpawn = false
+    private var trailerForcedGaps: [Double] = []
+    private var trailerForcedVentFractions: [CGFloat] = []
+    private var trailerSuppressRandomHelpers = false
+    private var trailerDeterministicMotion = false
+    private var trailerBubbleScale: CGFloat = 1
+    /// Answer bubble IDs held still for the teaser (final beat at the finale start).
+    private var trailerPinnedBubbleIDs: Set<UUID> = []
+    /// After a trailer place, first layout must not snap the fish to the floor.
+    private var trailerHasPlacedFish = false
+    /// Multiplier for the level-completion swim (teaser uses 2×).
+    var trailerCompletionSpeedScale: Double = 1
+    /// When true, the host drives `trailerStep` at encode FPS (no display-link dt jitter).
+    private var trailerUsesExternalClock = false
+
 #if canImport(UIKit)
     /// A display-linked driver avoids timer firings landing halfway through a
     /// screen refresh, which was visible as uneven motion on slower devices.
@@ -745,10 +762,10 @@ final class ReefEngine: ObservableObject {
         self.spawnLine = spawnLine
         self.topReserve = topReserve
         self.isPad = isPad
-        self.diameter = ReefConfig.bubbleDiameter(isPad: isPad)
+        self.diameter = ReefConfig.bubbleDiameter(isPad: isPad) * trailerBubbleScale
         self.fishLength = ReefConfig.fishLength(isPad: isPad)
         self.fishArtworkWidth = fishArtworkWidth
-        if isFirst {
+        if isFirst, !trailerHasPlacedFish {
             // Avoid storage growth while gameplay is already animating. These
             // are small upper bounds and reserve capacity only; they do not
             // create or draw additional objects.
@@ -792,12 +809,44 @@ final class ReefEngine: ObservableObject {
     /// answer leaves the water — and the sum — as it was.
     func load(round: GameRound?) {
         let previousRoundNumber = self.round?.number
+        // Trailer may arm `trailerInstallAnswerQueue` in the same turn as the
+        // SwiftUI round bind. A second `load` echo must not wipe that queue.
+        let preserveForcedQueue = trailerDeterministicMotion
+            && trailerUsesForcedSpawn
+            && !queue.isEmpty
+        let preservedQueue = preserveForcedQueue ? queue : []
+        let preservedGaps = preserveForcedQueue ? trailerForcedGaps : []
+        let preservedVents = preserveForcedQueue ? trailerForcedVentFractions : []
+        let preservedSpawn = preserveForcedQueue ? timeToNextSpawn : nil
+
         self.round = round
+        // A SwiftUI `onChange(of: round)` echo must not wipe a just-pinned
+        // finale bubble (that left the last beat empty and skipped swim-out).
+        if trailerDeterministicMotion, !trailerPinnedBubbleIDs.isEmpty {
+            lastVentX = nil
+            collisionCooldown = 0
+            objectWillChange.send()
+            return
+        }
         bubbles.removeAll()
         queue.removeAll()
         lastVentX = nil
         collisionCooldown = 0
-        timeToNextSpawn = Double.random(in: ReefConfig.firstGap)
+        if trailerDeterministicMotion {
+            if preserveForcedQueue {
+                queue = preservedQueue
+                trailerForcedGaps = preservedGaps
+                trailerForcedVentFractions = preservedVents
+                timeToNextSpawn = preservedSpawn ?? 0.08
+            } else {
+                timeToNextSpawn = .infinity
+                trailerForcedGaps.removeAll()
+                trailerForcedVentFractions.removeAll()
+                trailerUsesForcedSpawn = true
+            }
+        } else {
+            timeToNextSpawn = Double.random(in: ReefConfig.firstGap)
+        }
         guard let round else { return }
 
         // Playing again reuses this SwiftUI playfield and therefore this
@@ -1030,6 +1079,7 @@ final class ReefEngine: ObservableObject {
     func setRunning(_ running: Bool) {
         if running {
 #if canImport(UIKit)
+            if trailerUsesExternalClock { return }
             guard displayLink == nil else { return }
             lastFrameTargetTimestamp = nil
             let link = CADisplayLink(target: displayLinkTarget,
@@ -1170,6 +1220,7 @@ final class ReefEngine: ObservableObject {
     /// same speed when a frame is late. The link itself is capped at 60 Hz, so
     /// a late frame is a 60 Hz interval rather than a 120 Hz one.
     private func advance(_ displayLink: CADisplayLink) {
+        if trailerUsesExternalClock { return }
         let target = displayLink.targetTimestamp
         let measured = lastFrameTargetTimestamp.map { target - $0 }
             ?? (target - displayLink.timestamp)
@@ -1244,7 +1295,7 @@ final class ReefEngine: ObservableObject {
 
     private func moveLevelCompletion(_ dt: Double) {
         guard let elapsed = completionElapsed else { return }
-        let next = elapsed + dt
+        let next = elapsed + dt * max(0.5, trailerCompletionSpeedScale)
         let previous = fish.position
 
         // The completion path owns the fish. Do not consult the normal
@@ -1273,7 +1324,7 @@ final class ReefEngine: ObservableObject {
                                            / exitDuration, 1)
                     fish.position = completionExitPoint(progress: exitProgress)
                 }
-                completionTrailCountdown -= dt
+                completionTrailCountdown -= dt * max(0.5, trailerCompletionSpeedScale)
                 if completionTrailCountdown <= 0, raw < 1 {
                     completionTrailCountdown = ReefPerformanceBudget.completionTrailInterval
                     celebrationBubbles.append(ReefCelebrationBubble(
@@ -1293,7 +1344,7 @@ final class ReefEngine: ObservableObject {
         }
 
         if !reducesCompletionMotion {
-            completionBubbleCountdown -= dt
+            completionBubbleCountdown -= dt * max(0.5, trailerCompletionSpeedScale)
             if completionBubbleCountdown <= 0 {
                 completionBubbleCountdown = ReefPerformanceBudget.completionStreamInterval
                 spawnCompletionStreamBubble()
@@ -1720,7 +1771,10 @@ final class ReefEngine: ObservableObject {
         var delta = angle - fish.heading
         while delta > .pi { delta -= 2 * .pi }
         while delta < -.pi { delta += 2 * .pi }
-        fish.heading += delta * min(1, ReefConfig.fishTurnRate * dt)
+        let rate = trailerDeterministicMotion
+            ? ReefConfig.fishTurnRate * 1.55
+            : ReefConfig.fishTurnRate
+        fish.heading += delta * min(1, rate * dt)
     }
 
     /// The fish stays in open water: inside the sides, below the top edge and
@@ -1815,6 +1869,10 @@ final class ReefEngine: ObservableObject {
                 bubbles[index].popAge! += dt
                 continue
             }
+            // Teaser can pin the final answer at the finale gather point.
+            if trailerPinnedBubbleIDs.contains(bubbles[index].id) {
+                continue
+            }
             var bubble = bubbles[index]
             let slowdownStart = ReefConfig.launchHoldDuration
             let slowdownDuration = ReefConfig.launchSlowdownDuration
@@ -1907,7 +1965,15 @@ final class ReefEngine: ObservableObject {
         timeToNextSpawn -= dt
         guard timeToNextSpawn <= 0 else { return }
 
-        if queue.isEmpty { refillQueue() }
+        if queue.isEmpty {
+            // Trailer queues are exact beats. Don't refill the live round or
+            // a leftover 5 (or extra opening answers) sneaks in mid-showcase.
+            if trailerUsesForcedSpawn {
+                timeToNextSpawn = .infinity
+                return
+            }
+            refillQueue()
+        }
         guard !queue.isEmpty else {
             timeToNextSpawn = ReefConfig.blockedGap
             return
@@ -1935,7 +2001,9 @@ final class ReefEngine: ObservableObject {
         lastVentX = x
         // The wave that just emptied gets a longer pause than the beats inside
         // it, so the set reads as a set.
-        if queue.isEmpty {
+        if trailerUsesForcedSpawn, !trailerForcedGaps.isEmpty {
+            timeToNextSpawn = trailerForcedGaps.removeFirst()
+        } else if queue.isEmpty {
             timeToNextSpawn = Double.random(in: ReefConfig.waveGap)
         } else if Double.random(in: 0..<1) < ReefConfig.closeGapChance {
             timeToNextSpawn = Double.random(in: ReefConfig.closeGap)
@@ -1997,17 +2065,35 @@ final class ReefEngine: ObservableObject {
     }
 
     private func makeBubble(for option: AnswerOption, at x: CGFloat) -> ReefBubble {
-        ReefBubble(optionID: option.id,
-                   text: option.text,
-                   isCorrect: option.isCorrect,
-                   diameter: diameter,
-                   baseX: x,
-                   position: CGPoint(x: x, y: spawnLine + diameter * 0.22),
-                   launchSpeed: diameter * CGFloat.random(in: ReefConfig.launchSpeedFactor),
-                   speed: CGFloat.random(in: ReefConfig.riseSpeed),
-                   driftAmplitude: CGFloat.random(in: ReefConfig.driftAmplitude),
-                   driftPeriod: Double.random(in: ReefConfig.driftPeriod),
-                   phase: Double.random(in: 0..<(2 * .pi)))
+        let launchFactor: CGFloat
+        let cruise: CGFloat
+        let drift: CGFloat
+        let period: Double
+        let phase: Double
+        if trailerDeterministicMotion {
+            launchFactor = (ReefConfig.launchSpeedFactor.lowerBound + ReefConfig.launchSpeedFactor.upperBound) / 2
+            cruise = (ReefConfig.riseSpeed.lowerBound + ReefConfig.riseSpeed.upperBound) / 2
+            drift = (ReefConfig.driftAmplitude.lowerBound + ReefConfig.driftAmplitude.upperBound) / 2
+            period = (ReefConfig.driftPeriod.lowerBound + ReefConfig.driftPeriod.upperBound) / 2
+            phase = 0.35
+        } else {
+            launchFactor = CGFloat.random(in: ReefConfig.launchSpeedFactor)
+            cruise = CGFloat.random(in: ReefConfig.riseSpeed)
+            drift = CGFloat.random(in: ReefConfig.driftAmplitude)
+            period = Double.random(in: ReefConfig.driftPeriod)
+            phase = Double.random(in: 0..<(2 * .pi))
+        }
+        return ReefBubble(optionID: option.id,
+                          text: option.text,
+                          isCorrect: option.isCorrect,
+                          diameter: diameter,
+                          baseX: x,
+                          position: CGPoint(x: x, y: spawnLine + diameter * 0.22),
+                          launchSpeed: diameter * launchFactor,
+                          speed: cruise,
+                          driftAmplitude: drift,
+                          driftPeriod: period,
+                          phase: phase)
     }
 
     /// Picks a crater with room above it. Bubbles still close to the coral are
@@ -2024,6 +2110,26 @@ final class ReefEngine: ObservableObject {
         let clear = craters.filter { crater in
             blockers.allSatisfy { abs($0 - crater) >= separation }
         }
+
+        if trailerUsesForcedSpawn, !trailerForcedVentFractions.isEmpty {
+            let fraction = trailerForcedVentFractions.removeFirst()
+            let minX = craters.first ?? 0
+            let maxX = craters.last ?? size.width
+            let preferred = minX + (maxX - minX) * min(max(fraction, 0), 1)
+            // Snap to the nearest crater — never invent an in-between X that
+            // would sit on top of a neighbour.
+            guard let nearest = craters.min(by: { abs($0 - preferred) < abs($1 - preferred) }) else {
+                return nil
+            }
+            // Wait if that crater is still crowded so bubbles never overlap.
+            if clear.contains(nearest) || (clear.isEmpty && blockers.isEmpty) {
+                return nearest
+            }
+            // Put the fraction back and try again next tick.
+            trailerForcedVentFractions.insert(fraction, at: 0)
+            return nil
+        }
+
         guard !clear.isEmpty else { return nil }
 
         // Prefer a different crater from the last one; fall back if that is the
@@ -2168,7 +2274,8 @@ final class ReefEngine: ObservableObject {
     private func spawnBonusFishIfDue(_ dt: Double) {
         // While the walkthrough is running, the only helper fish in the water
         // is the one the current step put there.
-        guard !tutorialPlan.isActive,
+        guard !trailerSuppressRandomHelpers,
+              !tutorialPlan.isActive,
               bonusFish == nil,
               heartFish == nil,
               !hasBonusAura,
@@ -2214,7 +2321,8 @@ final class ReefEngine: ObservableObject {
     // MARK: Heart fish
 
     private func spawnHeartFishIfDue(_ dt: Double) {
-        guard !tutorialPlan.isActive,
+        guard !trailerSuppressRandomHelpers,
+              !tutorialPlan.isActive,
               heartFish == nil,
               bonusFish == nil,
               isHeartFishAvailable,
@@ -2298,6 +2406,291 @@ final class ReefEngine: ObservableObject {
             bubbles[index].popAge = 0
         }
     }
+
+    // MARK: Promo trailer control
+
+    /// Arms deterministic release / helper placement used only by the App Store
+    /// teaser. Safe no-op for normal play — nothing calls these outside Promo.
+    func trailerPrepareDeterministicSession() {
+        trailerSuppressRandomHelpers = true
+        trailerDeterministicMotion = true
+        // Arm before setRunning can start a display-link — dual clocks cause
+        // judder (variable dt + fixed encode dt fighting each other).
+        trailerUsesExternalClock = true
+#if canImport(UIKit)
+        displayLink?.invalidate()
+        displayLink = nil
+        lastFrameTargetTimestamp = nil
+#endif
+        pendingBonusFishDelays.removeAll()
+        bonusFishTriggerRounds.removeAll()
+        nextBonusFishTrigger = 0
+        heartFishDelay = nil
+        // Slightly smaller than production phone bubbles so corridors stay open
+        // on the tall App Store portrait.
+        trailerBubbleScale = isPad ? 1 : 0.86
+        diameter = ReefConfig.bubbleDiameter(isPad: isPad) * trailerBubbleScale
+    }
+
+    /// Stops display-link stepping so the trailer host can advance at encode FPS.
+    func trailerEnableExternalClock() {
+        trailerUsesExternalClock = true
+#if canImport(UIKit)
+        displayLink?.invalidate()
+        displayLink = nil
+        lastFrameTargetTimestamp = nil
+#endif
+    }
+
+    /// One fixed encode-frame of simulation (keeps MP4 motion even).
+    func trailerStep(dt: Double) {
+        tick(dt: min(max(dt, 1.0 / 120.0), 1.0 / 20.0))
+    }
+
+    /// Places the fish without a cut: used to start already in-frame for the
+    /// teaser's first beat. Still uses the real clamp / heading model.
+    func trailerPlaceFish(at point: CGPoint, heading: Double) {
+        guard size.width > 0 else { return }
+        trailerHasPlacedFish = true
+        fish.position = clampedFishPosition(point)
+        fish.heading = heading
+        fish.isSwimming = true
+        coastVelocity = .zero
+        target = nil
+        // Bump the published clock so SwiftUI rebuilds with the new pose even
+        // when no simulation frame has run yet.
+        clock += 1.0 / 120.0
+        objectWillChange.send()
+    }
+
+    /// Installs an exact answer queue and the gaps / vent fractions that release
+    /// it. `ventFractions` are 0…1 across the coral crater span.
+    func trailerInstallAnswerQueue(_ options: [AnswerOption],
+                                   gapsBeforeEachRelease: [Double],
+                                   ventFractions: [CGFloat]) {
+        trailerUsesForcedSpawn = true
+        queue = options
+        trailerForcedGaps = gapsBeforeEachRelease
+        trailerForcedVentFractions = ventFractions
+        timeToNextSpawn = trailerForcedGaps.isEmpty ? 0.08 : trailerForcedGaps.removeFirst()
+        objectWillChange.send()
+    }
+
+    /// Clears live answers without ending the round — used between teaser beats
+    /// when a fresh set should rise while the fish keeps swimming.
+    func trailerClearAnswers(keepRound: Bool = true) {
+        popAllAnswerBubbles()
+        queue.removeAll()
+        trailerForcedGaps.removeAll()
+        trailerForcedVentFractions.removeAll()
+        trailerPinnedBubbleIDs.removeAll()
+        timeToNextSpawn = .infinity
+        if !keepRound {
+            round = nil
+        }
+        objectWillChange.send()
+    }
+
+    /// World-space start of the production level-completion ribbon.
+    func trailerCompletionPathStart() -> CGPoint {
+        completionPathPoint(progress: 0)
+    }
+
+    /// Pins the correct final answer at the finale gather point so the collect
+    /// and the swim-out start read as one continuous beat.
+    func trailerPinFinalAnswer(_ option: AnswerOption) {
+        trailerPlaceFinalBeat(correct: option, wrongs: [])
+    }
+
+    /// Places the last teaser answers already risen in open water so they stay
+    /// on-screen long enough for the fish to swim to the correct one.
+    func trailerPlaceFinalBeat(correct: AnswerOption, wrongs: [AnswerOption]) {
+        guard size.width > 0 else { return }
+        popAllAnswerBubbles()
+        queue.removeAll()
+        trailerForcedGaps.removeAll()
+        trailerForcedVentFractions.removeAll()
+        timeToNextSpawn = .infinity
+        trailerUsesForcedSpawn = true
+
+        let radius = diameter / 2 + 6
+        let bottom = max(topReserve + 40, spawnLine - 30)
+        func world(x: CGFloat, y: CGFloat) -> CGPoint {
+            var point = CGPoint(x: size.width * x,
+                                y: topReserve + (bottom - topReserve) * y)
+            point.x = min(max(point.x, radius), size.width - radius)
+            point.y = min(max(point.y, topReserve + radius), spawnLine - radius)
+            return point
+        }
+
+        // Correct sits left-of-center, wrongs out of the approach lane.
+        var placements: [(AnswerOption, CGFloat, CGFloat)] = [
+            (correct, 0.20, 0.62)
+        ]
+        if wrongs.indices.contains(0) {
+            placements.append((wrongs[0], 0.10, 0.34))
+        }
+        if wrongs.indices.contains(1) {
+            placements.append((wrongs[1], 0.84, 0.48))
+        }
+
+        var ids: Set<UUID> = []
+        bubbles = placements.map { option, x, y in
+            let target = world(x: x, y: y)
+            var bubble = makeBubble(for: option, at: target.x)
+            bubble.age = ReefConfig.emergeDuration + 1.5
+            bubble.position = target
+            ids.insert(bubble.id)
+            return bubble
+        }
+        trailerPinnedBubbleIDs = ids
+        objectWillChange.send()
+    }
+
+    /// Removes a spent 2× swimmer so it doesn't keep sharing the frame after
+    /// the coin peel has started.
+    func trailerDismissBonusFish() {
+        bonusFish = nil
+        objectWillChange.send()
+    }
+
+    func trailerDismissHeartFish() {
+        heartFish = nil
+        objectWillChange.send()
+    }
+
+    /// Spawns the real 2× helper from the right, low in the playfield.
+    func trailerSpawnBonusFishFromRight(yFraction: CGFloat = 0.82) {
+        guard size.width > 0 else { return }
+        let length = ReefConfig.bonusFishLength(isPad: isPad)
+        let minY = topReserve + length
+        let maxY = max(minY, spawnLine - length * 0.8)
+        let y = minY + (maxY - minY) * min(max(yFraction, 0), 1)
+        // Match production lane speed so the player can intercept at full swim.
+        let speed = ReefConfig.bonusFishSpeed.lowerBound
+        // Start partly on-screen so the catch lane is reachable on both phone
+        // and pad layouts (pad used to miss a fully off-screen entry).
+        let startX = size.width * (isPad ? 0.92 : 0.98)
+        bonusFish = ReefBonusFish(position: CGPoint(x: startX, y: y),
+                                  direction: -1,
+                                  speed: speed * (isPad ? 0.88 : 1),
+                                  length: length)
+        objectWillChange.send()
+    }
+
+    /// Spawns the real life helper from the left at mid-height.
+    func trailerSpawnHeartFishFromLeft(yFraction: CGFloat = 0.45) {
+        guard size.width > 0 else { return }
+        // Don't let a spent 2× swimmer compete for attention with the life fish.
+        if bonusFish?.isCarryingReward != true {
+            bonusFish = nil
+        }
+        let length = ReefConfig.heartFishLength(isPad: isPad) * 1.18
+        let minY = topReserve + length
+        let maxY = max(minY, spawnLine - length * 0.8)
+        let y = minY + (maxY - minY) * min(max(yFraction, 0), 1)
+        // Start partly on-screen so the heart badge is readable immediately.
+        let speed: CGFloat = 108
+        heartFish = ReefHeartFish(position: CGPoint(x: -length * 0.15, y: y),
+                                  direction: 1,
+                                  speed: speed,
+                                  length: length)
+        isHeartFishAvailable = true
+        heartFishDelay = nil
+        objectWillChange.send()
+    }
+
+    /// Promo assist: catch the 2× fish through the real collision callbacks.
+    @discardableResult
+    func trailerTryCatchBonusFish(within radius: CGFloat) -> Bool {
+        guard var bonus = bonusFish, bonus.isCarryingReward else {
+            return hasBonusAura
+        }
+        let dx = bonus.position.x - fish.position.x
+        let dy = bonus.position.y - fish.position.y
+        if radius < 10_000 {
+            guard dx * dx + dy * dy <= radius * radius else { return false }
+        }
+        let coinOrigin = bonus.carriedCoinPosition
+        bonus.isCarryingReward = false
+        bonusFish = bonus
+        hasBonusAura = true
+        bonusCoin = ReefBonusCoin(position: coinOrigin,
+                                  catchOrigin: coinOrigin,
+                                  age: 0)
+        collisionCooldown = ReefConfig.collisionCooldown
+        onBonusFishCaught?()
+        onTutorialEvent?(.caughtBonusFish)
+        objectWillChange.send()
+        return true
+    }
+
+    /// Promo assist: catch the life fish through the real recovery path.
+    @discardableResult
+    func trailerTryCatchHeartFish(within radius: CGFloat) -> Bool {
+        guard let heart = heartFish,
+              heart.isCarryingReward else { return false }
+        let dx = heart.position.x - fish.position.x
+        let dy = heart.position.y - fish.position.y
+        guard dx * dx + dy * dy <= radius * radius else { return false }
+        guard onHeartFishCaught?() == true else { return false }
+        self.heartFish?.isCarryingReward = false
+        isHeartFishAvailable = false
+        heartFishDelay = nil
+        collisionCooldown = ReefConfig.collisionCooldown
+        onTutorialEvent?(.caughtHeartFish)
+        objectWillChange.send()
+        return true
+    }
+
+    var trailerFishPosition: CGPoint { fish.position }
+    var trailerFishHeading: Double { fish.heading }
+    var trailerPlayfieldSize: CGSize { size }
+    var trailerSpawnLine: CGFloat { spawnLine }
+    var trailerTopReserve: CGFloat { topReserve }
+    var trailerBubbles: [ReefBubble] { bubbles }
+    var trailerBonusFish: ReefBonusFish? { bonusFish }
+    var trailerHeartFish: ReefHeartFish? { heartFish }
+    var trailerClock: Double { clock }
+    var trailerIsPad: Bool { isPad }
+    var trailerFishLength: CGFloat { fishLength }
+    var trailerBubbleRadius: CGFloat { diameter * 0.5 }
+    var trailerAnswerHitRadius: CGFloat {
+        fishLength * ReefConfig.fishHitFactor + diameter * ReefConfig.bubbleHitFactor
+    }
+
+    func trailerHelperHitRadius(length: CGFloat) -> CGFloat {
+        fishLength * ReefConfig.fishHitFactor + length * 0.48
+    }
+
+    /// Promo assist: when the scripted swim is close enough to the intended
+    /// correct bubble, fire the real collision path so pop / score / audio run.
+    @discardableResult
+    func trailerTryCollectCorrect(within radius: CGFloat) -> Bool {
+        guard collisionCooldown == 0, entranceElapsed == nil, isLive else { return false }
+        guard let bubble = bubbles.first(where: { $0.isCorrect && !$0.isPopping }) else {
+            return false
+        }
+        guard bubble.emergence >= 1 else { return false }
+        let pinned = trailerPinnedBubbleIDs.contains(bubble.id)
+        if !pinned {
+            let releaseY = spawnLine + bubble.diameter * 0.22
+            let risen = releaseY - bubble.position.y
+            guard risen >= bubble.diameter * ReefConfig.minimumCatchRiseFactor else {
+                return false
+            }
+        }
+        let dx = bubble.position.x - fish.position.x
+        let dy = bubble.position.y - fish.position.y
+        guard dx * dx + dy * dy <= radius * radius else { return false }
+        guard onHit?(bubble.optionID) == true else { return false }
+        collisionCooldown = ReefConfig.collisionCooldown
+        trailerPinnedBubbleIDs.remove(bubble.id)
+        collectCorrectBubble(bubble)
+        popAllAnswerBubbles()
+        objectWillChange.send()
+        return true
+    }
 }
 
 // MARK: - Playfield
@@ -2348,6 +2741,14 @@ struct ReefPlayfield: View {
     let onLevelCompletionFinished: () -> Void
     /// Everything the walkthrough waits on that only the reef can see.
     var onTutorialEvent: (ReefTutorialEvent) -> Void = { _ in }
+    /// Promo trailer / tooling hook. Production play leaves this nil.
+    var onEngineReady: ((ReefEngine) -> Void)? = nil
+    /// When true, player drag is ignored so a scripted steer owns the fish.
+    var suppressesPlayerSteering = false
+
+    /// When true, the sum draws above the foreground plants (promo teaser
+    /// readability). Production keeps plants in front of the doorway.
+    var promptInForeground = false
 
     @StateObject private var engine = ReefEngine()
 
@@ -2367,7 +2768,8 @@ struct ReefPlayfield: View {
                  clock: engine.swayClock,
                  prompt: round?.question.prompt ?? "",
                  roundID: round?.id,
-                 bottomReserve: bottomReserve)
+                 bottomReserve: bottomReserve,
+                 promptInForeground: promptInForeground)
     }
 
     var body: some View {
@@ -2473,6 +2875,9 @@ struct ReefPlayfield: View {
                              clock: engine.motionClock)
                         .equatable()
                 }
+                // Read the published sim clock so SwiftUI invalidates when the
+                // trailer host steps the engine (fish.position alone is not
+                // @Published).
                 .position(engine.fish.position)
                 .allowsHitTesting(false)
 
@@ -2489,8 +2894,14 @@ struct ReefPlayfield: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
-                    .onChanged { engine.steer(toward: $0.location) }
-                    .onEnded { _ in engine.releaseTouch() }
+                    .onChanged { value in
+                        guard !suppressesPlayerSteering else { return }
+                        engine.steer(toward: value.location)
+                    }
+                    .onEnded { _ in
+                        guard !suppressesPlayerSteering else { return }
+                        engine.releaseTouch()
+                    }
             )
             .allowsHitTesting(!playsLevelCompletion)
             // See the note on the type: the reef is a simulated space, so it
@@ -2527,6 +2938,7 @@ struct ReefPlayfield: View {
                     engine.beginLevelCompletion(reduceMotion: reduceMotion,
                                                 completion: onLevelCompletionFinished)
                 }
+                onEngineReady?(engine)
             }
             .onChange(of: size) { _, newSize in
                 engine.layout(size: newSize,
@@ -3358,6 +3770,8 @@ private struct CoralBed: View, Equatable {
     /// Changes when a new sum is installed; the door opens on it.
     let roundID: UUID?
     let bottomReserve: CGFloat
+    /// Promo teaser: draw the equation above the foreground plants.
+    var promptInForeground = false
 
     private var doorHeight: CGFloat { ReefConfig.doorHeight(isPad: isPad) }
     private var rimHeight: CGFloat { ReefConfig.craterRimHeight(isPad: isPad) }
@@ -3373,32 +3787,44 @@ private struct CoralBed: View, Equatable {
             && lhs.prompt == rhs.prompt
             && lhs.roundID == rhs.roundID
             && lhs.bottomReserve == rhs.bottomReserve
+            && lhs.promptInForeground == rhs.promptInForeground
     }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             // ~185 gradient/stroke/shadow nodes flattened into two Metal
             // textures. The equation stays a real Text view between them so it
-            // stays sharp, and plants remain in front of the sum the way they
-            // were composed.
+            // stays sharp. Production keeps plants in front of the doorway;
+            // the teaser flips that so the sum always reads on camera.
             backScenery
                 .padding(16)
                 .drawingGroup()
                 .padding(-16)
 
-            CoralQuestion(prompt: prompt,
-                          roundID: roundID,
-                          palette: palette,
-                          isPad: isPad)
-                .frame(height: doorHeight)
-                .padding(.horizontal, questionInset)
-                .padding(.bottom, floorInset)
+            if !promptInForeground {
+                questionDoor
+            }
 
             frontScenery
                 .padding(16)
                 .drawingGroup()
                 .padding(-16)
+
+            if promptInForeground {
+                questionDoor
+                    .zIndex(20)
+            }
         }
+    }
+
+    private var questionDoor: some View {
+        CoralQuestion(prompt: prompt,
+                      roundID: roundID,
+                      palette: palette,
+                      isPad: isPad)
+            .frame(height: doorHeight)
+            .padding(.horizontal, questionInset)
+            .padding(.bottom, floorInset)
     }
 
     @ViewBuilder
@@ -3415,7 +3841,10 @@ private struct CoralBed: View, Equatable {
                 .frame(height: bandHeight)
 
             // One low coral boulder, partly buried in the hill.
-            ReefMass(palette: palette, isPad: isPad, clock: clock)
+            ReefMass(palette: palette,
+                     isPad: isPad,
+                     clock: clock,
+                     showsSurfaceLife: !promptInForeground)
                 .padding(.horizontal, ReefConfig.blockInset(isPad: isPad))
                 .padding(.bottom, floorInset * 0.25)
                 .frame(height: doorHeight + rimHeight + floorInset * 0.75,
@@ -3433,8 +3862,12 @@ private struct CoralBed: View, Equatable {
     @ViewBuilder
     private var frontScenery: some View {
         ZStack(alignment: .bottom) {
-            SeaPlantField(palette: palette, isPad: isPad, clock: clock)
-                .frame(height: bandHeight)
+            // Promo teaser keeps the doorway clear; production lets plants sit
+            // in front of the sum the way the reef was composed.
+            if !promptInForeground {
+                SeaPlantField(palette: palette, isPad: isPad, clock: clock)
+                    .frame(height: bandHeight)
+            }
 
             // This is a full foreground bank, not a narrow strip: it hides the
             // complete foot of the coral and lets the plants emerge from sand.
@@ -3488,6 +3921,8 @@ private struct ReefMass: View {
     let palette: ReefPalette
     let isPad: Bool
     let clock: Double
+    /// Promo teaser hides the doorway twigs so the sum stays unobstructed.
+    var showsSurfaceLife = true
 
     private let texture: [(CGFloat, CGFloat, CGFloat)] = [
         (0.08, 0.54, 0.026), (0.14, 0.78, 0.018), (0.22, 0.34, 0.014),
@@ -3526,7 +3961,9 @@ private struct ReefMass: View {
                         .position(x: w * spot.0, y: h * spot.1)
                 }
 
-                CoralSurfaceLife(palette: palette, isPad: isPad, clock: clock)
+                if showsSurfaceLife {
+                    CoralSurfaceLife(palette: palette, isPad: isPad, clock: clock)
+                }
             }
         }
         .accessibilityHidden(true)

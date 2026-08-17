@@ -179,6 +179,15 @@ final class AppAudio: NSObject, ObservableObject {
     /// louder here; the sums are only spoken while this is true.
     private(set) var isGameplayActive = false
 
+    // Promo trailer capture (engine tap + music routed through AVAudioEngine).
+    private var trailerCaptureHandler: ((AVAudioPCMBuffer) -> Void)?
+    private var trailerMusicNode: AVAudioPlayerNode?
+    private var trailerMusicFile: AVAudioFile?
+    private var trailerCaptureActive = false
+    private var trailerSavedMusicEnabled = true
+    private var trailerSavedSoundsEnabled = true
+    private var trailerSavedSpokenEnabled = true
+
     /// How the app currently presents itself to the shared audio session. Kept
     /// so a change to the sound settings can re-apply the category, and so the
     /// polite launch category is applied before anything else is built.
@@ -400,6 +409,9 @@ final class AppAudio: NSObject, ObservableObject {
     /// with nothing to spin up. Requires the session active; a no-op when sound
     /// is off, the engine is already running, or the effects aren't decoded yet.
     private func startEngineIfNeeded() {
+        // Simulator AURemoteIO Start can SIGABRT under trailer capture load;
+        // skip the graph entirely and mux music in the recorder instead.
+        if PromoTrailerRuntime.isActive { return }
         guard gameSoundsEnabled, sessionOutputReady,
               !engine.isRunning, !effectBuffers.isEmpty else { return }
         attachEffectNodesIfNeeded()
@@ -1074,6 +1086,75 @@ final class AppAudio: NSObject, ObservableObject {
         activateSession()
         startMusic()
         startEngineIfNeeded()
+    }
+
+    // MARK: - Trailer capture
+
+    /// Arms trailer capture. Music is muxed from the bundled bed in the
+    /// recorder; the engine is only tapped when it is already running so
+    /// Simulator AURemoteIO start aborts cannot kill the render.
+    func beginTrailerCapture(handler: @escaping (AVAudioPCMBuffer) -> Void) {
+        trailerCaptureHandler = handler
+        trailerSavedMusicEnabled = musicEnabled
+        trailerSavedSoundsEnabled = gameSoundsEnabled
+        trailerSavedSpokenEnabled = spokenSumsEnabled
+
+        if !gameSoundsEnabled { toggleGameSounds() }
+        if !musicEnabled { toggleMusic() }
+        if spokenSumsEnabled { toggleSpokenSums() }
+
+        prepare()
+        activateSession()
+        isGameplayActive = true
+        startMusic()
+        setMusicVolume(gameMusicVolume)
+
+        if engine.isRunning {
+            installTrailerTapIfNeeded()
+        }
+        trailerCaptureActive = true
+    }
+
+    func endTrailerCapture() {
+        guard trailerCaptureActive else { return }
+        trailerCaptureActive = false
+        trailerCaptureHandler = nil
+
+        if engine.isRunning {
+            engine.mainMixerNode.removeTap(onBus: 0)
+        }
+        if let node = trailerMusicNode {
+            node.stop()
+            engine.disconnectNodeInput(node)
+            engine.detach(node)
+        }
+        trailerMusicNode = nil
+        trailerMusicFile = nil
+
+        if gameSoundsEnabled != trailerSavedSoundsEnabled { toggleGameSounds() }
+        if musicEnabled != trailerSavedMusicEnabled { toggleMusic() }
+        if spokenSumsEnabled != trailerSavedSpokenEnabled { toggleSpokenSums() }
+    }
+
+    private func installTrailerMusicNodeIfNeeded() {
+        // Intentionally unused on the soft-capture path; kept for a future
+        // device-only hard mix if Simulator AURemoteIO remains unreliable.
+    }
+
+    private func scheduleTrailerMusicLoop() {}
+
+    private func installTrailerTapIfNeeded() {
+        let mixer = engine.mainMixerNode
+        let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                   sampleRate: 44_100,
+                                   channels: 2,
+                                   interleaved: false)
+            ?? mixer.outputFormat(forBus: 0)
+        guard format.sampleRate > 0, format.channelCount > 0 else { return }
+        mixer.removeTap(onBus: 0)
+        mixer.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+            self?.trailerCaptureHandler?(buffer)
+        }
     }
 }
 

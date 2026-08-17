@@ -29164,14 +29164,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ আনলক করতে আর %1$lldটি বাবল"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ আনলক করতে আর %1$lldটি বাবল"
                 }
               }
             }
@@ -29182,14 +29182,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ ཁ་ཕྱེ་བར་ད་དུང་ལྦུ་བ %1$lld དགོས།"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ ཁ་ཕྱེ་བར་ད་དུང་ལྦུ་བ %1$lld དགོས།"
                 }
               }
             }
@@ -29668,14 +29668,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "あと%1$lld個のバブルで%2$@をアンロック"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "あと%1$lld個のバブルで%2$@をアンロック"
                 }
               }
             }
@@ -29722,14 +29722,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "ត្រូវការពពុះ %1$lld ទៀត ដើម្បីដោះសោ %2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "ត្រូវការពពុះ %1$lld ទៀត ដើម្បីដោះសោ %2$@"
                 }
               }
             }
@@ -29758,14 +29758,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ 잠금 해제까지 버블 %1$lld개 남았어요"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ 잠금 해제까지 버블 %1$lld개 남았어요"
                 }
               }
             }
@@ -29776,14 +29776,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "ຕ້ອງການຟອງອີກ %1$lld ເພື່ອປົດລັອກ %2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "ຕ້ອງການຟອງອີກ %1$lld ເພື່ອປົດລັອກ %2$@"
                 }
               }
             }
@@ -29920,14 +29920,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ ကို လော့ခ်ဖွင့်ဖို့ ပူဖောင်း %1$lld ခု ထပ်လိုသေးတယ်"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "%2$@ ကို လော့ခ်ဖွင့်ဖို့ ပူဖောင်း %1$lld ခု ထပ်လိုသေးတယ်"
                 }
               }
             }
@@ -30160,14 +30160,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "Še %1$lld mehurček za odklep %2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "Še %1$lld mehurčkov za odklep %2$@"
                 }
               }
             }
@@ -30286,14 +30286,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "เหลือฟองสบู่อีก %1$lld ฟองเพื่อปลดล็อก %2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "เหลือฟองสบู่อีก %1$lld ฟองเพื่อปลดล็อก %2$@"
                 }
               }
             }
@@ -30412,14 +30412,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "还差 %1$lld 个泡泡即可解锁 %2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "还差 %1$lld 个泡泡即可解锁 %2$@"
                 }
               }
             }
@@ -30430,14 +30430,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubble to unlock %2$@"
+                  "state": "translated",
+                  "value": "Kusele ibhamuza elingu-%1$lld ukuze uvule u-%2$@"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "%1$lld more bubbles to unlock %2$@"
+                  "state": "translated",
+                  "value": "Kusele amabhamuza angu-%1$lld ukuze uvule u-%2$@"
                 }
               }
             }
@@ -70606,14 +70606,14 @@
             "plural": {
               "one": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "Play for %lld minute and keep it going!"
+                  "state": "translated",
+                  "value": "%lld நிமிடம் விளையாடி தொடரைத் தொடர்ந்து வை!"
                 }
               },
               "other": {
                 "stringUnit": {
-                  "state": "new",
-                  "value": "Play for %lld minutes and keep it going!"
+                  "state": "translated",
+                  "value": "%lld நிமிடங்கள் விளையாடி தொடரைத் தொடர்ந்து வை!"
                 }
               }
             }
@@ -92461,58 +92461,14 @@
         },
         "ar": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "مع Premium تلعب بحرية مع جميع الحيوانات الـ %lld."
           }
         },
         "as": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "প্ৰিমিয়ামত তুমি সকলো %lldটা জন্তুৰে মুক্তভাৱে খেলিব পাৰা।"
           }
         },
         "az": {
@@ -92535,36 +92491,14 @@
         },
         "bn": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "প্রিমিয়ামে তুমি সব %lldটি প্রাণীর সাথে মুক্তভাবে খেলতে পারবে।"
           }
         },
         "bo": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "Premium ཐོབ་ན་སྲོག་ཆགས་ %lld ཚང་མ་དང་རང་དབང་ངང་རྩེ་ཐུབ།"
           }
         },
         "bs": {
@@ -92725,8 +92659,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "プレミアムなら、%lld匹すべての動物と自由に遊べます。"
           }
         },
         "ka": {
@@ -92743,8 +92677,8 @@
         },
         "km": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "ជាមួយ Premium អ្នកលេងដោយសេរីជាមួយសត្វទាំង %lld។"
           }
         },
         "kn": {
@@ -92755,36 +92689,14 @@
         },
         "ko": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "프리미엄에서는 %lld마리 동물 모두와 자유롭게 놀 수 있어요."
           }
         },
         "lo": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "ດ້ວຍ Premium ເຈົ້າຫຼິ້ນໄດ້ຢ່າງເສລີກັບສັດທັງ %lld ໂຕ."
           }
         },
         "lt": {
@@ -92831,8 +92743,8 @@
         },
         "my": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "Premium ဖြင့် တိရစ္ဆာန် %lld ကောင်လုံးနဲ့ လွတ်လပ်စွာ ကစားနိုင်တယ်။"
           }
         },
         "ne": {
@@ -92891,30 +92803,8 @@
         },
         "si": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "ප්‍රීමියම් සමඟ සතුන් %lld දෙනා සමඟ නිදහසේ සෙල්ලම් කරන්න පුළුවන්."
           }
         },
         "sk": {
@@ -92949,30 +92839,8 @@
         },
         "sw": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Kwa Premium unacheza kwa uhuru na wanyama wote %lld."
           }
         },
         "ta": {
@@ -92989,8 +92857,8 @@
         },
         "th": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "ด้วยพรีเมียม คุณเล่นได้อย่างอิสระกับสัตว์ทั้ง %lld ตัว"
           }
         },
         "tr": {
@@ -93031,36 +92899,14 @@
         },
         "zh": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %lld animals."
+            "state": "translated",
+            "value": "有了高级版，可以自由使用全部 %lld 种动物。"
           }
         },
         "zu": {
           "stringUnit": {
-            "state": "new",
-            "value": "With premium you play freely with all %#@animals@."
-          },
-          "substitutions": {
-            "animals": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animal"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg animals"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Nge-Premium udlala ngokukhululeka nazo zonke izilwane eziyi-%lld."
           }
         }
       }
@@ -94025,30 +93871,8 @@
         },
         "as": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "প্ৰতি বিষয়ত %lld লেভেল"
           }
         },
         "az": {
@@ -94071,36 +93895,14 @@
         },
         "bn": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "প্রতি বিষয়ে %lldটি লেভেল"
           }
         },
         "bo": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "བརྗོད་བྱ་རེར་རིམ་པ་ %lld"
           }
         },
         "bs": {
@@ -94261,8 +94063,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "テーマごとに%lldレベル"
           }
         },
         "ka": {
@@ -94279,8 +94081,8 @@
         },
         "km": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "ប្រធានបទនីមួយៗមានលេវែល %lld"
           }
         },
         "kn": {
@@ -94297,8 +94099,8 @@
         },
         "lo": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "%lld ດ່ານຕໍ່ຫົວຂໍ້"
           }
         },
         "lt": {
@@ -94345,8 +94147,8 @@
         },
         "my": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "ခေါင်းစဉ်တစ်ခုစီတွင် အဆင့် %lld ခု"
           }
         },
         "ne": {
@@ -94393,30 +94195,8 @@
         },
         "ro": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "%lld de niveluri pe temă"
           }
         },
         "ru": {
@@ -94427,30 +94207,8 @@
         },
         "si": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "මාතෘකාවකට මට්ටම් %lldක්"
           }
         },
         "sk": {
@@ -94485,30 +94243,8 @@
         },
         "sw": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Viwango %lld kwa kila mada"
           }
         },
         "ta": {
@@ -94525,8 +94261,8 @@
         },
         "th": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "%lld ด่านต่อหัวข้อ"
           }
         },
         "tr": {
@@ -94567,36 +94303,14 @@
         },
         "zh": {
           "stringUnit": {
-            "state": "new",
-            "value": "%lld levels per topic"
+            "state": "translated",
+            "value": "每个主题 %lld 关"
           }
         },
         "zu": {
           "stringUnit": {
-            "state": "new",
-            "value": "%#@levels@ per topic"
-          },
-          "substitutions": {
-            "levels": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg level"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg levels"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Amazinga angu-%lld ngesihloko ngasinye"
           }
         }
       }
@@ -103079,8 +102793,8 @@
         },
         "bo": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "ཉིན་རེའི་བསྟུད་མའི་དམིགས་ཡུལ་སྐར་མ་ %lld ནས་འགོ་ཚུགས། རྩེད་མོ་རྩེ་བཞིན་པའི་དུས་ཚོད་ཁོ་ན་བརྩི།"
           }
         },
         "bs": {
@@ -103241,8 +102955,8 @@
         },
         "ja": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "連続プレイの目標は1日%lld分から始まります。遊んでいる時間だけがカウントされます。"
           }
         },
         "ka": {
@@ -103259,8 +102973,8 @@
         },
         "km": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "គោលដៅនៃការលេងជាប់ៗគ្នាចាប់ផ្តើមពី %lld នាទីក្នុងមួយថ្ងៃ។ គិតតែពេលលេងសកម្មប៉ុណ្ណោះ។"
           }
         },
         "kn": {
@@ -103277,8 +102991,8 @@
         },
         "lo": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "ເປົ້າໝາຍການຫຼິ້ນຕິດຕໍ່ກັນເລີ່ມທີ່ %lld ນາທີຕໍ່ມື້. ນັບແຕ່ເວລາຫຼິ້ນຈິງເທົ່ານັ້ນ."
           }
         },
         "lt": {
@@ -103325,8 +103039,8 @@
         },
         "my": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "ဆက်တိုက်ကစားရည်မှန်းချက်က တစ်နေ့ %lld မိနစ်က စတယ်။ ကစားနေတဲ့အချိန်ပဲ တွက်တယ်။"
           }
         },
         "ne": {
@@ -103385,30 +103099,8 @@
         },
         "si": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %#@minutes@ per day. Only active playtime counts."
-          },
-          "substitutions": {
-            "minutes": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minute"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minutes"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "එක දිගට ක්‍රීඩා කිරීමේ ඉලක්කය දිනකට මිනිත්තු %lldකින් ආරම්භ වේ. සක්‍රීයව ක්‍රීඩා කරන වේලාව පමණක් ගණන් ගනී."
           }
         },
         "sk": {
@@ -103443,30 +103135,8 @@
         },
         "sw": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %#@minutes@ per day. Only active playtime counts."
-          },
-          "substitutions": {
-            "minutes": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minute"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minutes"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Lengo la mfululizo linaanza kwa dakika %lld kwa siku. Ni muda wa kucheza tu ndio unaohesabiwa."
           }
         },
         "ta": {
@@ -103483,8 +103153,8 @@
         },
         "th": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "เป้าหมายการเล่นต่อเนื่องเริ่มที่ %lld นาทีต่อวัน นับเฉพาะเวลาที่เล่นจริง"
           }
         },
         "tr": {
@@ -103525,36 +103195,14 @@
         },
         "zh": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %lld minutes per day. Only active playtime counts."
+            "state": "translated",
+            "value": "连续目标从每天 %lld 分钟开始。只计算实际游戏时间。"
           }
         },
         "zu": {
           "stringUnit": {
-            "state": "new",
-            "value": "The streak goal starts at %#@minutes@ per day. Only active playtime counts."
-          },
-          "substitutions": {
-            "minutes": {
-              "argNum": 1,
-              "formatSpecifier": "lld",
-              "variations": {
-                "plural": {
-                  "one": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minute"
-                    }
-                  },
-                  "other": {
-                    "stringUnit": {
-                      "state": "new",
-                      "value": "%arg minutes"
-                    }
-                  }
-                }
-              }
-            }
+            "state": "translated",
+            "value": "Umgomo wochungechunge uqala ngemizuzu engu-%lld ngosuku. Kubalwa isikhathi sokudlala kuphela."
           }
         }
       }

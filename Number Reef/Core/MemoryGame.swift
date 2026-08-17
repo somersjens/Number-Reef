@@ -427,4 +427,60 @@ nonisolated public final class MemoryGame {
         result.isNewPersonalBest = isNewPersonalBest
         result.unlockedCharacterIDs = unlockedCharacterIDs
     }
+
+    // MARK: - Promo trailer
+
+    /// Replaces the live round with a scripted one. Used only by the App Store
+    /// teaser so every math beat is readable and deterministic.
+    public func trailerInstall(round: GameRound) {
+        self.round = round
+        roundNumber = max(1, round.number)
+        selectedOptionID = nil
+        lastOutcome = nil
+        repeatsRound = false
+        if state == .intro {
+            state = .memorising
+        }
+        if state == .memorising || state == .questionVisible || state == .resolving
+            || state == .roundComplete {
+            state = .answering
+        }
+    }
+
+    /// After a trailer answer resolves, stay on the current scripted sum so the
+    /// director can swap the next beat without a factory round sneaking in.
+    public func trailerResumeAnswering() {
+        selectedOptionID = nil
+        lastOutcome = nil
+        repeatsRound = false
+        if state == .resolving || state == .roundComplete {
+            state = .answering
+        }
+    }
+
+    /// Seeds the in-level streak so the next correct answer can cross the
+    /// golden threshold on cue. Clamped to a valid pre-boost count.
+    public func trailerSeedCorrectStreak(_ value: Int) {
+        correctStreak = max(0, min(value, GameConfig.streakThreshold - 1))
+    }
+
+    /// Seeds life for the teaser (e.g. start at 2 lives = 4 halves) without
+    /// inventing a parallel life system.
+    public func trailerSetLifeHalves(_ halves: Int) {
+        lifeHalves = max(1, min(GameConfig.startingLifeHalves, halves))
+    }
+
+    /// Spends life so a life-fish catch can restore a meaningful amount without
+    /// inventing a fake reward path.
+    public func trailerDamageForLifeFishDemo(halves: Int = 2) {
+        spendLifeHalves(halves)
+    }
+
+    /// Ends the board so the real success-curl path can run after the final
+    /// teaser answer, without inventing a parallel finale.
+    public func trailerForceLevelComplete() {
+        guard state != .gameOver else { return }
+        cards = max(cards, board.maximum)
+        finish(reason: .roundsCompleted)
+    }
 }

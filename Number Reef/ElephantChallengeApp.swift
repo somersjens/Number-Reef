@@ -57,44 +57,53 @@ struct ElephantChallengeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if onboardingComplete && !onboardingReplayRequested {
-                    HomeView()
-                        // Both screens fade through each other rather than one
-                        // replacing the other, so the hand-over reads as a
-                        // single settling motion instead of a cut.
-                        .transition(.opacity.combined(with: .scale(scale: 1.015)))
-                } else {
-                    OnboardingView()
-                        .transition(.opacity.combined(with: .scale(scale: 0.99)))
-                }
+            if PromoTrailerRuntime.isActive {
+                PromoTrailerBootstrapView()
+            } else {
+                productionRoot
             }
-            .animation(.easeInOut(duration: 0.42),
-                       value: onboardingComplete && !onboardingReplayRequested)
-            // Re-renders every `Text` (and formats numbers) when the language
-            // changes; combined with the bundle redirection this makes the
-            // switch instant, no restart required.
-            .environment(\.locale, language.locale)
-            // SwiftUI takes reading direction from the bundle's language, which
-            // the in-app switch overrides, so Arabic and Hebrew must be told
-            // explicitly to lay out right-to-left.
-            .environment(\.layoutDirection, language.layoutDirection)
-            .sheet(isPresented: Binding(
-                get: { promotedPurchase.isAwaitingParentApproval },
-                set: { isPresented in
-                    if !isPresented { promotedPurchase.cancelDeferredPurchase() }
-                }
-            ),
-                   onDismiss: { promotedPurchase.cancelDeferredPurchase() }) {
-                let character = CharacterCatalog.current(isPremium: PremiumStore.shared.isPremium)
-                ParentApprovalGate(
-                    accent: character.color,
-                    deepColor: character.deepColor,
-                    onApproved: { promotedPurchase.approveDeferredPurchase() }
-                )
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+        }
+    }
+
+    @ViewBuilder
+    private var productionRoot: some View {
+        ZStack {
+            if onboardingComplete && !onboardingReplayRequested {
+                HomeView()
+                    // Both screens fade through each other rather than one
+                    // replacing the other, so the hand-over reads as a
+                    // single settling motion instead of a cut.
+                    .transition(.opacity.combined(with: .scale(scale: 1.015)))
+            } else {
+                OnboardingView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.99)))
             }
+        }
+        .animation(.easeInOut(duration: 0.42),
+                   value: onboardingComplete && !onboardingReplayRequested)
+        // Re-renders every `Text` (and formats numbers) when the language
+        // changes; combined with the bundle redirection this makes the
+        // switch instant, no restart required.
+        .environment(\.locale, language.locale)
+        // SwiftUI takes reading direction from the bundle's language, which
+        // the in-app switch overrides, so Arabic and Hebrew must be told
+        // explicitly to lay out right-to-left.
+        .environment(\.layoutDirection, language.layoutDirection)
+        .sheet(isPresented: Binding(
+            get: { promotedPurchase.isAwaitingParentApproval },
+            set: { isPresented in
+                if !isPresented { promotedPurchase.cancelDeferredPurchase() }
+            }
+        ),
+               onDismiss: { promotedPurchase.cancelDeferredPurchase() }) {
+            let character = CharacterCatalog.current(isPremium: PremiumStore.shared.isPremium)
+            ParentApprovalGate(
+                accent: character.color,
+                deepColor: character.deepColor,
+                onApproved: { promotedPurchase.approveDeferredPurchase() }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 }

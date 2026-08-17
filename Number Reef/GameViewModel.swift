@@ -117,6 +117,14 @@ final class GameViewModel: ObservableObject {
         AppAudio.shared.setGameplayActive(true, questionText: nil)
         AppAudio.shared.playSessionStart()
         hasBonusFishPower = prepared.pausedSession?.hasBonusFishPower ?? false
+        if PromoTrailerRuntime.isActive {
+            // Director owns every math beat — install the opening sum immediately
+            // so frame 0 never flashes a factory question from `prepare()`.
+            trailerOwnsRounds = true
+            engine.trailerInstall(round: PromoTrailerScript.openingRound(number: 1))
+            sync()
+            return
+        }
         openRound()
         announceRound()
         sync()
@@ -284,6 +292,13 @@ final class GameViewModel: ObservableObject {
         schedule(after: delay, token: token) { [weak self] in
             guard let self else { return }
             guard self.engine.finishResolving() else { return }
+            if self.trailerOwnsRounds {
+                // Director will install the next scripted round; stay answering
+                // on the current sum so a factory question cannot leak in.
+                self.engine.trailerResumeAnswering()
+                self.sync()
+                return
+            }
             let previousRoundID = self.engine.round?.id
             self.engine.advance()
             if self.engine.state == .gameOver {
@@ -439,6 +454,40 @@ final class GameViewModel: ObservableObject {
         isHeartFishAvailable = engine.isHeartFishAvailable
         AppAudio.shared.setGameplayRate(isStreakBoostActive
                                         ? Float(GameConfig.streakSpeedMultiplier) : 1)
+    }
+
+    // MARK: - Promo trailer
+
+    /// When true, a correct/wrong answer does not auto-advance into a factory
+    /// round — the promo director owns every math beat via `trailerInstall`.
+    private var trailerOwnsRounds = false
+
+    func trailerInstall(round: GameRound) {
+        engine.trailerInstall(round: round)
+        trailerOwnsRounds = true
+        sync()
+    }
+
+    func trailerSeedCorrectStreak(_ value: Int) {
+        engine.trailerSeedCorrectStreak(value)
+        sync()
+    }
+
+    func trailerSetLifeHalves(_ halves: Int) {
+        engine.trailerSetLifeHalves(halves)
+        sync()
+    }
+
+    func trailerDamageForLifeFishDemo(halves: Int = 2) {
+        engine.trailerDamageForLifeFishDemo(halves: halves)
+        sync()
+    }
+
+    func trailerForceLevelComplete() {
+        trailerOwnsRounds = false
+        engine.trailerForceLevelComplete()
+        finishSession()
+        sync()
     }
 
     /// Runs `work` after a delay, unless the session moved on in the meantime.
