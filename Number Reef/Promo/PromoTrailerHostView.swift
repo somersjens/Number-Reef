@@ -446,11 +446,7 @@ struct PromoTrailerCaptionCard: View {
             theme.artwork
                 .resizable()
                 .scaledToFit()
-                .padding(isPad ? 4 : 3)
                 .frame(width: portraitSize, height: portraitSize)
-                .background(theme.skyColor,
-                            in: RoundedRectangle(cornerRadius: isPad ? 14 : 10,
-                                                 style: .continuous))
 
             Text(verbatim: text)
                 .font(.system(size: fontSize, weight: .heavy, design: .rounded))
@@ -458,9 +454,9 @@ struct PromoTrailerCaptionCard: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
-        .padding(.leading, isPad ? 14 : 10)
+        .padding(.leading, isPad ? 12 : 8)
         .padding(.trailing, isPad ? 18 : 14)
-        .padding(.vertical, isPad ? 12 : 8)
+        .padding(.vertical, isPad ? 10 : 6)
         .background {
             Capsule(style: .continuous)
                 .fill(.white.opacity(0.95))

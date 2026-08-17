@@ -189,6 +189,7 @@ final class PromoTrailerRecorder {
         export.outputURL = dest
         export.outputFileType = .mp4
         export.timeRange = timeRange
+        export.shouldOptimizeForNetworkUse = true
         if !mixParams.isEmpty {
             let audioMix = AVMutableAudioMix()
             audioMix.inputParameters = mixParams

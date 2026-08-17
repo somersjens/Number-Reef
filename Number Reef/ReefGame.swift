@@ -713,6 +713,8 @@ final class ReefEngine: ObservableObject {
     private var trailerHasPlacedFish = false
     /// Multiplier for the level-completion swim (teaser uses 2×).
     var trailerCompletionSpeedScale: Double = 1
+    /// Teaser: keep coral-vent bubbles rising after the swim-out (behind the icon).
+    var trailerKeepCompletionStream = false
     /// When true, the host drives `trailerStep` at encode FPS (no display-link dt jitter).
     private var trailerUsesExternalClock = false
 
@@ -1297,11 +1299,13 @@ final class ReefEngine: ObservableObject {
         guard let elapsed = completionElapsed else { return }
         let next = elapsed + dt * max(0.5, trailerCompletionSpeedScale)
         let previous = fish.position
+        let duration = reducesCompletionMotion ? 0.9 : ReefConfig.completionDuration
+        let pathActive = next < duration
 
         // The completion path owns the fish. Do not consult the normal
         // steering flag here: setRunning(false) may clear it during the same
         // SwiftUI update in which the finale begins.
-        if !reducesCompletionMotion {
+        if !reducesCompletionMotion, pathActive {
             fish.isSwimming = true
             let gatherEnd = ReefConfig.completionGatherDuration
             if next < gatherEnd {
@@ -1353,13 +1357,17 @@ final class ReefEngine: ObservableObject {
 
         moveCelebrationBubbles(dt)
         completionElapsed = next
-        let duration = reducesCompletionMotion ? 0.9 : ReefConfig.completionDuration
         if next >= duration {
+            if let callback = completionCallback {
+                fish.isSwimming = false
+                completionCallback = nil
+                callback()
+            }
+            if trailerKeepCompletionStream {
+                return
+            }
             completionElapsed = nil
             fish.isSwimming = false
-            let callback = completionCallback
-            completionCallback = nil
-            callback?()
         }
     }
 

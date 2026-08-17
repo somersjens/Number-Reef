@@ -32,7 +32,7 @@ enum PromoTrailerScript {
         makeRound(number: number,
                   prompt: "4 × 5 = ?",
                   correct: "20",
-                  wrongs: ["16", "18", "24", "25"])
+                  wrongs: ["16", "18", "22", "24"])
     }
 
     private static func makeRound(number: Int,
@@ -81,13 +81,14 @@ enum PromoTrailerScript {
         guard let correct = round.options.first(where: \.isCorrect) else {
             return round.options
         }
-        // 16/18 right after the 5; 20 last on the far left so it is still low.
-        return [wrongs[0], wrongs[1], correct]
+        // 16/18 right after the 5; 22/24 fill the left-center while the fish
+        // arcs right; 20 last on the far left so it is still low.
+        return Array(wrongs.prefix(4)) + [correct]
     }
 
-    /// 16 left-center, 18 center — right corridor stays free for the 2×.
-    static let finalVentFractions: [CGFloat] = [0.28, 0.52, 0.08]
-    static let finalGaps: [Double] = [0.20, 0.62, 4.70]
+    /// 16 left-center, 18 center, 22 under 16, 24 a bit right of 22, 20 far left.
+    static let finalVentFractions: [CGFloat] = [0.28, 0.52, 0.20, 0.38, 0.08]
+    static let finalGaps: [Double] = [0.20, 0.62, 1.70, 1.35, 1.65]
 
     // MARK: Timeline
 

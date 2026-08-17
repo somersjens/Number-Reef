@@ -71,6 +71,7 @@ final class PromoTrailerDirector: ObservableObject {
         // Whole trailer starts at 2 lives; the life-fish beat restores to 3.
         model.trailerSetLifeHalves(4)
         engine.trailerCompletionSpeedScale = 1.5
+        engine.trailerKeepCompletionStream = true
         GameSettings.characterID = "octopus"
         characterID = "octopus"
         audioCues.removeAll()
@@ -219,7 +220,7 @@ final class PromoTrailerDirector: ObservableObject {
             // Linear turn while fading in — ease-out looked like the twist
             // paused, then finished.
             let fade = min(1, t / 0.24)
-            let turn = min(1, t / 1.05)
+            let turn = min(1, t / 0.52)
             iconOpacity = fade
             iconRotation = -26 * (1 - turn)
             iconScale = 0.82 + 0.18 * CGFloat(turn)
