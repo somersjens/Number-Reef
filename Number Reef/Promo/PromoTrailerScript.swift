@@ -62,7 +62,7 @@ enum PromoTrailerScript {
     // 11 left-center, 12 center, 13 far left (early enough to meet the climb),
     // 14 right after the under-pass.
     static let openingVentFractions: [CGFloat] = [0.22, 0.50, 0.08, 0.92]
-    static let openingGaps: [Double] = [0.10, 0.50, 1.20, 2.20]
+    static let openingGaps: [Double] = [0.10, 0.50, 0.55, 2.20]
 
     static func midShowcaseQueue(from round: GameRound) -> [AnswerOption] {
         let wrongs = round.options.filter { !$0.isCorrect }
@@ -88,7 +88,7 @@ enum PromoTrailerScript {
 
     /// 16 left-center, 18 center, 22 under 16, 24 a bit right of 22, 20 far left.
     static let finalVentFractions: [CGFloat] = [0.28, 0.52, 0.20, 0.38, 0.08]
-    static let finalGaps: [Double] = [0.20, 0.62, 1.70, 1.35, 1.65]
+    static let finalGaps: [Double] = [0.20, 0.62, 1.70, 1.35, 2.15]
 
     // MARK: Timeline
 
@@ -105,15 +105,27 @@ enum PromoTrailerScript {
         Caption(text: "And learn math", start: 16.7, end: 20.8)
     ]
 
-    /// Character showcase. Lion is held longer so the yellow theme can settle
-    /// before returning to octopus.
-    static let characterBeats: [(time: TimeInterval, id: String)] = [
-        (5.2, "octopus"),
-        (6.3, "crab"),
-        (7.5, "bear"),
-        (8.8, "lion"),
-        (10.8, "octopus")
+    static func captions(openingHitAt: TimeInterval?) -> [Caption] {
+        let unlock = openingHitAt ?? 5.2
+        return [
+            Caption(text: "Avoid the wrong bubbles", start: 0.10, end: min(4.8, unlock - 0.04)),
+            Caption(text: "Unlock new characters", start: unlock, end: unlock + unlockCaptionDuration),
+            Caption(text: "Catch helper fish in time", start: 11.3, end: 16.4),
+            Caption(text: "And learn math", start: 16.7, end: 20.8)
+        ]
+    }
+
+    /// Character showcase, offsets from the opening (13) collect.
+    static let characterBeatOffsets: [(offset: TimeInterval, id: String)] = [
+        (0.08, "octopus"),
+        (1.18, "crab"),
+        (2.38, "bear"),
+        (3.68, "lion"),
+        (5.68, "octopus")
     ]
+
+    static let zoomUnlockDuration: TimeInterval = 5.70
+    static let unlockCaptionDuration: TimeInterval = 5.80
 
     struct Waypoint {
         let time: TimeInterval
@@ -131,35 +143,33 @@ enum PromoTrailerScript {
         Waypoint(time: 2.10, x: 0.76, y: 0.90),
         Waypoint(time: 2.70, x: 0.52, y: 0.92),
         Waypoint(time: 3.20, x: 0.36, y: 0.90),
-        // Under 12, then a long left glide into 13 as it rises from the vent.
+        // Under 12, then through 13 in one climb — no hover on the bubble.
         Waypoint(time: 3.70, x: 0.20, y: 0.88),
-        Waypoint(time: 4.20, x: 0.12, y: 0.80),
-        Waypoint(time: 4.70, x: 0.10, y: 0.70),
-        Waypoint(time: 5.20, x: 0.10, y: 0.60),
-        Waypoint(time: 5.55, x: 0.10, y: 0.54),
-        // Soft exit after the pop.
-        Waypoint(time: 5.70, x: 0.28, y: 0.48),
-        Waypoint(time: 6.10, x: 0.48, y: 0.34),
-        // Wide unlock loops — weave the rising mid-round wrongs.
-        Waypoint(time: 6.20, x: 0.62, y: 0.26),
-        Waypoint(time: 6.80, x: 0.84, y: 0.38),
-        Waypoint(time: 7.40, x: 0.72, y: 0.62),
-        Waypoint(time: 8.00, x: 0.38, y: 0.70),
-        Waypoint(time: 8.60, x: 0.18, y: 0.46),
-        Waypoint(time: 9.20, x: 0.36, y: 0.22),
-        Waypoint(time: 9.80, x: 0.70, y: 0.24),
-        Waypoint(time: 10.40, x: 0.78, y: 0.38),
-        Waypoint(time: 10.90, x: 0.62, y: 0.50),
-        // Glide into the risen 5, then keep moving — no pause.
-        Waypoint(time: 11.30, x: 0.52, y: 0.58),
-        Waypoint(time: 11.65, x: 0.50, y: 0.62),
-        // Fluid line from the 5 into the 2× coin (from the right).
-        Waypoint(time: 12.10, x: 0.58, y: 0.70),
-        Waypoint(time: 12.55, x: 0.70, y: 0.78),
-        Waypoint(time: 13.05, x: 0.82, y: 0.80),
-        Waypoint(time: 13.40, x: 0.68, y: 0.62),
-        // Life fish earlier — glide past it, then a wide arc to 20.
-        Waypoint(time: 13.80, x: 0.46, y: 0.48),
+        Waypoint(time: 4.15, x: 0.11, y: 0.80),
+        Waypoint(time: 4.40, x: 0.10, y: 0.70),
+        Waypoint(time: 4.65, x: 0.16, y: 0.56),
+        Waypoint(time: 5.05, x: 0.36, y: 0.40),
+        Waypoint(time: 5.50, x: 0.56, y: 0.28),
+        // Wide unlock loops — round crests, no corners at the top.
+        Waypoint(time: 5.90, x: 0.70, y: 0.16),
+        Waypoint(time: 6.35, x: 0.86, y: 0.26),
+        Waypoint(time: 6.85, x: 0.84, y: 0.46),
+        Waypoint(time: 7.40, x: 0.70, y: 0.62),
+        Waypoint(time: 8.00, x: 0.42, y: 0.70),
+        Waypoint(time: 8.55, x: 0.20, y: 0.52),
+        Waypoint(time: 9.05, x: 0.28, y: 0.28),
+        Waypoint(time: 9.50, x: 0.48, y: 0.14),
+        Waypoint(time: 10.00, x: 0.72, y: 0.20),
+        Waypoint(time: 10.50, x: 0.80, y: 0.38),
+        Waypoint(time: 10.95, x: 0.64, y: 0.50),
+        // Into the 5, then a wide right curve to the 2× — no kink.
+        Waypoint(time: 11.35, x: 0.52, y: 0.58),
+        Waypoint(time: 11.80, x: 0.54, y: 0.66),
+        Waypoint(time: 12.25, x: 0.64, y: 0.74),
+        Waypoint(time: 12.70, x: 0.76, y: 0.80),
+        Waypoint(time: 13.10, x: 0.84, y: 0.80),
+        Waypoint(time: 13.50, x: 0.72, y: 0.68),
+        Waypoint(time: 13.90, x: 0.50, y: 0.50),
         Waypoint(time: 14.25, x: 0.28, y: 0.40),
         Waypoint(time: 14.75, x: 0.20, y: 0.30),
         Waypoint(time: 15.35, x: 0.40, y: 0.16),
@@ -167,9 +177,9 @@ enum PromoTrailerScript {
         Waypoint(time: 16.60, x: 0.88, y: 0.42),
         Waypoint(time: 17.20, x: 0.78, y: 0.64),
         Waypoint(time: 17.75, x: 0.50, y: 0.80),
-        Waypoint(time: 18.30, x: 0.26, y: 0.84),
-        Waypoint(time: 18.80, x: 0.12, y: 0.82),
-        Waypoint(time: 19.30, x: 0.12, y: 0.76)
+        Waypoint(time: 18.20, x: 0.26, y: 0.90),
+        Waypoint(time: 18.50, x: 0.12, y: 0.92),
+        Waypoint(time: 18.75, x: 0.10, y: 0.86)
     ]
 
     static let steerLookAhead: TimeInterval = 0.40
@@ -184,7 +194,7 @@ enum PromoTrailerScript {
     static let seedStreakAt: TimeInterval = 10.55
     static let spawnLifeFishAt: TimeInterval = 13.55
     static let installFinalRoundAt: TimeInterval = 11.72
-    static let forceCompletionAfterFinal: TimeInterval = 0.45
+    static let forceCompletionAfterFinal: TimeInterval = 0.12
     /// Fallback only — icon normally waits for the swim-out callback.
     static let showIconAt: TimeInterval = 27.00
     static let iconHold: TimeInterval = 2.15

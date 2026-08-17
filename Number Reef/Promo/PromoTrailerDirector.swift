@@ -44,6 +44,7 @@ final class PromoTrailerDirector: ObservableObject {
     private var openingCollected = false
     private var penultimateCollected = false
     private var finalCollected = false
+    private var openingHitAt: TimeInterval?
     private var awaitingFinalInstall = false
     private var didCatchBonus = false
     private var didCatchLife = false
@@ -70,7 +71,7 @@ final class PromoTrailerDirector: ObservableObject {
         model.setHeartFishRestoresWholeLife(true)
         // Whole trailer starts at 2 lives; the life-fish beat restores to 3.
         model.trailerSetLifeHalves(4)
-        engine.trailerCompletionSpeedScale = 1.5
+        engine.trailerCompletionSpeedScale = 1.2
         engine.trailerKeepCompletionStream = true
         GameSettings.characterID = "octopus"
         characterID = "octopus"
@@ -163,7 +164,7 @@ final class PromoTrailerDirector: ObservableObject {
         assistCollectIfNeeded(at: elapsed, engine: engine, model: model)
         assistHelpersIfNeeded(at: elapsed, engine: engine, model: model)
 
-        if !didInstallMid, openingCollected, elapsed >= 5.0 {
+        if !didInstallMid, openingCollected {
             installMid(engine: engine, model: model)
         }
 
@@ -217,14 +218,11 @@ final class PromoTrailerDirector: ObservableObject {
 
         if let started = iconRevealAt {
             let t = max(0, elapsed - started)
-            // Linear turn while fading in — ease-out looked like the twist
-            // paused, then finished.
             let fade = min(1, t / 0.24)
             let turn = min(1, t / 0.52)
             iconOpacity = fade
             iconRotation = -26 * (1 - turn)
             iconScale = 0.82 + 0.18 * CGFloat(turn)
-            backgroundBlur = 6 * CGFloat(min(1, t / 0.70))
         }
 
         if let due = finishAt, elapsed >= due {
@@ -253,7 +251,7 @@ final class PromoTrailerDirector: ObservableObject {
         iconOpacity = 0
         iconScale = 0.80
         iconRotation = -26
-        backgroundBlur = 0
+        backgroundBlur = 5
     }
 
     private func assistHelpersIfNeeded(at time: TimeInterval, engine: ReefEngine, model: GameViewModel) {
@@ -280,27 +278,29 @@ final class PromoTrailerDirector: ObservableObject {
     private func assistCollectIfNeeded(at time: TimeInterval, engine: ReefEngine, model: GameViewModel) {
         guard !blocksAnswerHits else { return }
         let target: ReefBubble?
-        if !openingCollected, time >= 4.35 {
+        let radiusScale: CGFloat
+        if !openingCollected, time >= 4.10 {
             target = engine.trailerBubbles.first { $0.isCorrect && !$0.isPopping }
-        } else if !penultimateCollected, time >= 11.05 {
+            radiusScale = 1.85
+        } else if !penultimateCollected, time >= 10.95 {
             target = engine.trailerBubbles.first { $0.isCorrect && !$0.isPopping }
-        } else if !finalCollected, time >= 18.55 {
+            radiusScale = 1.15
+        } else if !finalCollected, time >= 18.48 {
             target = engine.trailerBubbles.first { $0.isCorrect && !$0.isPopping }
+            radiusScale = 1.12
         } else {
             target = nil
+            radiusScale = 1
         }
-        guard let bubble = target else { return }
+        guard target != nil else { return }
         engine.setLive(true)
-        _ = engine.trailerTryCollectCorrect(within: engine.trailerAnswerHitRadius)
+        _ = engine.trailerTryCollectCorrect(within: engine.trailerAnswerHitRadius * radiusScale)
         _ = model
-        _ = bubble
     }
 
     private func updateAnswerGate(at time: TimeInterval) {
         if !openingCollected {
-            // Production rise-check still refuses a crater camp; unblock so the
-            // 13 pops on a real collision as the fish glides into it.
-            blocksAnswerHits = time < 4.20
+            blocksAnswerHits = time < 4.05
             return
         }
         if !penultimateCollected {
@@ -308,7 +308,7 @@ final class PromoTrailerDirector: ObservableObject {
             return
         }
         if !finalCollected {
-            blocksAnswerHits = time < 18.50
+            blocksAnswerHits = time < 18.48
             return
         }
         blocksAnswerHits = true
@@ -319,6 +319,7 @@ final class PromoTrailerDirector: ObservableObject {
         cueSFX("sfx_correct", volume: 0.14)
         if !openingCollected {
             openingCollected = true
+            openingHitAt = elapsed
             return
         }
         if !penultimateCollected {
@@ -372,7 +373,7 @@ final class PromoTrailerDirector: ObservableObject {
     }
 
     private func updateCaption(at time: TimeInterval) {
-        guard let active = PromoTrailerScript.captions.first(where: {
+        guard let active = PromoTrailerScript.captions(openingHitAt: openingHitAt).first(where: {
             time >= $0.start && time < $0.end
         }) else {
             if captionOpacity != 0 { captionOpacity = 0 }
@@ -391,8 +392,9 @@ final class PromoTrailerDirector: ObservableObject {
     }
 
     private func updateCharacter(at time: TimeInterval) {
+        let origin = openingHitAt ?? 5.2
         var next = "octopus"
-        for beat in PromoTrailerScript.characterBeats where time >= beat.time {
+        for beat in PromoTrailerScript.characterBeatOffsets where time >= origin + beat.offset {
             next = beat.id
         }
         guard next != characterID else { return }
@@ -401,8 +403,8 @@ final class PromoTrailerDirector: ObservableObject {
     }
 
     private func updateCamera(at time: TimeInterval, engine: ReefEngine) {
-        let start = PromoTrailerScript.zoomUnlockStart
-        let end = PromoTrailerScript.zoomUnlockEnd
+        let start = openingHitAt ?? PromoTrailerScript.zoomUnlockStart
+        let end = start + PromoTrailerScript.zoomUnlockDuration
         let peak = PromoTrailerScript.unlockZoom
         let zoom: CGFloat
         let zoomOut: TimeInterval = 0.70
@@ -447,12 +449,8 @@ final class PromoTrailerDirector: ObservableObject {
         guard !playsLevelCompletion else { return }
 
         let lookAhead: TimeInterval
-        if !openingCollected && time >= 3.9 {
-            lookAhead = 0.12
-        } else if !penultimateCollected && time >= 10.7 {
-            lookAhead = 0.16
-        } else if !finalCollected && time >= 18.2 {
-            lookAhead = 0.14
+        if time >= 5.5 && time < 11.1 {
+            lookAhead = 0.32
         } else {
             lookAhead = PromoTrailerScript.steerLookAhead
         }
@@ -460,16 +458,18 @@ final class PromoTrailerDirector: ObservableObject {
         let unit = PromoTrailerScript.pathPoint(at: look)
         var desired = point(x: unit.x, y: unit.y, in: engine)
         let weave: CGFloat
-        if time >= 5.2 && time < 11.0 {
-            weave = 1.35
-        } else if time >= 11.7 && time < 18.2 {
+        if time >= (openingHitAt ?? 5.2) && time < 11.0 {
+            weave = 1.12
+        } else if time >= 11.7 && time < 13.4 {
+            weave = 0.65
+        } else if time >= 13.4 && time < 18.2 {
             weave = 1.12
         } else {
             weave = 1
         }
-        let allowCorrect = (!openingCollected && time >= 4.15)
+        let allowCorrect = (!openingCollected && time >= 4.05)
             || (!penultimateCollected && time >= 10.95)
-            || (!finalCollected && time >= 18.50)
+            || (!finalCollected && time >= 18.48)
         desired = avoidWrongBubbles(desired: desired, engine: engine,
                                     allowingCorrectApproach: allowCorrect,
                                     strength: weave)
@@ -478,10 +478,7 @@ final class PromoTrailerDirector: ObservableObject {
            let thirteen = engine.trailerBubbles.first(where: { $0.isCorrect && !$0.isPopping }) {
             desired = blendToward(desired, thirteen.position, engine: engine,
                                   enter: engine.trailerIsPad ? 260 : 210,
-                                  full: engine.trailerAnswerHitRadius)
-            if desired.y < thirteen.position.y {
-                desired.y = thirteen.position.y
-            }
+                                  full: engine.trailerAnswerHitRadius * 0.55)
         } else if !penultimateCollected, time >= 10.9,
                   let five = engine.trailerBubbles.first(where: { $0.isCorrect && !$0.isPopping }) {
             desired = blendToward(desired, five.position, engine: engine,
@@ -497,23 +494,22 @@ final class PromoTrailerDirector: ObservableObject {
             desired = blendToward(desired, heart.position, engine: engine,
                                   enter: engine.trailerIsPad ? 300 : 250,
                                   full: engine.trailerIsPad ? 90 : 70)
-        } else if !finalCollected, time >= 18.45,
+        } else if !finalCollected, time >= 18.30,
                   let twenty = engine.trailerBubbles.first(where: { $0.isCorrect && !$0.isPopping }) {
             desired = blendToward(desired, twenty.position, engine: engine,
-                                  enter: engine.trailerIsPad ? 260 : 210,
-                                  full: engine.trailerAnswerHitRadius)
-            if desired.y < twenty.position.y {
-                desired.y = twenty.position.y
-            }
+                                  enter: engine.trailerIsPad ? 220 : 170,
+                                  full: engine.trailerAnswerHitRadius * 0.7)
         }
 
         let blend: CGFloat
         if time < 3.45 {
             blend = 0.32
+        } else if time >= 4.05 && time < 4.90 {
+            blend = 0.30
         } else if time >= 11.2 && time < 14.0 {
-            blend = 0.20
-        } else if time >= 18.2 && time < 20.2 {
-            blend = 0.18
+            blend = 0.24
+        } else if time >= 18.30 && time < 19.1 {
+            blend = 0.30
         } else {
             blend = 0.22
         }

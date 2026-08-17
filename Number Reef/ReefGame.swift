@@ -696,6 +696,7 @@ final class ReefEngine: ObservableObject {
     private var completionCallback: (() -> Void)?
     private var completionBubbleCountdown = 0.0
     private var completionTrailCountdown = 0.0
+    private var completionStreamVent = 0
     private var reducesCompletionMotion = false
     private var ambientBubbleCountdown = Double.random(in: ReefConfig.ambientBubbleGap)
 
@@ -715,6 +716,8 @@ final class ReefEngine: ObservableObject {
     var trailerCompletionSpeedScale: Double = 1
     /// Teaser: keep coral-vent bubbles rising after the swim-out (behind the icon).
     var trailerKeepCompletionStream = false
+    /// Teaser encode: draw decorative canvas on the same beat as capture.
+    var trailerSyncCanvas = false
     /// When true, the host drives `trailerStep` at encode FPS (no display-link dt jitter).
     private var trailerUsesExternalClock = false
 
@@ -1185,6 +1188,7 @@ final class ReefEngine: ObservableObject {
         completionCallback = completion
         completionBubbleCountdown = 0
         completionTrailCountdown = 0
+        completionStreamVent = 0
         reducesCompletionMotion = reduceMotion
         fish.isSwimming = !reduceMotion
     }
@@ -1348,7 +1352,9 @@ final class ReefEngine: ObservableObject {
         }
 
         if !reducesCompletionMotion {
-            completionBubbleCountdown -= dt * max(0.5, trailerCompletionSpeedScale)
+            // Same clock as moveCelebrationBubbles — scaling only the spawn
+            // rate made the stream hitch when the swim-out ended.
+            completionBubbleCountdown -= dt
             if completionBubbleCountdown <= 0 {
                 completionBubbleCountdown = ReefPerformanceBudget.completionStreamInterval
                 spawnCompletionStreamBubble()
@@ -1359,7 +1365,6 @@ final class ReefEngine: ObservableObject {
         completionElapsed = next
         if next >= duration {
             if let callback = completionCallback {
-                fish.isSwimming = false
                 completionCallback = nil
                 callback()
             }
@@ -1471,7 +1476,14 @@ final class ReefEngine: ObservableObject {
 
     private func spawnCompletionStreamBubble() {
         let vents = ReefConfig.craterPositions(width: size.width, isPad: isPad)
-        guard let x = vents.randomElement() else { return }
+        guard !vents.isEmpty else { return }
+        let x: CGFloat
+        if trailerKeepCompletionStream {
+            x = vents[completionStreamVent % vents.count]
+            completionStreamVent += 1
+        } else {
+            x = vents.randomElement() ?? vents[0]
+        }
         celebrationBubbles.append(ReefCelebrationBubble(
             position: CGPoint(x: x + CGFloat.random(in: -8...8), y: spawnLine + 8),
             radius: CGFloat.random(in: isPad ? 5...15 : 4...11),
@@ -2197,10 +2209,12 @@ final class ReefEngine: ObservableObject {
             // launch gets it there quickly, but the player cannot camp on a
             // crater and collect an answer the instant it appears.
             guard bubble.emergence >= 1 else { continue }
-            let releaseY = spawnLine + bubble.diameter * 0.22
-            let risen = releaseY - bubble.position.y
-            guard risen >= bubble.diameter * ReefConfig.minimumCatchRiseFactor else {
-                continue
+            if !trailerDeterministicMotion {
+                let releaseY = spawnLine + bubble.diameter * 0.22
+                let risen = releaseY - bubble.position.y
+                guard risen >= bubble.diameter * ReefConfig.minimumCatchRiseFactor else {
+                    continue
+                }
             }
             let radius = bubble.diameter * ReefConfig.bubbleHitFactor
             let dx = bubble.position.x - fish.position.x
@@ -2425,6 +2439,7 @@ final class ReefEngine: ObservableObject {
         // Arm before setRunning can start a display-link — dual clocks cause
         // judder (variable dt + fixed encode dt fighting each other).
         trailerUsesExternalClock = true
+        trailerSyncCanvas = true
 #if canImport(UIKit)
         displayLink?.invalidate()
         displayLink = nil
@@ -2680,12 +2695,14 @@ final class ReefEngine: ObservableObject {
             return false
         }
         guard bubble.emergence >= 1 else { return false }
-        let pinned = trailerPinnedBubbleIDs.contains(bubble.id)
-        if !pinned {
-            let releaseY = spawnLine + bubble.diameter * 0.22
-            let risen = releaseY - bubble.position.y
-            guard risen >= bubble.diameter * ReefConfig.minimumCatchRiseFactor else {
-                return false
+        if !trailerDeterministicMotion {
+            let pinned = trailerPinnedBubbleIDs.contains(bubble.id)
+            if !pinned {
+                let releaseY = spawnLine + bubble.diameter * 0.22
+                let risen = releaseY - bubble.position.y
+                guard risen >= bubble.diameter * ReefConfig.minimumCatchRiseFactor else {
+                    return false
+                }
             }
         }
         let dx = bubble.position.x - fish.position.x
@@ -2800,7 +2817,8 @@ struct ReefPlayfield: View {
                                   ambientBubbles: engine.ambientBubbles,
                                   celebrationBubbles: engine.celebrationBubbles,
                                   character: character,
-                                  palette: palette)
+                                  palette: palette,
+                                  rendersAsynchronously: !engine.trailerSyncCanvas)
                     .allowsHitTesting(false)
 
                 // Under the answers and the swimmer: the marker is a place in
@@ -3595,12 +3613,13 @@ private struct ReefEffectsCanvas: View {
     let celebrationBubbles: [ReefCelebrationBubble]
     let character: AnimalCharacter
     let palette: ReefPalette
+    var rendersAsynchronously = true
 
     var body: some View {
         // Wakes and plankton sit behind the fish, so a frame of asynchronous
         // rasterization is invisible. Drawing them on the main thread used to
         // steal the budget that steering and collisions need.
-        Canvas(opaque: false, rendersAsynchronously: true) { context, _ in
+        Canvas(opaque: false, rendersAsynchronously: rendersAsynchronously) { context, _ in
             for mote in motes {
                 let rect = CGRect(x: mote.position.x - mote.radius,
                                   y: mote.position.y - mote.radius,
