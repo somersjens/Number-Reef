@@ -29,6 +29,10 @@ struct ElephantChallengeApp: App {
 #endif
     @AppStorage(GameSettings.onboardingCompleteKey) private var onboardingComplete = false
     @AppStorage(GameSettings.onboardingReplayRequestedKey) private var onboardingReplayRequested = false
+    /// The first game opened from the last welcome screen. Shown in this
+    /// ZStack so it can crossfade with onboarding; a `fullScreenCover` from
+    /// the menu would flash that menu in between.
+    @State private var firstSession: GameSessionRequest?
     @StateObject private var language = LanguageManager.shared
     @StateObject private var promotedPurchase = PromotedPurchaseCoordinator.shared
 
@@ -67,20 +71,33 @@ struct ElephantChallengeApp: App {
 
     @ViewBuilder
     private var productionRoot: some View {
+        let showsHome = onboardingComplete && !onboardingReplayRequested
         ZStack {
-            if onboardingComplete && !onboardingReplayRequested {
-                HomeView()
-                    // Both screens fade through each other rather than one
-                    // replacing the other, so the hand-over reads as a
-                    // single settling motion instead of a cut.
+            if showsHome {
+                HomeView(isCoveredByFirstSession: firstSession != nil)
+                    // Hidden while the welcome flow's first game is covering
+                    // it, so the menu never flashes through the crossfade.
+                    .opacity(firstSession == nil ? 1 : 0)
+                    .allowsHitTesting(firstSession == nil)
+                    .accessibilityHidden(firstSession != nil)
+            }
+
+            if let session = firstSession {
+                GameView(request: session, onExit: { firstSession = nil })
+                    .gameEnvironment()
                     .transition(.opacity.combined(with: .scale(scale: 1.015)))
-            } else {
-                OnboardingView()
+                    .zIndex(1)
+            } else if !showsHome {
+                OnboardingView(onBeginFirstSession: { firstSession = $0 })
                     .transition(.opacity.combined(with: .scale(scale: 0.99)))
+                    .zIndex(1)
             }
         }
-        .animation(.easeInOut(duration: 0.42),
-                   value: onboardingComplete && !onboardingReplayRequested)
+        // The overlay swap (welcome ↔ first game ↔ menu reveal) is what the
+        // player sees. The menu itself is inserted behind that overlay without
+        // its own fade, so it cannot flash through the crossfade.
+        .animation(.easeInOut(duration: 0.42), value: firstSession != nil)
+        .animation(firstSession == nil ? .easeInOut(duration: 0.42) : nil, value: showsHome)
         // Re-renders every `Text` (and formats numbers) when the language
         // changes; combined with the bundle redirection this makes the
         // switch instant, no restart required.

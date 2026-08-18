@@ -189,13 +189,12 @@ struct PromoTrailerHostView: View {
                 PromoTrailerCaptionCard(text: director.captionText,
                                         theme: character,
                                         isPad: usesPadMetrics)
+                    .id(director.captionText)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, usesPadMetrics ? 24 : 16)
             .padding(.top, topInset + (usesPadMetrics ? 84 : 66))
             .opacity(director.captionOpacity)
-            .animation(.easeInOut(duration: 0.25), value: director.captionOpacity)
-            .animation(.easeInOut(duration: 0.25), value: director.captionText)
             Spacer()
         }
         .allowsHitTesting(false)

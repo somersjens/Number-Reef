@@ -33,8 +33,8 @@ enum GameSettings {
     /// doing so would immediately undo a user's long-press from the home menu.
     static let onboardingReplayRequestedKey = "onboarding.replayRequested"
     /// Set when the welcome flow ends, and spent by the home screen the moment
-    /// it opens the first level: the tutorial follows straight on from the last
-    /// welcome screen, on exactly the exercise the player just chose.
+    /// it records the first level: the tutorial follows straight on from the
+    /// last welcome screen, on exactly the exercise the player just chose.
     static let tutorialPendingKey = "tutorial.pending"
     /// Set as soon as a tutorial session starts, and spent by the home screen
     /// when the player comes back to it — that return is the tenth and last

@@ -705,6 +705,9 @@ final class ReefEngine: ObservableObject {
     private var trailerUsesForcedSpawn = false
     private var trailerForcedGaps: [Double] = []
     private var trailerForcedVentFractions: [CGFloat] = []
+    /// When true, forced vents use the fraction as an exact X instead of
+    /// snapping to the nearest coral crater.
+    private var trailerExactVents = false
     private var trailerSuppressRandomHelpers = false
     private var trailerDeterministicMotion = false
     private var trailerBubbleScale: CGFloat = 1
@@ -847,6 +850,7 @@ final class ReefEngine: ObservableObject {
                 timeToNextSpawn = .infinity
                 trailerForcedGaps.removeAll()
                 trailerForcedVentFractions.removeAll()
+                trailerExactVents = false
                 trailerUsesForcedSpawn = true
             }
         } else {
@@ -2136,16 +2140,19 @@ final class ReefEngine: ObservableObject {
             let minX = craters.first ?? 0
             let maxX = craters.last ?? size.width
             let preferred = minX + (maxX - minX) * min(max(fraction, 0), 1)
-            // Snap to the nearest crater — never invent an in-between X that
-            // would sit on top of a neighbour.
-            guard let nearest = craters.min(by: { abs($0 - preferred) < abs($1 - preferred) }) else {
-                return nil
+            if trailerExactVents {
+                let crowded = blockers.contains { abs($0 - preferred) < separation }
+                if !crowded || blockers.isEmpty {
+                    return preferred
+                }
+            } else {
+                guard let nearest = craters.min(by: { abs($0 - preferred) < abs($1 - preferred) }) else {
+                    return nil
+                }
+                if clear.contains(nearest) || (clear.isEmpty && blockers.isEmpty) {
+                    return nearest
+                }
             }
-            // Wait if that crater is still crowded so bubbles never overlap.
-            if clear.contains(nearest) || (clear.isEmpty && blockers.isEmpty) {
-                return nearest
-            }
-            // Put the fraction back and try again next tick.
             trailerForcedVentFractions.insert(fraction, at: 0)
             return nil
         }
@@ -2490,11 +2497,13 @@ final class ReefEngine: ObservableObject {
     /// it. `ventFractions` are 0…1 across the coral crater span.
     func trailerInstallAnswerQueue(_ options: [AnswerOption],
                                    gapsBeforeEachRelease: [Double],
-                                   ventFractions: [CGFloat]) {
+                                   ventFractions: [CGFloat],
+                                   exactVents: Bool = false) {
         trailerUsesForcedSpawn = true
         queue = options
         trailerForcedGaps = gapsBeforeEachRelease
         trailerForcedVentFractions = ventFractions
+        trailerExactVents = exactVents
         timeToNextSpawn = trailerForcedGaps.isEmpty ? 0.08 : trailerForcedGaps.removeFirst()
         objectWillChange.send()
     }
@@ -2506,6 +2515,7 @@ final class ReefEngine: ObservableObject {
         queue.removeAll()
         trailerForcedGaps.removeAll()
         trailerForcedVentFractions.removeAll()
+        trailerExactVents = false
         trailerPinnedBubbleIDs.removeAll()
         timeToNextSpawn = .infinity
         if !keepRound {
@@ -2674,6 +2684,7 @@ final class ReefEngine: ObservableObject {
     var trailerBubbles: [ReefBubble] { bubbles }
     var trailerBonusFish: ReefBonusFish? { bonusFish }
     var trailerHeartFish: ReefHeartFish? { heartFish }
+    var trailerHasBonusAura: Bool { hasBonusAura }
     var trailerClock: Double { clock }
     var trailerIsPad: Bool { isPad }
     var trailerFishLength: CGFloat { fishLength }
@@ -2916,7 +2927,8 @@ struct ReefPlayfield: View {
                     .allowsHitTesting(false)
 
             }
-            .frame(width: size.width, height: size.height)
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            .clipped()
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)

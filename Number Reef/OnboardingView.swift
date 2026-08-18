@@ -29,6 +29,10 @@ private enum OnboardingTheme {
 }
 
 struct OnboardingView: View {
+    /// Hands the chosen first game to the app root so it can crossfade this
+    /// screen into the level start card, rather than via the menu.
+    var onBeginFirstSession: (GameSessionRequest) -> Void = { _ in }
+
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
     @AppStorage(GameSettings.onboardingCompleteKey) private var isComplete = false
     @AppStorage(GameSettings.onboardingReplayRequestedKey) private var replayRequested = false
@@ -229,7 +233,7 @@ struct OnboardingView: View {
 
     /// The last step: how far along the player already is. This is the same
     /// question the three order buttons ask, phrased for a child — answering it
-    /// leaves the menu already set the way they said, and hands over to it.
+    /// leaves the first game already set the way they said.
     private func practiceModeStep(availableWidth: CGFloat) -> some View {
         let sizing = choiceSizing(
             titles: Self.modeChoices.map { L(key: $0.titleKey) },
@@ -268,7 +272,7 @@ struct OnboardingView: View {
         }
     }
 
-    /// Stores the chosen starting point and hands over to the home screen.
+    /// Stores the chosen starting point and hands over to the first game.
     /// Supermix has no order buttons of its own, so the same answer is mapped
     /// onto its ladder: the most confident choice opens the most complete
     /// combination, the other two start on the simplest.
@@ -279,16 +283,27 @@ struct OnboardingView: View {
         withAnimation(.snappy(duration: 0.18)) {
             practiceModeRaw = mode.rawValue
         }
+        var mixedVariant = MixedVariant(rawValue: mixedVariantRaw) ?? MixedVariant.allCases[0]
         if topic.usesSupermixGrid {
             let target = mode == .mixed ? MixedVariant.allCases.last : MixedVariant.allCases.first
-            if let target { mixedVariantRaw = target.rawValue }
+            if let target {
+                mixedVariantRaw = target.rawValue
+                mixedVariant = target
+            }
         }
         AppAudio.shared.playMenuTap()
-        // The welcome flow hands straight over to the walkthrough, on the first
-        // level of the exercise just chosen. The menu picks this up as it
-        // settles, so the player's first sight of the game is being taught it.
+        // The welcome flow hands straight over to the walkthrough, on the
+        // first level of the exercise just chosen. The app root crossfades
+        // that start card over this screen; the menu waits underneath.
         tutorialPending = true
+        let request = GameSessionRequest.tutorialHandoff(topic: topic,
+                                                         mode: mode,
+                                                         mixedVariant: mixedVariant)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            // The first game must be in the root ZStack before onboarding
+            // is marked complete, so the menu cannot appear for a frame
+            // between this screen and the start card.
+            if let request { onBeginFirstSession(request) }
             isComplete = true
             replayRequested = false
         }

@@ -153,12 +153,14 @@ final class PromoTrailerRecorder {
             }
         }
 
+        print("PROMO_TRAILER_AUDIO mix cues=\(cues.count) \(cues.map { "\($0.file)@\(String(format: "%.2f", $0.time))" }.joined(separator: ", "))")
         // Scripted SFX — same CAF files the game plays via AppAudio.
         for cue in cues {
             let at = CMTime(seconds: max(0, cue.time), preferredTimescale: 600)
             guard at < duration else { continue }
             guard let sfxURL = Bundle.main.url(forResource: cue.file, withExtension: "caf")
                     ?? Bundle.main.url(forResource: cue.file, withExtension: "m4a") else {
+                print("PROMO_TRAILER_AUDIO missing \(cue.file)")
                 continue
             }
             let sfxAsset = AVURLAsset(url: sfxURL)

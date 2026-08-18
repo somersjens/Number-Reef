@@ -38,6 +38,10 @@ private struct ScoreCelebration: Identifiable {
 }
 
 struct HomeView: View {
+    /// True while the welcome flow's first game is covering this menu at the
+    /// app root. Falling back to false is what runs the usual return flow.
+    var isCoveredByFirstSession = false
+
     @AppStorage(GameSettings.characterKey) private var characterID = CharacterCatalog.freeCharacterID
     @AppStorage(GameSettings.playerNameKey) private var playerName = ""
     @AppStorage(GameSettings.onboardingReplayRequestedKey) private var onboardingReplayRequested = false
@@ -140,7 +144,7 @@ struct HomeView: View {
     private var reefBackdrop: some View {
         let backdrop = AmbientReefBackground(
             character: character,
-            isPaused: showPremium || selection != nil
+            isPaused: showPremium || selection != nil || isCoveredByFirstSession
         )
         if showsTutorialHint {
             backdrop.blur(radius: 8)
@@ -257,6 +261,16 @@ struct HomeView: View {
             totalCards = Progress.store.totalCards
             synchronizeUnlockPrompt(animated: false)
             openTutorialLevelIfRequested()
+        }
+        .onChange(of: isCoveredByFirstSession) { wasCovered, isCovered in
+            // The first game lives at the app root, so there is no cover
+            // dismiss. Wait for that overlay to finish fading out, then run
+            // the same return the cover's onDismiss would have.
+            if wasCovered && !isCovered {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.42) {
+                    handleSessionDismissed()
+                }
+            }
         }
         .onChange(of: totalCards) { _, _ in
             // A returning session banks its cards before any of the celebration
@@ -923,34 +937,22 @@ struct HomeView: View {
 
     // MARK: Tutorial
 
-    /// The welcome flow ends by asking for the walkthrough. Its three starting
-    /// points map to levels 2, 5 and 10, respectively. The menu opens that
-    /// level one beat after it has settled in — long enough for the hand-over
-    /// from the welcome screens to finish, short enough that it still reads as
-    /// one continuous movement.
+    /// The welcome flow ends by asking for the walkthrough. The app root
+    /// crossfades that first game over the last welcome screen, so this menu
+    /// only remembers the pre-session totals and waits underneath. Opening
+    /// the level from here is the fallback for a cold start where the
+    /// pending flag survived without that overlay.
     private func openTutorialLevelIfRequested() {
         guard tutorialPending,
               selection == nil,
-              let level = onboardingStartLevel else { return }
+              let level = GameSessionRequest.onboardingStartLevel(topic: topic, mode: practiceMode)
+        else { return }
         tutorialPending = false
         rememberBeforePlaying(level)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                selection = LevelSelection(level: level, startsTutorialArmed: true)
-            }
+        guard !isCoveredByFirstSession else { return }
+        withAnimation(.easeInOut(duration: 0.3)) {
+            selection = LevelSelection(level: level, startsTutorialArmed: true)
         }
-    }
-
-    /// Choice one, two and three on the final welcome screen start the player
-    /// at a suitable point in their chosen topic.
-    private var onboardingStartLevel: MathLevel? {
-        let index: Int
-        switch practiceMode {
-        case .order:  index = 2
-        case .random: index = 5
-        case .mixed:  index = 10
-        }
-        return LevelCatalog.levels(for: topic).first { $0.index == index }
     }
 
     /// The tenth and last step of the walkthrough, which belongs to the menu:

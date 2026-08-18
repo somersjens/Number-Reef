@@ -35,10 +35,37 @@ struct GameSessionRequest: Identifiable {
     var board: LevelBoard {
         LevelBoard(level: level, mixedVariant: mixedVariant, mode: mode)
     }
+
+    /// Choice one, two and three on the final welcome screen start the player
+    /// at a suitable point in their chosen topic.
+    static func onboardingStartLevel(topic: MathTopic, mode: PracticeMode) -> MathLevel? {
+        let index: Int
+        switch mode {
+        case .order:  index = 2
+        case .random: index = 5
+        case .mixed:  index = 10
+        }
+        return LevelCatalog.levels(for: topic).first { $0.index == index }
+    }
+
+    /// The first session the welcome flow opens: the walkthrough, on the
+    /// exercise the player just chose.
+    static func tutorialHandoff(topic: MathTopic,
+                                mode: PracticeMode,
+                                mixedVariant: MixedVariant) -> GameSessionRequest? {
+        guard let level = onboardingStartLevel(topic: topic, mode: mode) else { return nil }
+        return GameSessionRequest(level: level,
+                                  mixedVariant: mixedVariant,
+                                  mode: mode,
+                                  startsTutorialArmed: true)
+    }
 }
 
 struct GameView: View {
     let request: GameSessionRequest
+    /// Used when this view is shown in-hierarchy (the welcome-flow handoff)
+    /// rather than inside a `fullScreenCover`, which supplies `dismiss`.
+    private let onExit: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -80,8 +107,9 @@ struct GameView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(request: GameSessionRequest) {
+    init(request: GameSessionRequest, onExit: (() -> Void)? = nil) {
         self.request = request
+        self.onExit = onExit
         _model = StateObject(wrappedValue: GameViewModel(request: request))
         // A level with a run waiting on it is continued, never taught: the
         // walkthrough needs a session it can shape from its very first round.
@@ -119,7 +147,7 @@ struct GameView: View {
                                playsLevelCompletion = false
                                Task { await model.restart() }
                            },
-                           onExit: { dismiss() })
+                           onExit: leave)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .zIndex(1)
             }
@@ -131,7 +159,7 @@ struct GameView: View {
                                isTutorialArmed: isTutorialArmed,
                                onToggleTutorial: toggleTutorial,
                                onStart: startSession,
-                               onExit: { dismiss() })
+                               onExit: leave)
                     .transition(.opacity)
                     .zIndex(2)
             }
@@ -179,6 +207,14 @@ struct GameView: View {
         .onDisappear {
             tutorial.cancel()
             model.end()
+        }
+    }
+
+    private func leave() {
+        if let onExit {
+            onExit()
+        } else {
+            dismiss()
         }
     }
 
