@@ -29,10 +29,33 @@ final class PremiumStore: ObservableObject {
 
     private var updatesTask: Task<Void, Never>?
     private var hasStartedInitialRefresh = false
+#if TRAILER_EXPORT
+    /// When set, StoreKit cannot overwrite the tour's locked or unlocked state.
+    private var promoEntitlementOverride: Bool?
+#endif
 
     private init() {
         updatesTask = Task { await listenForTransactionUpdates() }
     }
+
+#if TRAILER_EXPORT
+    /// Keeps the menu-tour entitlement independent of simulator StoreKit state.
+    func preparePromoUnlockedState() {
+        promoEntitlementOverride = true
+        isPremium = true
+        GameSettings.premiumUnlockedCache = true
+    }
+
+    /// Gives the Premium tour a deterministic pre-purchase state even when the
+    /// simulator account owns the product or retained a cached entitlement.
+    func preparePromoLockedState() {
+        promoEntitlementOverride = false
+        isPremium = false
+        isPurchasing = false
+        lastError = nil
+        GameSettings.premiumUnlockedCache = false
+    }
+#endif
 
     deinit {
         updatesTask?.cancel()
@@ -105,6 +128,13 @@ final class PremiumStore: ObservableObject {
     }
 
     private func updateEntitlement() async {
+#if TRAILER_EXPORT
+        if let promoEntitlementOverride {
+            isPremium = promoEntitlementOverride
+            GameSettings.premiumUnlockedCache = promoEntitlementOverride
+            return
+        }
+#endif
         var owned = false
         for await result in Transaction.currentEntitlements {
             if case .verified(let transaction) = result,

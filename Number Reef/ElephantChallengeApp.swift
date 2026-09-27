@@ -36,6 +36,16 @@ struct ElephantChallengeApp: App {
     @StateObject private var language = LanguageManager.shared
     @StateObject private var promotedPurchase = PromotedPurchaseCoordinator.shared
 
+#if TRAILER_EXPORT
+    private var isExportingMenuTour: Bool {
+        ProcessInfo.processInfo.arguments.contains("--export-menu-tour")
+    }
+
+    private var isExportingPremiumTour: Bool {
+        ProcessInfo.processInfo.arguments.contains("--export-premium-tour")
+    }
+#endif
+
     init() {
         // Bring stored progress up to the current version before anything can
         // read it: data written by Jumping Fox must never reach the new game.
@@ -46,6 +56,35 @@ struct ElephantChallengeApp: App {
         DecimalAnswer.separatorProvider = {
             LanguageManager.shared.locale.decimalSeparator ?? "."
         }
+#if TRAILER_EXPORT
+        if ProcessInfo.processInfo.arguments.contains("--export-menu-tour")
+            || ProcessInfo.processInfo.arguments.contains("--export-premium-tour") {
+            GameSettings.gameSoundsEnabled = true
+            GameSettings.spokenSumsEnabled = false
+            let defaults = UserDefaults.standard
+            defaults.set(true, forKey: GameSettings.onboardingCompleteKey)
+            defaults.set(false, forKey: GameSettings.tutorialPendingKey)
+            GameSettings.characterID = CharacterCatalog.freeCharacterID
+            defaults.set(MathTopic.addition.rawValue, forKey: GameSettings.topicKey)
+            defaults.set(PracticeMode.order.rawValue, forKey: GameSettings.practiceModeKey)
+            defaults.set(MixedVariant.basic.rawValue, forKey: GameSettings.mixedVariantKey)
+            LanguageManager.shared.override = .english
+            if ProcessInfo.processInfo.arguments.contains("--export-menu-tour") {
+                GameSettings.playerName = "Number Reef"
+                GameSettings.premiumUnlockedCache = true
+                PremiumStore.shared.preparePromoUnlockedState()
+            } else {
+                // Simulator audio can stall while recordVideo captures a long
+                // SwiftUI scroll. The master adds the bundled soundtrack, so
+                // keep this native visual take silent and deterministic.
+                GameSettings.gameSoundsEnabled = false
+                GameSettings.playerName = "أخطبوط"
+                GameSettings.premiumUnlockedCache = false
+                PremiumStore.shared.preparePromoLockedState()
+            }
+            return
+        }
+#endif
         // Capture the first launch date independently of when the player first
         // finishes a game; later review phases use age since installation.
         _ = ReviewRequestCoordinator.shared
@@ -61,11 +100,36 @@ struct ElephantChallengeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if PromoTrailerRuntime.isActive {
-                PromoTrailerBootstrapView()
+#if TRAILER_EXPORT
+            if isExportingMenuTour {
+                HomeView(promoMenuTrailer: true)
+                    .environment(\.locale, language.locale)
+                    .environment(\.layoutDirection, language.layoutDirection)
+                    .preferredColorScheme(.light)
+                    .persistentSystemOverlays(.hidden)
+                    .statusBarHidden(true)
+            } else if isExportingPremiumTour {
+                PremiumPromoTourView()
+                    .environment(\.locale, language.locale)
+                    .environment(\.layoutDirection, language.layoutDirection)
+                    .preferredColorScheme(.light)
+                    .persistentSystemOverlays(.hidden)
+                    .statusBarHidden(true)
             } else {
-                productionRoot
+                standardLaunch
             }
+#else
+            standardLaunch
+#endif
+        }
+    }
+
+    @ViewBuilder
+    private var standardLaunch: some View {
+        if PromoTrailerRuntime.isActive {
+            PromoTrailerBootstrapView()
+        } else {
+            productionRoot
         }
     }
 
@@ -106,6 +170,10 @@ struct ElephantChallengeApp: App {
         // the in-app switch overrides, so Arabic and Hebrew must be told
         // explicitly to lay out right-to-left.
         .environment(\.layoutDirection, language.layoutDirection)
+        // The reef, cards and copy are all painted for light surfaces.
+        // Without this, Dark Mode turns system fills black and inverts
+        // `.primary` / `.secondary` labels against those same light colours.
+        .preferredColorScheme(.light)
         .sheet(isPresented: Binding(
             get: { promotedPurchase.isAwaitingParentApproval },
             set: { isPresented in
@@ -119,6 +187,7 @@ struct ElephantChallengeApp: App {
                 deepColor: character.deepColor,
                 onApproved: { promotedPurchase.approveDeferredPurchase() }
             )
+            .gameEnvironment()
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -134,5 +203,30 @@ enum AppLayout {
 #else
         false
 #endif
+    }
+
+    /// Portrait iPad menus are laid out in a slightly smaller space and scaled
+    /// back up, matching the Jumping Fox menu tour. Phone sizes stay put.
+    static let padMenuZoom: CGFloat = 1.24
+}
+
+/// Portrait iPad lays the menu out smaller and scales it back up. Landscape
+/// stays at full size so a fourth level column still fits.
+struct PadMenuZoom: ViewModifier {
+    var isPad: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isPad {
+            GeometryReader { geo in
+                let zoom = geo.size.width < 1100 ? AppLayout.padMenuZoom : 1
+                content
+                    .frame(width: geo.size.width / zoom, height: geo.size.height / zoom)
+                    .scaleEffect(zoom, anchor: .top)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            }
+        } else {
+            content
+        }
     }
 }

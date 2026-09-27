@@ -209,6 +209,28 @@ final class GameViewModel: ObservableObject {
         PausedSessionStore.shared.save(paused)
     }
 
+    /// Throws away a run that has not scored yet so the walkthrough can open
+    /// on round one, the same way a brand-new session does. A scored pause is
+    /// left untouched: the player would be giving a real result away.
+    func rewindUnscoredRun() {
+        guard cards == 0, engine.state != .intro else { return }
+        generation &+= 1
+        preparationTask?.cancel()
+        preparationTask = nil
+        PausedSessionStore.shared.clear(request.board)
+        hasRecordedResult = false
+        isPaused = false
+        pendingScheduledWork = nil
+        pendingScoreRewards.removeAll()
+        hasBonusFishPower = false
+        streakAnnouncementID = 0
+        engine = MemoryGame(level: request.level,
+                            mixedVariant: request.mixedVariant,
+                            mode: request.mode)
+        startPreparation(pausedSession: nil)
+        sync()
+    }
+
     /// Play again always starts a clean run, so any paused record for this
     /// level is spent.
     func restart() async {

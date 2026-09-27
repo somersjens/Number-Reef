@@ -837,6 +837,10 @@ struct LevelCardView: View {
                 .rotationEffect(.degrees(3), anchor: .bottom)
                 .offset(x: -9 * cardScale, y: 3 * cardScale)
         }
+        // The pair is drawn left-and-right as a frame, not as copy. An HStack
+        // in a right-to-left language would swap the sides — and with them the
+        // one-sided flip — so both ferns would curl outward.
+        .environment(\.layoutDirection, .leftToRight)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }

@@ -464,7 +464,9 @@ struct TutorialNoticeCard: View {
             }
             .padding(26 * scale)
             .frame(maxWidth: 340 * scale)
-            .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+            // Same light fill as the start/pause card: `.background` turns
+            // black in Dark Mode against this card's deep-purple copy.
+            .background(Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(theme.deepColor.opacity(0.14), lineWidth: 1))
             .shadow(color: theme.deepColor.opacity(0.3), radius: 20, y: 10)

@@ -196,14 +196,16 @@ struct LevelIntroCard: View {
                             .accessibilityIdentifier("intro-back")
                         }
 
-                        if isContinuation {
+                        if isContinuation, !isTutorialArmed {
                             pausedMessage
                         }
                     }
                     .padding(28 * scale)
                     .padding(.top, 4)
                     .frame(maxWidth: 420 * scale)
-                    .background(.background, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    // Explicit white: `.background` follows Dark Mode and the
+                    // deep-purple copy on this card becomes unreadable.
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 28, style: .continuous)
                         .stroke(theme.deepColor.opacity(0.14), lineWidth: 1))
@@ -217,9 +219,9 @@ struct LevelIntroCard: View {
         }
     }
 
-    /// What the big button promises. The walkthrough takes precedence over
-    /// everything else: it can only be armed on a fresh run, so it can never
-    /// contradict the continuation label.
+    /// What the big button promises. The walkthrough takes precedence: a
+    /// zero-point pause is rewound into a lesson, so this label can replace
+    /// Continue without throwing scored progress away.
     private var startTitleKey: LocalizedStringKey {
         if isTutorialArmed { return "game.intro.startTutorial" }
         return isContinuation ? "game.intro.continue" : "game.intro.start"

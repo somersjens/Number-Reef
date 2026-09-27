@@ -55,7 +55,7 @@ struct OnboardingView: View {
                 ScrollView {
                     VStack(spacing: 0) {
                         let portrait: CGFloat = isPad
-                            ? (step == 1 ? 160 : 210)
+                            ? (step == 1 ? 200 : 264)
                             : (step == 1 ? 112 : 150)
                         welcomeCharacter.artwork
                             .resizable()
@@ -107,6 +107,7 @@ struct OnboardingView: View {
                 .padding(.top, isPad ? 20 : 8)
                 .padding(.trailing, isPad ? 28 : 16)
         }
+        .modifier(PadMenuZoom(isPad: isPad))
     }
 
     private var backButton: some View {
